@@ -1,0 +1,45 @@
+# 樱 · 个人导航 - Caddy 自动 HTTPS 配置
+# Caddy 会自动从 Let's Encrypt 申请并续期证书，你只需要把域名指过来
+
+{
+    # 邮箱用于 Let's Encrypt 通知（证书到期提醒等）
+    email {$EMAIL:you@example.com}
+    # 若想调试用测试证书目录，取消下一行注释
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$DOMAIN:nav.example.com} {
+    encode zstd gzip
+
+    # 安全头
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options    "nosniff"
+        X-Frame-Options           "SAMEORIGIN"
+        Referrer-Policy           "no-referrer-when-downgrade"
+        Permissions-Policy        "interest-cohort=()"
+        # 允许 Service Worker 作用域为根
+        Service-Worker-Allowed    "/"
+        # 去掉泄露版本的 Server 头
+        -Server
+    }
+
+    # Service Worker / manifest 不缓存
+    @nocache {
+        path /sw.js /manifest.json /index.html /
+    }
+    header @nocache Cache-Control "no-cache, no-store, must-revalidate"
+
+    # 反代到后端 nginx 容器
+    reverse_proxy sakura-nav:80 {
+        header_up X-Real-IP       {remote_host}
+        header_up X-Forwarded-For {remote_host}
+    }
+
+    # 日志
+    log {
+        output stdout
+        format console
+        level  INFO
+    }
+}

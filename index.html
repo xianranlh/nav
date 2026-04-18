@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>樱 · 个人导航</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#ff8fab" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="pre-auth">
+  <div id="bg-layer-a" class="bg-layer" aria-hidden="true"></div>
+  <div id="bg-layer-b" class="bg-layer" aria-hidden="true"></div>
+  <video id="bg-video" class="bg-video" muted loop playsinline autoplay aria-hidden="true"></video>
+  <div id="bg-mask" class="bg-mask" aria-hidden="true"></div>
+  <canvas id="sakura-canvas" aria-hidden="true"></canvas>
+
+  <!-- 登录遮罩层 -->
+  <div id="login-overlay" class="login-overlay" hidden>
+    <form class="glass login-card" id="login-form" autocomplete="off">
+      <div class="login-logo">🌸</div>
+      <h2>樱 · 个人导航</h2>
+      <p class="login-sub">请登录后继续</p>
+      <label>
+        <span>用户名</span>
+        <input type="text" id="login-user" autocomplete="username" required spellcheck="false" />
+      </label>
+      <label>
+        <span>密码</span>
+        <input type="password" id="login-pass" autocomplete="current-password" required />
+      </label>
+      <label class="row remember">
+        <input type="checkbox" id="login-remember" checked />
+        <span>保持登录（7 天免登录）</span>
+      </label>
+      <div class="login-msg" id="login-msg"></div>
+      <button type="submit" class="btn-primary login-btn">登&nbsp;&nbsp;录</button>
+    </form>
+  </div>
+
+  <main class="app">
+    <!-- 顶部：问候与时钟 -->
+    <header class="glass header-bar">
+      <div class="greet">
+        <h1 id="greeting">你好</h1>
+        <p id="sub-greet">愿你今天也被温柔以待</p>
+        <p id="hitokoto" class="hitokoto" hidden></p>
+      </div>
+      <div class="clock">
+        <div id="clock-time">--:--</div>
+        <div id="clock-date">----年--月--日</div>
+      </div>
+    </header>
+
+    <!-- 搜索栏 -->
+    <section class="glass search-box">
+      <div class="engine-tabs" id="engine-tabs"></div>
+      <form class="search-form" id="search-form" autocomplete="off">
+        <input
+          type="text"
+          id="search-input"
+          placeholder="输入关键字搜索，按回车跳转 · 快捷键 /"
+          spellcheck="false"
+        />
+        <button type="submit" aria-label="搜索">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
+        </button>
+        <div id="search-suggest" class="search-suggest glass" hidden></div>
+      </form>
+    </section>
+
+    <!-- 工具栏 -->
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <button class="chip" id="btn-add">+ 添加网址</button>
+        <button class="chip" id="btn-add-group">+ 新建分组</button>
+        <button class="chip" id="btn-import">导入书签</button>
+        <div class="chip chip-menu">
+          <button id="btn-export">导出</button>
+          <div class="chip-menu-pop">
+            <button data-export="json">JSON 备份</button>
+            <button data-export="html">浏览器书签 HTML</button>
+          </div>
+        </div>
+        <button class="chip" id="btn-import-json">导入 JSON</button>
+        <div class="filter-wrap">
+          <input id="filter-input" class="filter-input" placeholder="🔎 过滤已添加网址..." />
+          <button id="filter-clear" class="filter-clear" hidden title="清除">✕</button>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <button class="icon-btn" id="btn-calendar" title="日历">
+          📅<span class="icon-badge" id="cal-badge" hidden></span>
+        </button>
+        <button class="icon-btn" id="btn-blog" title="博客">📝</button>
+        <button class="icon-btn" id="btn-theme" title="切换主题">🌓</button>
+        <button class="icon-btn" id="btn-settings" title="设置">⚙</button>
+        <button class="icon-btn" id="btn-logout" title="退出登录">⎋</button>
+      </div>
+    </section>
+
+    <!-- 顶部双栏：最近使用 + 天气 -->
+    <section class="top-row" id="top-row">
+      <!-- 最近使用 卡片 -->
+      <section id="recent-card" class="recent-card glass" hidden>
+        <header class="recent-head">
+          <h3>⚡ 最近使用</h3>
+          <button class="mini-btn" id="recent-clear" title="清空最近记录">清空</button>
+        </header>
+        <div class="recent-grid" id="recent-grid"></div>
+      </section>
+
+      <!-- 天气卡片（多城市横向滚动） -->
+      <section id="weather-card" class="weather-card glass" hidden>
+        <header class="weather-head">
+          <h3>☁ 天气</h3>
+          <div class="weather-head-actions">
+            <span id="w-active-name" class="w-active-name" title="当前详情所属城市">--</span>
+            <button class="icon-btn small" id="w-refresh" title="刷新所有城市">↻</button>
+          </div>
+        </header>
+        <div class="weather-cities" id="weather-cities" role="tablist"></div>
+        <div class="weather-main">
+          <span class="w-icon" id="w-icon">🌡</span>
+          <div class="w-main-info">
+            <div class="w-temp"><span id="w-temp">--</span>°</div>
+            <div class="w-meta"><span id="w-desc">--</span> · <span id="w-city">--</span></div>
+          </div>
+        </div>
+        <div class="weather-daily" id="w-daily"></div>
+      </section>
+    </section>
+
+    <!-- 即将到来的任务 卡片 -->
+    <section id="upcoming-card" class="upcoming-card glass" hidden>
+      <header class="upcoming-head">
+        <h3>📅 即将到来</h3>
+        <button class="mini-btn" id="upcoming-expand">打开日历</button>
+      </header>
+      <ul id="upcoming-list" class="upcoming-list"></ul>
+    </section>
+
+    <!-- 分组 & 卡片 -->
+    <section id="groups-container" class="groups"></section>
+
+    <footer class="footer">
+      <span>按 <kbd>/</kbd> 聚焦搜索 · <kbd>Ctrl</kbd>+<kbd>K</kbd> 添加网址 · <kbd>E</kbd> 切换编辑模式</span>
+    </footer>
+  </main>
+
+  <!-- 添加/编辑 链接 弹窗 -->
+  <dialog id="dialog-link" class="glass-dialog">
+    <form method="dialog" id="form-link">
+      <h3 id="link-title">添加网址</h3>
+      <label>名称 <input name="name" required maxlength="60" /></label>
+      <label>网址 <input name="url" type="url" required placeholder="https://..." /></label>
+      <label>分组
+        <select name="groupId" id="link-group-select"></select>
+      </label>
+      <label>
+        <span>图标（可选）<small class="hint-inline">留空自动抓取站点 favicon</small></span>
+        <div class="icon-picker" id="icon-picker">
+          <div class="icon-picker-preview" id="icon-picker-preview">
+            <span class="icon-picker-placeholder">未设置</span>
+          </div>
+          <div class="icon-picker-controls">
+            <input name="icon" id="icon-url-input" placeholder="图标 URL / data URL" />
+            <div class="icon-picker-actions">
+              <label class="mini-btn" title="从本地选择图片">
+                📁 本地图片
+                <input type="file" id="icon-file-input" accept="image/*" hidden />
+              </label>
+              <button type="button" class="mini-btn" id="icon-clear-btn">清除</button>
+            </div>
+          </div>
+        </div>
+      </label>
+      <label>备注（可选）<input name="desc" maxlength="80" /></label>
+      <div class="dialog-actions">
+        <button value="cancel" type="button" class="btn-secondary" data-close>取消</button>
+        <button value="ok" type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 分组 弹窗 -->
+  <dialog id="dialog-group" class="glass-dialog">
+    <form method="dialog" id="form-group">
+      <h3 id="group-title">新建分组</h3>
+      <label>名称 <input name="name" required maxlength="30" /></label>
+      <label>颜色 <input name="color" type="color" value="#f6a5c0" /></label>
+      <div class="dialog-actions">
+        <button value="cancel" type="button" class="btn-secondary" data-close>取消</button>
+        <button value="ok" type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 设置 弹窗 -->
+  <dialog id="dialog-settings" class="glass-dialog settings-dialog">
+    <form method="dialog" id="form-settings">
+      <h3>设置</h3>
+
+      <!-- 外观 -->
+      <details class="sec" open>
+        <summary>🎨 外观</summary>
+        <label class="row">主题
+          <select id="set-theme">
+            <option value="auto">跟随系统</option>
+            <option value="light">亮色</option>
+            <option value="dark">暗色</option>
+          </select>
+        </label>
+        <label class="row">主色调
+          <input type="color" id="set-accent" />
+          <button type="button" id="set-accent-reset" class="mini-btn">重置</button>
+        </label>
+        <label class="row">字号
+          <select id="set-fontsize">
+            <option value="small">小</option>
+            <option value="normal" selected>中</option>
+            <option value="large">大</option>
+          </select>
+        </label>
+        <label class="row">圆角
+          <select id="set-radius">
+            <option value="square">方正</option>
+            <option value="normal" selected>适中</option>
+            <option value="rounded">圆润</option>
+          </select>
+        </label>
+        <label class="row">卡片密度
+          <select id="set-density">
+            <option value="compact">紧凑</option>
+            <option value="normal" selected>常规</option>
+            <option value="cozy">宽松</option>
+          </select>
+        </label>
+        <label class="row">玻璃模糊
+          <input type="range" id="set-blur" min="0" max="40" step="1" />
+          <span id="set-blur-val"></span>
+        </label>
+        <label class="row">玻璃透明度
+          <input type="range" id="set-glass-alpha" min="0.1" max="0.9" step="0.05" />
+          <span id="set-glass-alpha-val"></span>
+        </label>
+        <label class="row">玻璃饱和度
+          <input type="range" id="set-glass-sat" min="0.8" max="2.2" step="0.1" />
+          <span id="set-glass-sat-val"></span>
+        </label>
+      </details>
+
+      <!-- 背景 -->
+      <details class="sec">
+        <summary>🖼️ 背景</summary>
+        <label class="row">模式
+          <select id="set-bg-mode">
+            <option value="gradient">默认渐变</option>
+            <option value="upload">🎞 本地上传（图片 / GIF / 视频）</option>
+            <option value="single">单张图片 / 视频 URL</option>
+            <option value="rotate">多图轮播</option>
+            <option value="bing">Bing 每日壁纸</option>
+            <option value="random">随机壁纸 API</option>
+          </select>
+        </label>
+
+        <div class="bg-panel" data-when="upload">
+          <label class="bg-upload-drop" id="bg-upload-drop">
+            <input type="file" id="set-bg-upload-file" accept="image/*,video/*" hidden />
+            <div class="bg-upload-placeholder">
+              <div class="bg-upload-icon">📁</div>
+              <div class="bg-upload-title">点击或拖拽上传</div>
+              <div class="bg-upload-hint">支持 JPG / PNG / GIF / WebP / MP4 / WebM（建议 &lt; 30MB）</div>
+            </div>
+            <div class="bg-upload-current" id="bg-upload-current" hidden></div>
+          </label>
+          <div class="row">
+            <button type="button" class="mini-btn" id="btn-bg-upload-clear">移除当前背景</button>
+            <span class="hint" id="bg-upload-meta" style="flex:1"></span>
+          </div>
+        </div>
+
+        <div class="bg-panel" data-when="single">
+          <label>图片 / 视频 URL
+            <input id="set-bg-single" placeholder="https://... 也支持 .mp4 / .webm" />
+          </label>
+          <p class="hint">以 <code>.mp4</code> / <code>.webm</code> / <code>.mov</code> / <code>.ogv</code> 结尾的链接会被识别为视频并循环播放。</p>
+        </div>
+
+        <div class="bg-panel" data-when="rotate">
+          <label>图片 URL 列表（每行一个）
+            <textarea id="set-bg-list" rows="4" placeholder="https://img1...&#10;https://img2..."></textarea>
+          </label>
+          <label class="row">切换间隔
+            <input type="range" id="set-bg-interval" min="10" max="600" step="5" />
+            <span id="set-bg-interval-val"></span>
+          </label>
+          <button type="button" class="mini-btn" id="btn-bg-next">立即下一张</button>
+        </div>
+
+        <div class="bg-panel" data-when="random">
+          <label>随机图 API URL
+            <input id="set-bg-random" placeholder="https://..." />
+          </label>
+          <label class="row">刷新间隔
+            <input type="range" id="set-bg-interval2" min="10" max="600" step="5" />
+            <span id="set-bg-interval2-val"></span>
+          </label>
+          <div class="presets">
+            <span class="hint">预设：</span>
+            <button type="button" class="mini-btn" data-preset="https://t.alcy.cc/fj/">竖屏</button>
+            <button type="button" class="mini-btn" data-preset="https://t.alcy.cc/ycy/">风景</button>
+            <button type="button" class="mini-btn" data-preset="https://t.alcy.cc/mp/">二次元</button>
+            <button type="button" class="mini-btn" data-preset="https://api.dujin.org/bing/1920.php">Bing 图</button>
+          </div>
+        </div>
+
+        <label class="row">遮罩浓度
+          <input type="range" id="set-bg-overlay" min="0" max="0.85" step="0.05" />
+          <span id="set-bg-overlay-val"></span>
+        </label>
+        <label class="row">背景模糊
+          <input type="range" id="set-bg-blur" min="0" max="30" step="1" />
+          <span id="set-bg-blur-val"></span>
+        </label>
+      </details>
+
+      <!-- 樱花 -->
+      <details class="sec">
+        <summary>🌸 樱花动画</summary>
+        <label class="row">数量
+          <input type="range" id="set-sakura-count" min="0" max="200" step="5" />
+          <span id="set-sakura-count-val"></span>
+        </label>
+        <label class="row">速度
+          <input type="range" id="set-sakura-speed" min="0.2" max="2.5" step="0.1" />
+          <span id="set-sakura-speed-val"></span>
+        </label>
+      </details>
+
+      <!-- 组件 -->
+      <details class="sec">
+        <summary>🧩 组件</summary>
+        <label class="row"><input type="checkbox" id="set-show-clock" /> 显示时钟</label>
+        <label class="row"><input type="checkbox" id="set-show-hitokoto" /> 显示"一言"</label>
+        <label class="row">一言分类
+          <select id="set-hitokoto-cat">
+            <option value="a">动画</option>
+            <option value="b">漫画</option>
+            <option value="c">游戏</option>
+            <option value="d">文学</option>
+            <option value="e">原创</option>
+            <option value="f">来自网络</option>
+            <option value="g">其他</option>
+            <option value="h">影视</option>
+            <option value="i">诗词</option>
+            <option value="j">网易云</option>
+            <option value="k">哲学</option>
+            <option value="l">抖机灵</option>
+          </select>
+        </label>
+        <label class="row"><input type="checkbox" id="set-new-tab" /> 链接在新标签打开</label>
+        <label class="row"><input type="checkbox" id="set-show-filter" /> 显示卡片过滤框</label>
+        <label class="row"><input type="checkbox" id="set-show-recent" /> 首页显示"最近使用"卡</label>
+        <label class="row"><input type="checkbox" id="set-show-upcoming" /> 首页显示"即将到来"日历卡</label>
+        <label class="row"><input type="checkbox" id="set-cal-notify" /> 到点桌面通知（需授权）</label>
+      </details>
+
+      <details class="settings-section">
+        <summary>☁ 天气 · 多城市</summary>
+        <label class="row"><input type="checkbox" id="set-show-weather" /> 首页显示天气卡片</label>
+        <label class="row"><input type="checkbox" id="set-weather-auto" /> 启用"自动定位"卡（通过 IP 定位）</label>
+
+        <div class="city-search-wrap">
+          <label>
+            搜索中国城市（可输入中文 / 拼音 / 英文）
+            <input type="text" id="weather-city-search" placeholder="例如：北京 / Shanghai / Hangzhou" autocomplete="off" />
+          </label>
+          <div class="city-search-results" id="weather-city-results" hidden></div>
+        </div>
+
+        <div class="city-chip-list" id="weather-city-list"></div>
+
+        <div class="row">
+          <button type="button" class="btn-secondary" id="btn-weather-locate">浏览器精确定位</button>
+          <button type="button" class="btn-secondary" id="btn-weather-refresh">立即刷新全部</button>
+        </div>
+        <p class="hint">单击城市可切换主城市（用于日历/通知等联动）。点击 × 删除城市。</p>
+        <label class="row"><input type="checkbox" id="set-weather-on-cal" /> 日历月视图显示天气图标</label>
+      </details>
+
+      <details class="settings-section">
+        <summary>🔁 同步与备份</summary>
+        <label class="row">
+          后端
+          <select id="sync-backend">
+            <option value="off">关闭</option>
+            <option value="webdav">WebDAV</option>
+            <option value="gist">GitHub Gist</option>
+          </select>
+        </label>
+        <div id="sync-webdav-conf">
+          <label class="row">服务器 URL <input type="url" id="sync-webdav-url" placeholder="https://dav.jianguoyun.com/dav/" /></label>
+          <div class="row">
+            <label style="flex:1">用户 <input type="text" id="sync-webdav-user" autocomplete="off" /></label>
+            <label style="flex:1">密码/应用密码 <input type="password" id="sync-webdav-pass" autocomplete="off" /></label>
+          </div>
+          <label class="row">远端文件路径 <input type="text" id="sync-webdav-path" value="sakura-nav.json" /></label>
+        </div>
+        <div id="sync-gist-conf" hidden>
+          <label class="row">GitHub Token（gist 权限）<input type="password" id="sync-gist-token" autocomplete="off" /></label>
+          <label class="row">Gist ID（留空则首次自动创建）<input type="text" id="sync-gist-id" autocomplete="off" /></label>
+          <label class="row">文件名 <input type="text" id="sync-gist-file" value="sakura-nav.json" /></label>
+        </div>
+        <label class="row"><input type="checkbox" id="set-sync-auto" /> 自动同步（重要变更后 30s 上传）</label>
+        <label class="row"><input type="checkbox" id="set-sync-include-keys" /> 包含 AI API Key（仅私有后端建议开启）</label>
+        <div class="row">
+          <button type="button" class="btn-secondary" id="btn-sync-push">⇧ 上传</button>
+          <button type="button" class="btn-secondary" id="btn-sync-pull">⇩ 下载并覆盖</button>
+        </div>
+        <div class="row">
+          <button type="button" class="btn-secondary" id="btn-sync-export">💾 本地备份 JSON</button>
+          <label class="btn-secondary" style="text-align:center;cursor:pointer">📂 从备份还原
+            <input type="file" id="sync-import-file" accept="application/json" hidden />
+          </label>
+        </div>
+        <p class="hint" id="sync-status" style="margin-top:6px"></p>
+      </details>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" id="btn-reset-all">清空所有数据</button>
+        <button value="ok" class="btn-primary" data-close>完成</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 导入 弹窗 -->
+  <dialog id="dialog-import" class="glass-dialog">
+    <form method="dialog">
+      <h3>导入浏览器书签</h3>
+      <p class="hint">
+        支持 Chrome / Edge / Firefox 导出的 <code>bookmarks.html</code><br />
+        <small>浏览器 → 书签管理器 → 导出书签为 HTML</small>
+      </p>
+      <input type="file" id="import-file" accept=".html,.htm,.json" />
+      <label class="row"><input type="checkbox" id="import-keep-folders" checked /> 保留文件夹为分组</label>
+      <label class="row"><input type="checkbox" id="import-auto-icon" checked /> 自动获取网站图标</label>
+      <label class="row"><input type="checkbox" id="import-dedupe" checked /> 去重（相同网址忽略）</label>
+      <div id="import-preview" class="import-preview"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" data-close>取消</button>
+        <button type="button" class="btn-primary" id="btn-do-import" disabled>确认导入</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 右键菜单 -->
+  <div id="ctx-menu" class="ctx-menu" hidden>
+    <button data-act="open">在新标签打开</button>
+    <button data-act="copy">复制网址</button>
+    <button data-act="edit">编辑</button>
+    <button data-act="delete">删除</button>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- ===== 音乐播放器 浮动按钮 ===== -->
+  <button id="music-fab" class="music-fab" title="音乐 (Alt+M)" aria-label="打开音乐播放器">
+    <span class="music-fab-icon">🎵</span>
+    <span class="music-fab-wave"><i></i><i></i><i></i><i></i></span>
+  </button>
+  <!-- 独立入口：直接打开音乐搜索弹窗（不必先打开播放器面板） -->
+  <button type="button" id="music-search-fab" class="music-search-fab" title="搜索音乐" aria-label="搜索音乐">🔍</button>
+
+  <!-- ===== 音乐面板 ===== -->
+  <aside id="music-panel" class="music-panel glass" hidden>
+    <header class="music-head">
+      <div class="music-head-left">
+        <span class="music-logo">🎵</span>
+        <div class="music-head-title">
+          <div id="music-title" class="music-title">— 没有歌曲 —</div>
+          <div id="music-meta" class="music-meta">导入本地音乐文件开始使用</div>
+        </div>
+      </div>
+      <div class="music-head-right">
+        <button class="icon-btn small" id="music-add" title="导入本地音乐 / .lrc">📁</button>
+        <button class="icon-btn small" id="music-add-url" title="添加在线 URL">🌐</button>
+        <button class="icon-btn small" id="music-open-search" title="搜索网络歌曲（酷我）">🔍</button>
+        <button class="icon-btn small" id="music-clear" title="清空播放列表">🗑</button>
+        <button class="icon-btn small" id="music-close" title="关闭">✕</button>
+        <input type="file" id="music-file-input" accept="audio/*,.lrc,.mp3,.m4a,.flac,.wav,.ogg,.aac,.opus" multiple hidden />
+      </div>
+    </header>
+
+    <!-- 音源 & 过滤 -->
+    <div class="music-sources-row">
+      <label>音源
+        <select id="music-source-select" title="切换音源标签 / 过滤播放列表"></select>
+      </label>
+      <button type="button" class="mini-btn" id="music-source-import" title="粘贴音源 .js 直链，在线拉取并缓存在本机">＋ 在线音源</button>
+      <button type="button" class="mini-btn" id="music-source-info" title="查看/下载脚本">ℹ 脚本</button>
+    </div>
+
+    <div class="music-stage">
+      <canvas id="music-visualizer" class="music-visualizer" aria-hidden="true"></canvas>
+      <div class="music-lyrics" id="music-lyrics">
+        <div class="lyric-empty">导入歌曲后，这里将显示歌词</div>
+      </div>
+    </div>
+
+    <div class="music-controls">
+      <div class="music-progress-row">
+        <span id="music-time-cur" class="music-time">00:00</span>
+        <input id="music-progress" class="music-progress" type="range" min="0" max="1000" value="0" step="1" />
+        <span id="music-time-dur" class="music-time">00:00</span>
+      </div>
+      <div class="music-buttons">
+        <button class="music-btn" id="music-shuffle" title="随机播放">🔀</button>
+        <button class="music-btn" id="music-prev" title="上一首">⏮</button>
+        <button class="music-btn primary" id="music-play" title="播放/暂停">▶</button>
+        <button class="music-btn" id="music-next" title="下一首">⏭</button>
+        <button class="music-btn" id="music-loop" title="循环模式" data-mode="all">🔁</button>
+        <div class="music-volume-wrap">
+          <span>🔊</span>
+          <input type="range" id="music-volume" class="music-volume" min="0" max="1" step="0.01" value="0.75" />
+        </div>
+      </div>
+    </div>
+
+    <div class="music-playlist">
+      <header class="music-pl-head">
+        <h4>播放列表 <span id="music-list-count" class="music-list-count"></span></h4>
+        <span class="hint" style="font-size:11px">拖拽 / 粘贴音乐文件到此面板也可导入</span>
+      </header>
+      <ul id="music-list" class="music-list"></ul>
+    </div>
+  </aside>
+
+  <!-- 音乐 · LX 风格搜索弹窗（当前仅酷我线路可用） -->
+  <dialog id="dialog-music-search" class="glass-dialog music-search-dialog">
+    <div class="music-search-dialog-shell">
+      <header class="msd-top">
+        <span class="msd-logo" aria-hidden="true">LX</span>
+        <div class="msd-top-search">
+          <input type="search" id="music-search-modal-input" class="msd-search-input" placeholder="Search for something…" autocomplete="off" maxlength="100" />
+          <button type="button" class="msd-search-submit" id="music-search-modal-go" title="搜索">🔍</button>
+        </div>
+        <button type="button" class="icon-btn small msd-close" id="music-search-modal-close" title="关闭">✕</button>
+      </header>
+
+      <div class="msd-source-row">
+        <div class="msd-source-tabs" role="tablist" aria-label="音源">
+          <button type="button" class="msd-src-tab active" data-platform="kw" data-available="1" title="已接入（本站反代酷我）">小蜗音乐</button>
+          <button type="button" class="msd-src-tab" data-platform="wy" data-available="1" title="网易云音乐搜索">小秋音乐</button>
+          <button type="button" class="msd-src-tab" data-platform="tx" data-available="1" title="QQ 音乐搜索（试听解析可能受限）">小狗音乐</button>
+          <button type="button" class="msd-src-tab" data-platform="kg" data-available="1" title="酷狗音乐搜索">小芸音乐</button>
+          <button type="button" class="msd-src-tab" data-platform="mg" data-available="1" title="咪咕音乐搜索">小蛮音乐</button>
+          <button type="button" class="msd-src-tab" data-platform="mix" data-available="1" title="多源聚合（酷我/网易/QQ/酷狗/咪咕交错）">聚合大会</button>
+        </div>
+        <div class="msd-type-tabs" role="tablist" aria-label="类型">
+          <button type="button" class="msd-type-tab active" data-search-type="song">歌曲</button>
+          <button type="button" class="msd-type-tab" data-search-type="playlist">歌单</button>
+        </div>
+        <div class="msd-toolbar" aria-label="试听音质">
+          <label class="msd-quality-label">音质
+            <select id="music-search-quality" class="msd-quality-select" title="解析直链时的码率偏好（酷我 antiserver 多为 mp3）">
+              <option value="128k" selected>128k</option>
+              <option value="320k">320k</option>
+            </select>
+          </label>
+          <span class="msd-kbd-hint" title="焦点在表格外时可用">↑↓ 选择 · Enter 播放 · Esc 关闭</span>
+        </div>
+      </div>
+
+      <div class="msd-body">
+        <aside class="msd-rail" aria-hidden="true">
+          <span class="msd-rail-i active" title="搜索">🔍</span>
+          <span class="msd-rail-i" title="库">🎵</span>
+          <span class="msd-rail-i" title="排行">📊</span>
+          <span class="msd-rail-i" title="收藏">♡</span>
+          <span class="msd-rail-i" title="设置">⬡</span>
+        </aside>
+        <div class="msd-main">
+          <div id="music-search-modal-table-wrap" class="msd-table-wrap">
+            <table class="msd-table" id="music-search-modal-table" hidden>
+              <thead>
+                <tr>
+                  <th class="col-idx">#</th>
+                  <th>歌曲名</th>
+                  <th>艺术家</th>
+                  <th>专辑名</th>
+                  <th class="col-dur">时长</th>
+                  <th class="col-play" title="试听">▶</th>
+                  <th class="col-add">加入</th>
+                  <th class="col-lrc" title="加入并尝试拉取歌词">词</th>
+                </tr>
+              </thead>
+              <tbody id="music-search-modal-tbody"></tbody>
+            </table>
+          </div>
+          <div id="music-search-modal-footer" class="msd-footer" hidden>
+            <span id="music-search-modal-status" class="msd-footer-status"></span>
+            <button type="button" id="music-search-modal-more" class="msd-more-btn" disabled>加载更多</button>
+          </div>
+          <div id="music-search-modal-empty" class="msd-empty">
+            <p class="msd-empty-title">搜我所想~~ 😉</p>
+            <p class="msd-empty-sub">已接入：<b>酷我 / 网易云 / QQ / 酷狗 / 咪咕</b> 与 <b>聚合</b>。支持单击选行、双击或 ▶ 播放、「词」拉歌词、底栏加载更多。<br><small>QQ 多为仅搜索；试听可换其它源。</small></p>
+          </div>
+          <div id="music-search-modal-playlist-hint" class="msd-playlist-hint" hidden>
+            <p>歌单搜索</p>
+            <small>网页版暂未实现歌单检索；请在「歌曲」中搜索单曲，或使用洛雪客户端浏览歌单。</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 音乐 · 在线导入 -->
+  <dialog id="dialog-music-url" class="glass-dialog">
+    <form method="dialog" id="form-music-url">
+      <h3>🌐 在线导入音乐</h3>
+      <label>音频直链 URL
+        <input name="url" type="url" required
+          placeholder="https://example.com/song.mp3（支持 mp3 / m4a / aac / ogg / wav / flac）" />
+      </label>
+      <label>显示名称（可选）
+        <input name="name" maxlength="120" placeholder="留空将取文件名" />
+      </label>
+      <label>歌词 LRC 文本（可选，直接粘贴）
+        <textarea name="lrc" rows="3" placeholder="[00:12.00]第一行歌词&#10;[00:15.00]第二行歌词"></textarea>
+      </label>
+      <p class="hint">
+        · 远程 URL 必须允许跨源（CORS）或同源才能播放。<br>
+        · 直链 .mp3 / .m4a 通常可行；需要授权的源请用桌面应用。
+      </p>
+      <div class="dialog-actions">
+        <button value="cancel" type="button" class="btn-secondary" data-close>取消</button>
+        <button value="ok" type="submit" class="btn-primary">添加到播放列表</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 音乐 · 在线导入音源脚本 -->
+  <dialog id="dialog-music-source-url" class="glass-dialog">
+    <form method="dialog" id="form-music-source-url">
+      <h3>＋ 在线导入音源</h3>
+      <label>音源脚本 URL（需返回纯 .js 文本）
+        <input name="url" type="url" required
+          placeholder="https://example.com/lx-music-source.js" />
+      </label>
+      <label>显示名称（可选）
+        <input name="name" maxlength="120" placeholder="留空则取 URL 文件名" />
+      </label>
+      <p class="hint">
+        · 仅支持浏览器能直接 <code>fetch</code> 的地址（目标站需返回 <code>Access-Control-Allow-Origin</code>，或与导航页同源）。<br>
+        · 导入后脚本全文保存在本机 IndexedDB，可在「ℹ 脚本」里导出为 .js 供 LX Music 客户端使用。
+      </p>
+      <div class="dialog-actions">
+        <button value="cancel" type="button" class="btn-secondary" data-close>取消</button>
+        <button value="ok" type="submit" class="btn-primary">拉取并缓存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 音乐 · 音源脚本说明 -->
+  <dialog id="dialog-music-source" class="glass-dialog">
+    <form method="dialog">
+      <h3>🎛 LX Music 协议音源</h3>
+      <p class="hint">
+        项目已内置 7 个 LX Music 协议的音源脚本，用于<b>在 LX Music 桌面客户端中</b>解析 QQ / 网易云 / 酷狗 / 酷我 / 咪咕 等平台的播放 URL。<br>
+        <small>浏览器里不能直接跑这些脚本（它们依赖桌面客户端注入的 <code>globalThis.lx</code> 并可能触发 CORS），所以这里把它们作为<b>标签</b>用于给歌曲分类；需要实际解析时请复制脚本到 LX Music 客户端导入使用。</small>
+      </p>
+      <ul id="music-source-list" class="music-source-list"></ul>
+      <div class="dialog-actions">
+        <button value="ok" class="btn-primary" data-close>关闭</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== AI 聊天浮动按钮 ===== -->
+  <button id="ai-fab" class="ai-fab" title="AI 助手 (Alt+A)" aria-label="打开 AI 助手">
+    <span class="ai-fab-icon">🤖</span>
+  </button>
+
+  <!-- ===== AI 聊天面板 ===== -->
+  <aside id="ai-panel" class="ai-panel glass" hidden>
+    <header class="ai-head">
+      <div class="ai-head-left">
+        <span class="ai-logo">🌸</span>
+        <select id="ai-persona-select" title="角色"></select>
+      </div>
+      <div class="ai-head-right">
+        <select id="ai-model-select" title="模型"></select>
+        <button class="icon-btn small" id="ai-refresh-models" title="刷新模型列表">↻</button>
+        <button class="icon-btn small" id="ai-clear" title="清空会话">🗑</button>
+        <button class="icon-btn small" id="ai-open-settings" title="AI 设置">⚙</button>
+        <button class="icon-btn small" id="ai-close" title="关闭">✕</button>
+      </div>
+    </header>
+    <div id="ai-messages" class="ai-messages">
+      <div class="ai-empty">
+        <div class="ai-empty-logo">🌸</div>
+        <p>让 AI 帮你整理导航页、分类书签、推荐网站。</p>
+        <div class="ai-suggestions">
+          <button data-ai-suggest="帮我整理一下当前导航页的结构，给出优化建议">优化结构</button>
+          <button data-ai-suggest="我想新建一个"AI 工具"分组，添加 ChatGPT、Claude、Gemini 三个网址">新建 AI 分组</button>
+          <button data-ai-suggest="读取我上传的书签列表并帮我归类">分析上传内容</button>
+        </div>
+      </div>
+    </div>
+    <footer class="ai-foot">
+      <div id="ai-attach-preview" class="ai-attach-preview"></div>
+      <div class="ai-input-row">
+        <label class="ai-attach-btn" title="上传图片或文件">
+          📎
+          <input type="file" id="ai-attach-input" multiple accept="image/*,text/*,.json,.html,.md,.csv,.txt" hidden />
+        </label>
+        <button class="ai-attach-btn voice-btn" id="ai-voice" type="button" title="语音输入（Web Speech API）" aria-label="语音输入">🎙</button>
+        <textarea id="ai-input" rows="1" placeholder="和 AI 说点什么...（Enter 发送，Shift+Enter 换行）"></textarea>
+        <button id="ai-send" class="btn-primary" title="发送">➤</button>
+        <button id="ai-stop" class="btn-secondary" title="停止" hidden>■</button>
+      </div>
+      <div class="ai-tip" id="ai-tip"></div>
+    </footer>
+  </aside>
+
+  <!-- ===== AI 设置弹窗 ===== -->
+  <dialog id="dialog-ai" class="glass-dialog ai-dialog">
+    <form method="dialog">
+      <h3>🤖 AI 设置</h3>
+
+      <details class="sec" open>
+        <summary>🔌 API 供应商</summary>
+        <div id="ai-providers-list" class="ai-providers-list"></div>
+        <div class="dialog-actions" style="justify-content: flex-start">
+          <button type="button" class="mini-btn" id="ai-add-provider">+ 添加供应商</button>
+          <button type="button" class="mini-btn" id="ai-add-preset-openai">OpenAI 预设</button>
+          <button type="button" class="mini-btn" id="ai-add-preset-deepseek">DeepSeek 预设</button>
+          <button type="button" class="mini-btn" id="ai-add-preset-kimi">Kimi 预设</button>
+          <button type="button" class="mini-btn" id="ai-add-preset-ollama">Ollama 本地</button>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary>🎭 角色 / 人设</summary>
+        <div id="ai-personas-list" class="ai-personas-list"></div>
+        <button type="button" class="mini-btn" id="ai-add-persona">+ 添加角色</button>
+      </details>
+
+      <details class="sec">
+        <summary>🪪 个人签名 / 附加信息</summary>
+        <label>会自动附加到每次对话的 system prompt 末尾（如你的身份、联系方式、TG 链接等）
+          <textarea id="ai-signature" rows="4" placeholder="例：&#10;- 我是小A，前端开发&#10;- Telegram: @xianran&#10;- 偏好使用中文"></textarea>
+        </label>
+      </details>
+
+      <details class="sec">
+        <summary>⚡ 行为</summary>
+        <label class="row"><input type="checkbox" id="ai-auto-apply" />
+          收到 JSON 指令块时自动执行（默认需手动确认）
+        </label>
+      </details>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" data-close>关闭</button>
+        <button value="ok" class="btn-primary" data-close>完成</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== 供应商编辑子弹窗 ===== -->
+  <dialog id="dialog-provider" class="glass-dialog">
+    <form method="dialog" id="form-provider">
+      <h3 id="provider-title">添加 AI 供应商</h3>
+      <label>名称 <input name="name" required placeholder="如：OpenAI / 我的 Kimi" /></label>
+      <label>Base URL <input name="baseUrl" required placeholder="https://api.openai.com/v1" /></label>
+      <label>API Key <input name="apiKey" type="password" placeholder="sk-..." /></label>
+      <label>默认模型（可留空，稍后在面板切换） <input name="defaultModel" placeholder="如：gpt-4o-mini" /></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" data-close>取消</button>
+        <button value="ok" type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== Persona 编辑子弹窗 ===== -->
+  <dialog id="dialog-persona" class="glass-dialog">
+    <form method="dialog" id="form-persona">
+      <h3 id="persona-title">添加角色</h3>
+      <label>名称（显示用） <input name="name" required /></label>
+      <label>System Prompt（可以很长）
+        <textarea name="prompt" rows="8" required placeholder="描述 AI 该扮演的角色..."></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" data-close>取消</button>
+        <button value="ok" type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== 日历面板（全屏覆盖） ===== -->
+  <section id="calendar-panel" class="calendar-panel" hidden>
+    <header class="cal-head glass">
+      <div class="cal-head-left">
+        <h2>📅 日历</h2>
+        <div class="cal-nav">
+          <button class="icon-btn small" id="cal-prev" title="上月">‹</button>
+          <button class="chip" id="cal-today">今天</button>
+          <span id="cal-title" class="cal-title"></span>
+          <button class="icon-btn small" id="cal-next" title="下月">›</button>
+        </div>
+      </div>
+      <div class="cal-head-right">
+        <div class="cal-view-switch">
+          <button class="chip active" data-view="month">月</button>
+          <button class="chip" data-view="list">列表</button>
+          <button class="chip" data-view="stats">统计</button>
+        </div>
+        <button class="chip" id="cal-ics-export" title="导出 .ics">⇩ ics</button>
+        <label class="chip" title="导入 .ics">
+          ⇧ ics
+          <input type="file" id="cal-ics-import" accept=".ics,text/calendar" hidden />
+        </label>
+        <button class="chip" id="cal-new-task">+ 新任务</button>
+        <button class="icon-btn" id="cal-close" title="关闭">✕</button>
+      </div>
+    </header>
+
+    <section class="cal-body">
+      <!-- 月视图 -->
+      <div id="cal-month-view" class="cal-month-view glass">
+        <div class="cal-weekdays" id="cal-weekdays"></div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+
+      <!-- 列表视图 -->
+      <div id="cal-list-view" class="cal-list-view" hidden>
+        <div id="cal-list" class="cal-list"></div>
+      </div>
+
+      <!-- 统计视图 -->
+      <div id="cal-stats-view" class="cal-stats-view glass" hidden>
+        <div class="stats-grid">
+          <div class="stat-tile">
+            <div class="stat-label">本周完成率</div>
+            <div class="stat-value"><span id="stat-week-ratio">0%</span></div>
+            <div class="stat-sub" id="stat-week-detail">0 / 0</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">本月完成率</div>
+            <div class="stat-value"><span id="stat-month-ratio">0%</span></div>
+            <div class="stat-sub" id="stat-month-detail">0 / 0</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">连续打卡</div>
+            <div class="stat-value"><span id="stat-streak">0</span> 天</div>
+            <div class="stat-sub">🔥 别断！</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">任务总览</div>
+            <div class="stat-value"><span id="stat-total-tasks">0</span></div>
+            <div class="stat-sub">累计完成 <span id="stat-total-done">0</span> 次</div>
+          </div>
+        </div>
+        <div class="stats-chart-wrap">
+          <div class="stats-chart-title">近 30 天完成度趋势</div>
+          <svg id="stats-chart" viewBox="0 0 600 160" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+
+      <!-- 侧栏：当天任务 -->
+      <aside id="cal-day-panel" class="cal-day-panel glass">
+        <header class="cal-day-head">
+          <h3 id="cal-day-title">今天</h3>
+          <button class="mini-btn" id="cal-day-add">+ 添加</button>
+        </header>
+        <ul id="cal-day-list" class="cal-day-list"></ul>
+      </aside>
+    </section>
+  </section>
+
+  <!-- ===== 任务编辑器 ===== -->
+  <dialog id="dialog-task" class="glass-dialog task-dialog">
+    <form method="dialog" id="form-task">
+      <h3 id="task-title-head">新建任务</h3>
+      <label>标题
+        <div class="input-with-voice">
+          <input name="title" required autocomplete="off" />
+          <button type="button" class="voice-btn inline" id="task-voice" title="语音输入">🎙</button>
+        </div>
+      </label>
+      <label>备注（可选）
+        <textarea name="desc" rows="2" placeholder="位置、备注、链接..."></textarea>
+      </label>
+      <div class="row-2">
+        <label>开始日期 <input type="date" name="date" required /></label>
+        <label class="col-time">时间
+          <input type="time" name="time" />
+          <span><input type="checkbox" name="allDay" /> 全天</span>
+        </label>
+      </div>
+      <label>颜色
+        <div class="task-color-row">
+          <label><input type="radio" name="color" value="#ff8fab" checked /><span style="background:#ff8fab"></span></label>
+          <label><input type="radio" name="color" value="#a6e6c0" /><span style="background:#a6e6c0"></span></label>
+          <label><input type="radio" name="color" value="#ffd580" /><span style="background:#ffd580"></span></label>
+          <label><input type="radio" name="color" value="#a6c6ff" /><span style="background:#a6c6ff"></span></label>
+          <label><input type="radio" name="color" value="#d4b2ff" /><span style="background:#d4b2ff"></span></label>
+          <label><input type="radio" name="color" value="#ff6b9d" /><span style="background:#ff6b9d"></span></label>
+        </div>
+      </label>
+
+      <fieldset class="repeat-box">
+        <legend>重复</legend>
+        <label>
+          <select name="repeatType">
+            <option value="none">不重复</option>
+            <option value="daily">每天</option>
+            <option value="weekly">每周</option>
+            <option value="monthly">每月</option>
+            <option value="yearly">每年</option>
+          </select>
+        </label>
+        <label class="repeat-interval" hidden>每
+          <input type="number" name="interval" min="1" max="99" value="1" style="width: 60px" />
+          <span id="interval-unit">天</span>
+        </label>
+        <div class="weekdays-picker" hidden>
+          <label><input type="checkbox" name="wd" value="0" />日</label>
+          <label><input type="checkbox" name="wd" value="1" />一</label>
+          <label><input type="checkbox" name="wd" value="2" />二</label>
+          <label><input type="checkbox" name="wd" value="3" />三</label>
+          <label><input type="checkbox" name="wd" value="4" />四</label>
+          <label><input type="checkbox" name="wd" value="5" />五</label>
+          <label><input type="checkbox" name="wd" value="6" />六</label>
+        </div>
+        <label class="repeat-until">结束日期（可选） <input type="date" name="until" /></label>
+      </fieldset>
+
+      <label>提前提醒
+        <select name="remindBefore">
+          <option value="0">不提醒</option>
+          <option value="5">提前 5 分钟</option>
+          <option value="15">提前 15 分钟</option>
+          <option value="30">提前 30 分钟</option>
+          <option value="60">提前 1 小时</option>
+          <option value="1440">提前 1 天</option>
+        </select>
+      </label>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" id="task-delete-btn" hidden>删除</button>
+        <button type="button" class="btn-secondary" data-close>取消</button>
+        <button value="ok" type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== 博客面板（全屏覆盖） ===== -->
+  <section id="blog-panel" class="blog-panel" hidden>
+    <header class="blog-head glass">
+      <div class="blog-head-left">
+        <h2>🌸 樱的博客</h2>
+        <input id="blog-search" class="filter-input" placeholder="🔎 搜索标题/标签/正文..." />
+      </div>
+      <div class="blog-head-right">
+        <button class="chip" id="blog-new-post" hidden>+ 写文章</button>
+        <button class="chip" id="blog-export-rss" title="导出 RSS 订阅">📡 RSS</button>
+        <button class="chip" id="blog-export-static" title="导出静态站 zip">💾 静态站</button>
+        <button class="chip" id="blog-admin-toggle">后台管理</button>
+        <button class="icon-btn" id="blog-close" title="关闭">✕</button>
+      </div>
+    </header>
+    <div id="blog-tags" class="blog-tags"></div>
+    <main id="blog-list" class="blog-list"></main>
+    <article id="blog-detail" class="blog-detail glass" hidden></article>
+  </section>
+
+  <!-- ===== 博客编辑器 ===== -->
+  <dialog id="dialog-post" class="glass-dialog post-dialog">
+    <form method="dialog" id="form-post">
+      <h3 id="post-title-head">新建文章</h3>
+      <label>标题 <input name="title" required /></label>
+      <label>标签（逗号分隔） <input name="tags" placeholder="如：技术, 生活" /></label>
+      <label>封面图 URL（可选） <input name="cover" placeholder="https://..." /></label>
+      <label>正文 (Markdown，支持代码块、图片、链接)
+        <textarea name="content" rows="14" placeholder="# 标题&#10;&#10;正文..."></textarea>
+      </label>
+      <div class="post-preview-toggle">
+        <button type="button" class="mini-btn" id="post-preview-btn">👁 预览</button>
+        <button type="button" class="mini-btn" id="post-ai-assist">🤖 AI 帮我写</button>
+      </div>
+      <div id="post-preview" class="post-preview" hidden></div>
+      <label class="row"><input type="checkbox" name="published" /> 发布（取消即为草稿）</label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" id="post-delete-btn" hidden>删除</button>
+        <button type="button" class="btn-secondary" data-close>取消</button>
+        <button value="ok" type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="sakura.js"></script>
+  <script src="bookmarks.js"></script>
+  <script src="auth.js"></script>
+  <script src="ai.js"></script>
+  <script src="blog.js"></script>
+  <script src="calendar.js"></script>
+  <script src="sync.js"></script>
+  <script src="weather.js"></script>
+  <script src="suggest.js"></script>
+  <script src="exporter.js"></script>
+  <script src="idb.js"></script>
+  <script src="music.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "樱 · 个人导航",
+  "short_name": "樱导航",
+  "description": "玻璃质感的个人浏览器起始页，支持书签导入、樱花飘舞、背景轮播等。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff1f6",
+  "theme_color": "#ff8fab",
+  "lang": "zh-CN",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='36' fill='%23ffd6e6'/%3E%3Ctext x='50%25' y='62%25' text-anchor='middle' font-size='120' font-family='sans-serif'%3E🌸%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23ffd6e6'/%3E%3Ctext x='50%25' y='62%25' text-anchor='middle' font-size='340' font-family='sans-serif'%3E🌸%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

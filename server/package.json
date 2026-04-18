@@ -1,0 +1,14 @@
+{
+  "name": "sakura-nav-music-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "樱 · 导航音乐搜索/解析统一 API（方案 B）",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

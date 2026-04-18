@@ -1,0 +1,104 @@
+# 樱 · 个人导航 - docker-compose 配置
+# 基础：nginx 静态托管 (~25 MB 镜像)
+# 可选：挂载源码热更新 / Caddy 自动 HTTPS（去掉对应区块的注释即可启用）
+
+name: sakura-nav
+
+networks:
+  sakura-nav-net:
+    driver: bridge
+
+services:
+  # 音乐搜索 / 解析统一 API（方案 B，第一期：酷我）
+  music-api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: sakura-nav-music-api:latest
+    container_name: sakura-nav-music-api
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      PORT: "3000"
+    networks:
+      - sakura-nav-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  sakura-nav:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sakura-nav:latest
+    container_name: sakura-nav
+    restart: unless-stopped
+    depends_on:
+      - music-api
+
+    # 对外端口：宿主 ${HOST_PORT:-18080} → 容器 80
+    # 如果启用下面的 caddy 反代，建议把这段 ports 删掉（只走内网）
+    ports:
+      - "${HOST_PORT:-18080}:80"
+
+    environment:
+      TZ: Asia/Shanghai
+
+    networks:
+      - sakura-nav-net
+
+    # === 开发热更新：取消下列 volumes 注释，保存代码直接生效（不用重建镜像）===
+    # volumes:
+    #   - ./:/usr/share/nginx/html:ro
+    #   - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+    # 安全加固：只读根、tmpfs 临时目录、禁止提权
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m
+      - /var/run:size=8m
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # === Caddy 自动 HTTPS（可选）===
+  # 用法：
+  #   1. 把你的域名解析到本机公网 IP
+  #   2. 取消整段 caddy 注释
+  #   3. 删掉上方 sakura-nav.ports 那两行（让 sakura-nav 只走内网）
+  #   4. 设置 DOMAIN / EMAIL 环境变量，或改 .env 文件
+  #   5. docker compose up -d
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: sakura-nav-caddy
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - sakura-nav
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   environment:
+  #     DOMAIN: ${DOMAIN:-nav.example.com}
+  #     EMAIL:  ${EMAIL:-you@example.com}
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+
+# volumes:
+#   caddy_data:
+#   caddy_config:

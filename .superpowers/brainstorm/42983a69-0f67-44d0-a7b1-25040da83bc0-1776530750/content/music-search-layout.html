@@ -1,0 +1,44 @@
+<h2>音乐搜索弹窗：高度与“空态内容”显示</h2>
+<p class="subtitle">你提到：列表区太矮、且有结果时把底部说明挤到看不到。下面是 3 种布局方案（点一下选择）。</p>
+
+<div class="options">
+  <div class="option" data-choice="A" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>加高列表区（推荐默认）</h3>
+      <p>弹窗整体高度提升到视口的 80–90%，列表区固定可滚动；底部说明（空态内容）在“有结果时”折叠为一行提示（可展开）。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>优点</h4><ul><li>结果列表更大</li><li>说明仍可见但不占空间</li></ul></div>
+        <div class="cons"><h4>缺点</h4><ul><li>多一个“展开说明”的交互</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="B" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>保持弹窗高度不变，只让表格区域更高</h3>
+      <p>顶部搜索区不动，给表格区域更大 max-height；空态说明在有结果时仍显示，但缩小字号并置底。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>优点</h4><ul><li>改动最小</li><li>不引入新交互</li></ul></div>
+        <div class="cons"><h4>缺点</h4><ul><li>弹窗整体仍偏矮（小屏可能不够）</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="C" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>全屏模式</h3>
+      <p>弹窗接近全屏（类似移动端 App 搜索页）；空态说明固定在底部一个区域，有结果时也保留。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>优点</h4><ul><li>空间最大</li><li>体验最像“真正的音乐搜索”</li></ul></div>
+        <div class="cons"><h4>缺点</h4><ul><li>视觉改动最大</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <p class="subtitle"><b>补充：</b>你说的“隐藏到下面的内容”是指中间那段 “搜我所想~~😉” 说明区吗？选完方案后我会按你选择把它改成“有结果时不挡列表，但仍可见”。</p>
+</div>
