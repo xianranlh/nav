@@ -7,7 +7,14 @@
       "Bash(git init)",
       "Bash(git remote *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(docker *)",
+      "Bash(docker compose version)",
+      "Bash(sleep *)",
+      "Bash(git stash)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(git push)"
     ]
   },
   "$version": 3
