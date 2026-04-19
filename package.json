@@ -1,0 +1,12 @@
+{
+  "name": "sakura-nav",
+  "private": true,
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js --static",
+    "install:server": "npm install --prefix server",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f sakura-nav"
+  }
+}

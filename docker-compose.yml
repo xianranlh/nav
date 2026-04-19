@@ -1,33 +1,16 @@
-# 樱 · 个人导航 - docker-compose 配置
-# 基础：nginx 静态托管 (~25 MB 镜像)
-# 可选：挂载源码热更新 / Caddy 自动 HTTPS（去掉对应区块的注释即可启用）
+# 樱 · 个人导航 — Docker Compose
+# 单容器：nginx:80 静态前端 + 反代 /api → Node:3000（见 Dockerfile）
+#
+# 一键启动（构建并后台运行）：
+#   docker compose up -d --build
+# 访问：http://127.0.0.1:8080  （端口见 HOST_PORT）
+# 停止：docker compose down
+#
+# 可选：复制 .env.example 为 .env 后修改 HOST_PORT / SAKURA_API_KEY
 
 name: sakura-nav
 
-networks:
-  sakura-nav-net:
-    driver: bridge
-
 services:
-  # 音乐搜索 / 解析统一 API（方案 B，第一期：酷我）
-  music-api:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    image: sakura-nav-music-api:latest
-    container_name: sakura-nav-music-api
-    restart: unless-stopped
-    environment:
-      TZ: Asia/Shanghai
-      PORT: "3000"
-    networks:
-      - sakura-nav-net
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   sakura-nav:
     build:
       context: .
@@ -35,37 +18,39 @@ services:
     image: sakura-nav:latest
     container_name: sakura-nav
     restart: unless-stopped
-    depends_on:
-      - music-api
 
-    # 对外端口：宿主 ${HOST_PORT:-18080} → 容器 80
-    # 如果启用下面的 caddy 反代，建议把这段 ports 删掉（只走内网）
     ports:
-      - "${HOST_PORT:-18080}:80"
+      - "${HOST_PORT:-8080}:80"
 
     environment:
       TZ: Asia/Shanghai
+      PORT: "3000"
+      # 数据落在挂载卷 /data 下的子目录，避免与其它项目共用一个扁平目录
+      DATA_DIR: /data/sakura-nav
+      BIND_HOST: "127.0.0.1"
+      SAKURA_API_KEY: ${SAKURA_API_KEY:-}
 
-    networks:
-      - sakura-nav-net
+    volumes:
+      # 宿主 ./data → 容器 /data（SQLite 与上传媒体持久化）
+      - ./data:/data
 
-    # === 开发热更新：取消下列 volumes 注释，保存代码直接生效（不用重建镜像）===
+    # === 开发热更新：取消下列 volumes 注释 ===
     # volumes:
     #   - ./:/usr/share/nginx/html:ro
-    #   - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    #   - ./nginx.conf.template:/docker/nginx.conf.template:ro
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 5s
+      start_period: 15s
 
-    # 安全加固：只读根、tmpfs 临时目录、禁止提权
     read_only: true
     tmpfs:
       - /var/cache/nginx:size=16m
       - /var/run:size=8m
+      - /tmp:size=16m
     security_opt:
       - no-new-privileges:true
 
@@ -76,12 +61,6 @@ services:
         max-file: "3"
 
   # === Caddy 自动 HTTPS（可选）===
-  # 用法：
-  #   1. 把你的域名解析到本机公网 IP
-  #   2. 取消整段 caddy 注释
-  #   3. 删掉上方 sakura-nav.ports 那两行（让 sakura-nav 只走内网）
-  #   4. 设置 DOMAIN / EMAIL 环境变量，或改 .env 文件
-  #   5. docker compose up -d
   # caddy:
   #   image: caddy:2-alpine
   #   container_name: sakura-nav-caddy

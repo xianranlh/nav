@@ -1,26 +1,26 @@
-/* 碎樱花飘舞背景
- * - Canvas 粒子系统，性能友好 (devicePixelRatio 自适应)
- * - 支持暂停、动态调整数量和速度
- * - 可根据 body.data-theme 自动调整配色
+/* 背景粒子：樱花 / 星光 / 梧桐叶
+ * - Canvas，devicePixelRatio 自适应
+ * - particleMode: sakura | starlight | sycamore
  */
 (function () {
   const canvas = document.getElementById("sakura-canvas");
+  if (!canvas) return;
   const ctx = canvas.getContext("2d");
 
   let width = 0, height = 0, dpr = 1;
-  let petals = [];
+  let particles = [];
   let running = true;
   let rafId = 0;
   let config = {
-    count: 70,        // 樱花数量
-    speed: 1.0,       // 全局速度倍率
-    wind: 0.6,        // 风力
+    count: 70,
+    speed: 1.0,
+    particleMode: "sakura",
+    wind: 0.6,
     sizeMin: 8,
     sizeMax: 18,
   };
 
-  // 一片花瓣的数据
-  function Petal(init = true) {
+  function Petal(init) {
     this.reset(init);
   }
   Petal.prototype.reset = function (initial) {
@@ -34,13 +34,9 @@
     this.swing = Math.random() * Math.PI * 2;
     this.swingSpeed = 0.01 + Math.random() * 0.02;
     this.opacity = 0.6 + Math.random() * 0.4;
-    // 颜色（粉色系随机）
     const palette = [
-      [255, 205, 219],
-      [255, 182, 203],
-      [255, 170, 200],
-      [255, 225, 235],
-      [250, 192, 220],
+      [255, 205, 219], [255, 182, 203], [255, 170, 200],
+      [255, 225, 235], [250, 192, 220],
     ];
     const c = palette[Math.floor(Math.random() * palette.length)];
     this.color = c;
@@ -50,42 +46,145 @@
     this.x += (this.vx + Math.sin(this.swing) * 0.6 + config.wind * 0.3) * config.speed * dt;
     this.y += this.vy * config.speed * dt;
     this.rot += this.vr * config.speed * dt;
-    if (this.y > height + 20 || this.x < -40 || this.x > width + 40) {
-      this.reset(false);
-    }
+    if (this.y > height + 20 || this.x < -40 || this.x > width + 40) this.reset(false);
   };
-  Petal.prototype.draw = function (ctx) {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.rot);
-    ctx.globalAlpha = this.opacity;
-
-    // 绘制花瓣形状：两个贝塞尔曲线构造椭圆带尖的瓣
+  Petal.prototype.draw = function (c2) {
+    c2.save();
+    c2.translate(this.x, this.y);
+    c2.rotate(this.rot);
+    c2.globalAlpha = this.opacity;
     const s = this.size;
-    const grad = ctx.createLinearGradient(-s, 0, s, 0);
+    const grad = c2.createLinearGradient(-s, 0, s, 0);
     const [r, g, b] = this.color;
     grad.addColorStop(0, `rgba(${r},${g},${b},0.2)`);
     grad.addColorStop(0.5, `rgba(${r},${g},${b},1)`);
     grad.addColorStop(1, `rgba(255,255,255,0.4)`);
-    ctx.fillStyle = grad;
-
-    ctx.beginPath();
-    ctx.moveTo(0, -s * 0.9);
-    ctx.bezierCurveTo(s * 0.6, -s * 0.5, s * 0.6, s * 0.3, 0, s * 0.7);
-    ctx.bezierCurveTo(-s * 0.6, s * 0.3, -s * 0.6, -s * 0.5, 0, -s * 0.9);
-    ctx.closePath();
-    ctx.fill();
-
-    // 中心纹理
-    ctx.strokeStyle = `rgba(${r - 20},${g - 40},${b - 30},0.5)`;
-    ctx.lineWidth = 0.6;
-    ctx.beginPath();
-    ctx.moveTo(0, -s * 0.5);
-    ctx.lineTo(0, s * 0.5);
-    ctx.stroke();
-
-    ctx.restore();
+    c2.fillStyle = grad;
+    c2.beginPath();
+    c2.moveTo(0, -s * 0.9);
+    c2.bezierCurveTo(s * 0.6, -s * 0.5, s * 0.6, s * 0.3, 0, s * 0.7);
+    c2.bezierCurveTo(-s * 0.6, s * 0.3, -s * 0.6, -s * 0.5, 0, -s * 0.9);
+    c2.closePath();
+    c2.fill();
+    c2.strokeStyle = `rgba(${r - 20},${g - 40},${b - 30},0.5)`;
+    c2.lineWidth = 0.6;
+    c2.beginPath();
+    c2.moveTo(0, -s * 0.5);
+    c2.lineTo(0, s * 0.5);
+    c2.stroke();
+    c2.restore();
   };
+
+  function Star(init) {
+    this.reset(init);
+  }
+  Star.prototype.reset = function (initial) {
+    this.x = Math.random() * width;
+    this.y = initial ? Math.random() * height : height + 20 + Math.random() * 80;
+    this.size = 1.2 + Math.random() * 2.8;
+    this.vy = -(0.15 + Math.random() * 0.35);
+    this.vx = (-0.2 + Math.random() * 0.4);
+    this.phase = Math.random() * Math.PI * 2;
+    this.twinkle = 0.02 + Math.random() * 0.04;
+    const palette = [
+      [220, 235, 255], [200, 220, 255], [255, 255, 255],
+      [180, 210, 255], [160, 195, 255],
+    ];
+    this.color = palette[Math.floor(Math.random() * palette.length)];
+  };
+  Star.prototype.update = function (dt, t) {
+    this.phase += this.twinkle * config.speed * dt;
+    this.x += this.vx * config.speed * dt;
+    this.y += this.vy * config.speed * dt;
+    this.opacity = 0.35 + Math.sin(t * 0.002 + this.phase) * 0.35;
+    if (this.y < -30) this.reset(false);
+    if (this.x < -20 || this.x > width + 20) this.x = (this.x + width + 40) % (width + 40) - 20;
+  };
+  Star.prototype.draw = function (c2) {
+    c2.save();
+    c2.translate(this.x, this.y);
+    c2.globalAlpha = Math.max(0.15, Math.min(1, this.opacity));
+    const [r, g, b] = this.color;
+    const s = this.size;
+    const g1 = c2.createRadialGradient(0, 0, 0, 0, 0, s * 2.5);
+    g1.addColorStop(0, `rgba(255,255,255,0.95)`);
+    g1.addColorStop(0.4, `rgba(${r},${g},${b},0.85)`);
+    g1.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    c2.fillStyle = g1;
+    c2.beginPath();
+    c2.arc(0, 0, s * 2.2, 0, Math.PI * 2);
+    c2.fill();
+    c2.strokeStyle = `rgba(255,255,255,0.5)`;
+    c2.lineWidth = 0.3;
+    c2.beginPath();
+    c2.moveTo(-s * 3, 0);
+    c2.lineTo(s * 3, 0);
+    c2.moveTo(0, -s * 3);
+    c2.lineTo(0, s * 3);
+    c2.stroke();
+    c2.restore();
+  };
+
+  function Leaf(init) {
+    this.reset(init);
+  }
+  Leaf.prototype.reset = function (initial) {
+    this.x = Math.random() * width;
+    this.y = initial ? Math.random() * height : -30 - Math.random() * height * 0.25;
+    this.size = config.sizeMin * 0.85 + Math.random() * (config.sizeMax * 0.9 - config.sizeMin * 0.85);
+    this.vy = 0.5 + Math.random() * 1.1;
+    this.vx = -0.35 + Math.random() * 0.7;
+    this.rot = Math.random() * Math.PI * 2;
+    this.vr = (-0.025 + Math.random() * 0.05);
+    this.swing = Math.random() * Math.PI * 2;
+    this.swingSpeed = 0.008 + Math.random() * 0.018;
+    this.opacity = 0.55 + Math.random() * 0.4;
+    const palette = [
+      [180, 140, 70], [120, 95, 55], [85, 120, 65], [200, 165, 90],
+      [95, 130, 75], [165, 130, 60],
+    ];
+    this.color = palette[Math.floor(Math.random() * palette.length)];
+  };
+  Leaf.prototype.update = function (dt) {
+    this.swing += this.swingSpeed;
+    this.x += (this.vx + Math.sin(this.swing) * 0.45 + config.wind * 0.25) * config.speed * dt;
+    this.y += this.vy * config.speed * dt;
+    this.rot += this.vr * config.speed * dt;
+    if (this.y > height + 30 || this.x < -50 || this.x > width + 50) this.reset(false);
+  };
+  Leaf.prototype.draw = function (c2) {
+    c2.save();
+    c2.translate(this.x, this.y);
+    c2.rotate(this.rot);
+    c2.globalAlpha = this.opacity;
+    const s = this.size;
+    const [r, g, b] = this.color;
+    const grad = c2.createLinearGradient(-s, -s, s, s);
+    grad.addColorStop(0, `rgba(${Math.min(255, r + 40)},${Math.min(255, g + 35)},${b},0.95)`);
+    grad.addColorStop(0.5, `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(1, `rgba(${r - 20},${g - 15},${b - 10},0.75)`);
+    c2.fillStyle = grad;
+    c2.beginPath();
+    c2.moveTo(0, -s);
+    c2.bezierCurveTo(s * 0.55, -s * 0.35, s * 0.65, s * 0.25, 0, s * 0.95);
+    c2.bezierCurveTo(-s * 0.55, s * 0.2, -s * 0.6, -s * 0.3, 0, -s);
+    c2.closePath();
+    c2.fill();
+    c2.strokeStyle = `rgba(${r - 30},${g - 25},${b - 15},0.45)`;
+    c2.lineWidth = 0.5;
+    c2.beginPath();
+    c2.moveTo(0, -s * 0.85);
+    c2.quadraticCurveTo(0, 0, 0, s * 0.85);
+    c2.stroke();
+    c2.restore();
+  };
+
+  function makeParticle(initial) {
+    const m = config.particleMode;
+    if (m === "starlight") return new Star(initial);
+    if (m === "sycamore") return new Leaf(initial);
+    return new Petal(initial);
+  }
 
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -98,9 +197,14 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function ensureCount() {
-    while (petals.length < config.count) petals.push(new Petal(true));
-    if (petals.length > config.count) petals.length = config.count;
+  function ensureParticles() {
+    while (particles.length < config.count) particles.push(makeParticle(true));
+    if (particles.length > config.count) particles.length = config.count;
+  }
+
+  function rebuildParticles() {
+    particles = [];
+    ensureParticles();
   }
 
   let last = performance.now();
@@ -109,7 +213,12 @@
     const dt = Math.min((t - last) / 16.67, 3);
     last = t;
     ctx.clearRect(0, 0, width, height);
-    for (const p of petals) { p.update(dt); p.draw(ctx); }
+    const mode = config.particleMode;
+    for (const p of particles) {
+      if (mode === "starlight") p.update(dt, t);
+      else p.update(dt);
+      p.draw(ctx);
+    }
     rafId = requestAnimationFrame(loop);
   }
 
@@ -125,31 +234,31 @@
     rafId = 0;
   }
 
-  // 页面隐藏时暂停，节约电量
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) stop(); else start();
   });
 
   window.addEventListener("resize", () => { resize(); });
 
-  // 用户启用"减少动画"时直接关掉粒子，节省电量
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 
-  // 对外 API
   window.Sakura = {
     init(opts = {}) {
       Object.assign(config, opts);
       resize();
-      petals = [];
-      if (reduced && reduced.matches) return; // 尊重系统设置
-      ensureCount();
+      particles = [];
+      if (reduced && reduced.matches) return;
+      rebuildParticles();
       start();
     },
     set(opts = {}) {
+      const prevMode = config.particleMode;
       Object.assign(config, opts);
-      ensureCount();
+      if (opts.particleMode != null && opts.particleMode !== prevMode) rebuildParticles();
+      else ensureParticles();
     },
     getConfig() { return { ...config }; },
-    start, stop,
+    start,
+    stop,
   };
 })();

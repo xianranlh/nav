@@ -80,7 +80,7 @@
         <div class="chip chip-menu">
           <button id="btn-export">导出</button>
           <div class="chip-menu-pop">
-            <button data-export="json">JSON 备份</button>
+            <button data-export="json" title="与设置 → 同步与备份 → 本地备份 相同（sakura-nav@2）">完整备份 JSON</button>
             <button data-export="html">浏览器书签 HTML</button>
           </div>
         </div>
@@ -203,14 +203,45 @@
     <form method="dialog" id="form-settings">
       <h3>设置</h3>
 
-      <!-- 外观 -->
       <details class="sec" open>
+        <summary>🔐 账号与安全</summary>
+        <p class="hint">修改用户名或密码后，当前会话会退出，请用新凭据重新登录。须先输入<strong>当前</strong>账号以验证身份。</p>
+        <label>当前用户名
+          <input type="text" id="auth-cur-user" autocomplete="username" spellcheck="false" />
+        </label>
+        <label>当前密码
+          <input type="password" id="auth-cur-pass" autocomplete="current-password" />
+        </label>
+        <label>新用户名
+          <input type="text" id="auth-new-user" autocomplete="off" spellcheck="false" />
+        </label>
+        <label>新密码（至少 4 个字符）
+          <input type="password" id="auth-new-pass" autocomplete="new-password" />
+        </label>
+        <label>确认新密码
+          <input type="password" id="auth-new-pass2" autocomplete="new-password" />
+        </label>
+        <div class="row" style="margin-top:8px">
+          <button type="button" class="btn-primary" id="btn-auth-save">保存新账号</button>
+        </div>
+        <p class="hint" id="auth-change-msg" style="min-height:1.2em;color:var(--text-soft)"></p>
+      </details>
+
+      <!-- 外观 -->
+      <details class="sec">
         <summary>🎨 外观</summary>
         <label class="row">主题
           <select id="set-theme">
             <option value="auto">跟随系统</option>
             <option value="light">亮色</option>
             <option value="dark">暗色</option>
+          </select>
+        </label>
+        <label class="row">视觉氛围
+          <select id="set-visual-theme">
+            <option value="sakura">樱 · 樱花</option>
+            <option value="starlight">星光</option>
+            <option value="sycamore">梧桐叶</option>
           </select>
         </label>
         <label class="row">主色调
@@ -272,7 +303,7 @@
             <div class="bg-upload-placeholder">
               <div class="bg-upload-icon">📁</div>
               <div class="bg-upload-title">点击或拖拽上传</div>
-              <div class="bg-upload-hint">支持 JPG / PNG / GIF / WebP / MP4 / WebM（建议 &lt; 30MB）</div>
+              <div class="bg-upload-hint">支持 JPG / PNG / GIF / WebP / MP4 / WebM（建议 &lt; 60MB）· Docker 部署时文件会落到服务器 <code>data/media</code></div>
             </div>
             <div class="bg-upload-current" id="bg-upload-current" hidden></div>
           </label>
@@ -283,14 +314,14 @@
         </div>
 
         <div class="bg-panel" data-when="single">
-          <label>图片 / 视频 URL
-            <input id="set-bg-single" placeholder="https://... 也支持 .mp4 / .webm" />
+          <label>图片 / 视频 URL（图床直链、自建存储均可）
+            <input id="set-bg-single" placeholder="https://img.xxx/... 或 https://...mp4" />
           </label>
-          <p class="hint">以 <code>.mp4</code> / <code>.webm</code> / <code>.mov</code> / <code>.ogv</code> 结尾的链接会被识别为视频并循环播放。</p>
+          <p class="hint">支持常见图床 HTTPS 直链。以 <code>.mp4</code> / <code>.webm</code> / <code>.mov</code> / <code>.ogv</code> 结尾的链接会作为视频背景循环播放。</p>
         </div>
 
         <div class="bg-panel" data-when="rotate">
-          <label>图片 URL 列表（每行一个）
+          <label>图片 URL 列表（每行一个，可混用图床）
             <textarea id="set-bg-list" rows="4" placeholder="https://img1...&#10;https://img2..."></textarea>
           </label>
           <label class="row">切换间隔
@@ -327,9 +358,9 @@
         </label>
       </details>
 
-      <!-- 樱花 -->
+      <!-- 背景粒子 -->
       <details class="sec">
-        <summary>🌸 樱花动画</summary>
+        <summary>✨ 背景粒子</summary>
         <label class="row">数量
           <input type="range" id="set-sakura-count" min="0" max="200" step="5" />
           <span id="set-sakura-count-val"></span>
@@ -368,65 +399,110 @@
         <label class="row"><input type="checkbox" id="set-cal-notify" /> 到点桌面通知（需授权）</label>
       </details>
 
-      <details class="settings-section">
+      <details class="sec">
         <summary>☁ 天气 · 多城市</summary>
-        <label class="row"><input type="checkbox" id="set-show-weather" /> 首页显示天气卡片</label>
-        <label class="row"><input type="checkbox" id="set-weather-auto" /> 启用"自动定位"卡（通过 IP 定位）</label>
 
-        <div class="city-search-wrap">
-          <label>
-            搜索中国城市（可输入中文 / 拼音 / 英文）
-            <input type="text" id="weather-city-search" placeholder="例如：北京 / Shanghai / Hangzhou" autocomplete="off" />
-          </label>
-          <div class="city-search-results" id="weather-city-results" hidden></div>
+        <div class="settings-stack">
+          <div class="settings-subcard">
+            <h4 class="settings-subcard-title">显示与联动</h4>
+            <div class="settings-toggle-col">
+              <label class="row row-tight"><input type="checkbox" id="set-show-weather" /> 首页显示天气卡片</label>
+              <label class="row row-tight"><input type="checkbox" id="set-weather-auto" /> 启用「自动定位」卡（通过 IP 估算位置）</label>
+              <label class="row row-tight"><input type="checkbox" id="set-weather-on-cal" /> 日历月视图显示当天天气图标</label>
+            </div>
+          </div>
+
+          <div class="settings-subcard">
+            <h4 class="settings-subcard-title">城市列表</h4>
+            <p class="settings-subhint">搜索添加城市；点击城市可设为主城市（日历与通知联动）；点 × 删除。</p>
+            <div class="city-search-wrap">
+              <label class="settings-field-label">
+                搜索中国城市
+                <input type="text" id="weather-city-search" placeholder="中文 / 拼音 / 英文，如 北京、Shanghai" autocomplete="off" />
+              </label>
+              <div class="city-search-results" id="weather-city-results" hidden></div>
+            </div>
+            <div class="city-chip-list" id="weather-city-list"></div>
+            <div class="settings-btn-row">
+              <button type="button" class="btn-secondary" id="btn-weather-locate">📍 浏览器精确定位</button>
+              <button type="button" class="btn-primary" id="btn-weather-refresh">↻ 立即刷新全部</button>
+            </div>
+          </div>
         </div>
-
-        <div class="city-chip-list" id="weather-city-list"></div>
-
-        <div class="row">
-          <button type="button" class="btn-secondary" id="btn-weather-locate">浏览器精确定位</button>
-          <button type="button" class="btn-secondary" id="btn-weather-refresh">立即刷新全部</button>
-        </div>
-        <p class="hint">单击城市可切换主城市（用于日历/通知等联动）。点击 × 删除城市。</p>
-        <label class="row"><input type="checkbox" id="set-weather-on-cal" /> 日历月视图显示天气图标</label>
       </details>
 
-      <details class="settings-section">
+      <details class="sec">
+        <summary>💾 存储内容（浏览器）</summary>
+        <p class="hint">列出当前浏览器 <code>localStorage</code> 与 <code>IndexedDB</code> 中与本应用相关的数据。清除后多数情况会刷新页面。Docker 部署时，导航等还会在<strong>服务端 SQLite</strong>存一份（见上方同步说明）。</p>
+        <p class="hint" id="storage-remote-hint" hidden></p>
+        <div id="storage-inspector-mount" class="storage-inspector"></div>
+        <div class="row" style="margin-top:8px">
+          <button type="button" class="btn-secondary" id="btn-storage-refresh">↻ 刷新列表</button>
+        </div>
+      </details>
+
+      <details class="sec">
         <summary>🔁 同步与备份</summary>
-        <label class="row">
-          后端
-          <select id="sync-backend">
-            <option value="off">关闭</option>
-            <option value="webdav">WebDAV</option>
-            <option value="gist">GitHub Gist</option>
-          </select>
-        </label>
-        <div id="sync-webdav-conf">
-          <label class="row">服务器 URL <input type="url" id="sync-webdav-url" placeholder="https://dav.jianguoyun.com/dav/" /></label>
-          <div class="row">
-            <label style="flex:1">用户 <input type="text" id="sync-webdav-user" autocomplete="off" /></label>
-            <label style="flex:1">密码/应用密码 <input type="password" id="sync-webdav-pass" autocomplete="off" /></label>
+
+        <p class="hint settings-lead">纯静态打开时数据在浏览器；<strong>Docker / Node</strong> 部署时导航等会写入服务端 SQLite，媒体文件在宿主 <code>data/media</code>。可用下方<strong>服务端手动同步</strong>、<strong>云端</strong>或<strong>本地 JSON</strong>迁移。</p>
+
+        <div id="sync-local-server-panel" class="settings-subcard settings-subcard-accent" hidden>
+          <h4 class="settings-subcard-title">🖥 本页服务端（同源 /api/data）</h4>
+          <p class="settings-subhint">平时编辑后会自动保存到服务器；网络不稳定或换设备前，可手动立即上传或从服务器拉取覆盖本页数据。</p>
+          <div class="settings-btn-row settings-btn-row--equal">
+            <button type="button" class="btn-primary" id="btn-sync-remote-push">⇧ 立即上传到服务器</button>
+            <button type="button" class="btn-secondary" id="btn-sync-remote-pull">⇩ 从服务器拉取并覆盖</button>
           </div>
-          <label class="row">远端文件路径 <input type="text" id="sync-webdav-path" value="sakura-nav.json" /></label>
         </div>
-        <div id="sync-gist-conf" hidden>
-          <label class="row">GitHub Token（gist 权限）<input type="password" id="sync-gist-token" autocomplete="off" /></label>
-          <label class="row">Gist ID（留空则首次自动创建）<input type="text" id="sync-gist-id" autocomplete="off" /></label>
-          <label class="row">文件名 <input type="text" id="sync-gist-file" value="sakura-nav.json" /></label>
-        </div>
-        <label class="row"><input type="checkbox" id="set-sync-auto" /> 自动同步（重要变更后 30s 上传）</label>
-        <label class="row"><input type="checkbox" id="set-sync-include-keys" /> 包含 AI API Key（仅私有后端建议开启）</label>
-        <div class="row">
-          <button type="button" class="btn-secondary" id="btn-sync-push">⇧ 上传</button>
-          <button type="button" class="btn-secondary" id="btn-sync-pull">⇩ 下载并覆盖</button>
-        </div>
-        <div class="row">
-          <button type="button" class="btn-secondary" id="btn-sync-export">💾 本地备份 JSON</button>
-          <label class="btn-secondary" style="text-align:center;cursor:pointer">📂 从备份还原
-            <input type="file" id="sync-import-file" accept="application/json" hidden />
+
+        <div class="settings-subcard">
+          <h4 class="settings-subcard-title">☁ 云端（WebDAV / GitHub Gist）</h4>
+          <label class="row row-block">
+            <span class="settings-field-name">同步后端</span>
+            <select id="sync-backend" class="settings-select-wide">
+              <option value="off">关闭</option>
+              <option value="webdav">WebDAV</option>
+              <option value="gist">GitHub Gist</option>
+            </select>
           </label>
+          <div id="sync-webdav-conf" class="sync-backend-fields">
+            <label class="row row-block">服务器 URL <input type="url" id="sync-webdav-url" placeholder="https://dav.jianguoyun.com/dav/" /></label>
+            <div class="settings-inline-pair">
+              <label class="row row-block">用户 <input type="text" id="sync-webdav-user" autocomplete="off" /></label>
+              <label class="row row-block">密码 / 应用密码 <input type="password" id="sync-webdav-pass" autocomplete="off" /></label>
+            </div>
+            <label class="row row-block">远端文件路径 <input type="text" id="sync-webdav-path" value="sakura-nav.json" /></label>
+          </div>
+          <div id="sync-gist-conf" class="sync-backend-fields" hidden>
+            <label class="row row-block">GitHub Token（需 gist 权限）<input type="password" id="sync-gist-token" autocomplete="off" /></label>
+            <label class="row row-block">Gist ID（留空则首次上传时自动创建）<input type="text" id="sync-gist-id" autocomplete="off" /></label>
+            <label class="row row-block">文件名 <input type="text" id="sync-gist-file" value="sakura-nav.json" /></label>
+          </div>
         </div>
-        <p class="hint" id="sync-status" style="margin-top:6px"></p>
+
+        <div class="settings-subcard">
+          <h4 class="settings-subcard-title">选项</h4>
+          <div class="settings-toggle-col">
+            <label class="row row-tight"><input type="checkbox" id="set-sync-auto" /> 云端自动同步（重要变更后约 30 秒上传）</label>
+            <label class="row row-tight"><input type="checkbox" id="set-sync-include-keys" /> 云端上传包含 AI API Key（仅信任的网络）</label>
+            <label class="row row-tight"><input type="checkbox" id="set-sync-include-auth" /> 本地导出的 JSON 包含登录凭据哈希（换机恢复用；勿上传到不可信云端）</label>
+          </div>
+        </div>
+
+        <div class="settings-subcard">
+          <h4 class="settings-subcard-title">云端与本地文件</h4>
+          <div class="settings-btn-grid">
+            <button type="button" class="btn-primary" id="btn-sync-push">⇧ 上传到云端</button>
+            <button type="button" class="btn-secondary" id="btn-sync-pull">⇩ 从云端下载并覆盖</button>
+            <button type="button" class="btn-secondary" id="btn-sync-export">💾 导出备份 JSON</button>
+            <label class="btn-secondary settings-file-btn">
+              📂 从备份还原
+              <input type="file" id="sync-import-file" accept="application/json" hidden />
+            </label>
+          </div>
+        </div>
+
+        <p class="hint settings-sync-status" id="sync-status"></p>
       </details>
 
       <div class="dialog-actions">
@@ -471,9 +547,6 @@
     <span class="music-fab-icon">🎵</span>
     <span class="music-fab-wave"><i></i><i></i><i></i><i></i></span>
   </button>
-  <!-- 独立入口：直接打开音乐搜索弹窗（不必先打开播放器面板） -->
-  <button type="button" id="music-search-fab" class="music-search-fab" title="搜索音乐" aria-label="搜索音乐">🔍</button>
-
   <!-- ===== 音乐面板 ===== -->
   <aside id="music-panel" class="music-panel glass" hidden>
     <header class="music-head">
@@ -481,27 +554,17 @@
         <span class="music-logo">🎵</span>
         <div class="music-head-title">
           <div id="music-title" class="music-title">— 没有歌曲 —</div>
-          <div id="music-meta" class="music-meta">导入本地音乐文件开始使用</div>
+          <div id="music-meta" class="music-meta">导入音乐（Docker 下会持久化到服务器）</div>
         </div>
       </div>
       <div class="music-head-right">
         <button class="icon-btn small" id="music-add" title="导入本地音乐 / .lrc">📁</button>
         <button class="icon-btn small" id="music-add-url" title="添加在线 URL">🌐</button>
-        <button class="icon-btn small" id="music-open-search" title="搜索网络歌曲（酷我）">🔍</button>
         <button class="icon-btn small" id="music-clear" title="清空播放列表">🗑</button>
         <button class="icon-btn small" id="music-close" title="关闭">✕</button>
         <input type="file" id="music-file-input" accept="audio/*,.lrc,.mp3,.m4a,.flac,.wav,.ogg,.aac,.opus" multiple hidden />
       </div>
     </header>
-
-    <!-- 音源 & 过滤 -->
-    <div class="music-sources-row">
-      <label>音源
-        <select id="music-source-select" title="切换音源标签 / 过滤播放列表"></select>
-      </label>
-      <button type="button" class="mini-btn" id="music-source-import" title="粘贴音源 .js 直链，在线拉取并缓存在本机">＋ 在线音源</button>
-      <button type="button" class="mini-btn" id="music-source-info" title="查看/下载脚本">ℹ 脚本</button>
-    </div>
 
     <div class="music-stage">
       <canvas id="music-visualizer" class="music-visualizer" aria-hidden="true"></canvas>
@@ -538,85 +601,6 @@
     </div>
   </aside>
 
-  <!-- 音乐 · LX 风格搜索弹窗（当前仅酷我线路可用） -->
-  <dialog id="dialog-music-search" class="glass-dialog music-search-dialog">
-    <div class="music-search-dialog-shell">
-      <header class="msd-top">
-        <span class="msd-logo" aria-hidden="true">LX</span>
-        <div class="msd-top-search">
-          <input type="search" id="music-search-modal-input" class="msd-search-input" placeholder="Search for something…" autocomplete="off" maxlength="100" />
-          <button type="button" class="msd-search-submit" id="music-search-modal-go" title="搜索">🔍</button>
-        </div>
-        <button type="button" class="icon-btn small msd-close" id="music-search-modal-close" title="关闭">✕</button>
-      </header>
-
-      <div class="msd-source-row">
-        <div class="msd-source-tabs" role="tablist" aria-label="音源">
-          <button type="button" class="msd-src-tab active" data-platform="kw" data-available="1" title="已接入（本站反代酷我）">小蜗音乐</button>
-          <button type="button" class="msd-src-tab" data-platform="wy" data-available="1" title="网易云音乐搜索">小秋音乐</button>
-          <button type="button" class="msd-src-tab" data-platform="tx" data-available="1" title="QQ 音乐搜索（试听解析可能受限）">小狗音乐</button>
-          <button type="button" class="msd-src-tab" data-platform="kg" data-available="1" title="酷狗音乐搜索">小芸音乐</button>
-          <button type="button" class="msd-src-tab" data-platform="mg" data-available="1" title="咪咕音乐搜索">小蛮音乐</button>
-          <button type="button" class="msd-src-tab" data-platform="mix" data-available="1" title="多源聚合（酷我/网易/QQ/酷狗/咪咕交错）">聚合大会</button>
-        </div>
-        <div class="msd-type-tabs" role="tablist" aria-label="类型">
-          <button type="button" class="msd-type-tab active" data-search-type="song">歌曲</button>
-          <button type="button" class="msd-type-tab" data-search-type="playlist">歌单</button>
-        </div>
-        <div class="msd-toolbar" aria-label="试听音质">
-          <label class="msd-quality-label">音质
-            <select id="music-search-quality" class="msd-quality-select" title="解析直链时的码率偏好（酷我 antiserver 多为 mp3）">
-              <option value="128k" selected>128k</option>
-              <option value="320k">320k</option>
-            </select>
-          </label>
-          <span class="msd-kbd-hint" title="焦点在表格外时可用">↑↓ 选择 · Enter 播放 · Esc 关闭</span>
-        </div>
-      </div>
-
-      <div class="msd-body">
-        <aside class="msd-rail" aria-hidden="true">
-          <span class="msd-rail-i active" title="搜索">🔍</span>
-          <span class="msd-rail-i" title="库">🎵</span>
-          <span class="msd-rail-i" title="排行">📊</span>
-          <span class="msd-rail-i" title="收藏">♡</span>
-          <span class="msd-rail-i" title="设置">⬡</span>
-        </aside>
-        <div class="msd-main">
-          <div id="music-search-modal-table-wrap" class="msd-table-wrap">
-            <table class="msd-table" id="music-search-modal-table" hidden>
-              <thead>
-                <tr>
-                  <th class="col-idx">#</th>
-                  <th>歌曲名</th>
-                  <th>艺术家</th>
-                  <th>专辑名</th>
-                  <th class="col-dur">时长</th>
-                  <th class="col-play" title="试听">▶</th>
-                  <th class="col-add">加入</th>
-                  <th class="col-lrc" title="加入并尝试拉取歌词">词</th>
-                </tr>
-              </thead>
-              <tbody id="music-search-modal-tbody"></tbody>
-            </table>
-          </div>
-          <div id="music-search-modal-footer" class="msd-footer" hidden>
-            <span id="music-search-modal-status" class="msd-footer-status"></span>
-            <button type="button" id="music-search-modal-more" class="msd-more-btn" disabled>加载更多</button>
-          </div>
-          <div id="music-search-modal-empty" class="msd-empty">
-            <p class="msd-empty-title">搜我所想~~ 😉</p>
-            <p class="msd-empty-sub">已接入：<b>酷我 / 网易云 / QQ / 酷狗 / 咪咕</b> 与 <b>聚合</b>。支持单击选行、双击或 ▶ 播放、「词」拉歌词、底栏加载更多。<br><small>QQ 多为仅搜索；试听可换其它源。</small></p>
-          </div>
-          <div id="music-search-modal-playlist-hint" class="msd-playlist-hint" hidden>
-            <p>歌单搜索</p>
-            <small>网页版暂未实现歌单检索；请在「歌曲」中搜索单曲，或使用洛雪客户端浏览歌单。</small>
-          </div>
-        </div>
-      </div>
-    </div>
-  </dialog>
-
   <!-- 音乐 · 在线导入 -->
   <dialog id="dialog-music-url" class="glass-dialog">
     <form method="dialog" id="form-music-url">
@@ -632,8 +616,8 @@
         <textarea name="lrc" rows="3" placeholder="[00:12.00]第一行歌词&#10;[00:15.00]第二行歌词"></textarea>
       </label>
       <p class="hint">
-        · 远程 URL 必须允许跨源（CORS）或同源才能播放。<br>
-        · 直链 .mp3 / .m4a 通常可行；需要授权的源请用桌面应用。
+        · 远程 URL 需音频服务器允许跨域播放（CORS），否则浏览器可能无法缓冲。<br>
+        · 直链 .mp3 / .m4a 等若可直连即可播放。
       </p>
       <div class="dialog-actions">
         <button value="cancel" type="button" class="btn-secondary" data-close>取消</button>
@@ -642,46 +626,29 @@
     </form>
   </dialog>
 
-  <!-- 音乐 · 在线导入音源脚本 -->
-  <dialog id="dialog-music-source-url" class="glass-dialog">
-    <form method="dialog" id="form-music-source-url">
-      <h3>＋ 在线导入音源</h3>
-      <label>音源脚本 URL（需返回纯 .js 文本）
-        <input name="url" type="url" required
-          placeholder="https://example.com/lx-music-source.js" />
-      </label>
-      <label>显示名称（可选）
-        <input name="name" maxlength="120" placeholder="留空则取 URL 文件名" />
-      </label>
+  <!-- 音乐 · 粘贴 / 文件绑定 LRC -->
+  <dialog id="dialog-music-lrc" class="glass-dialog">
+    <form id="form-music-lrc">
+      <h3>📝 绑定歌词</h3>
       <p class="hint">
-        · 仅支持浏览器能直接 <code>fetch</code> 的地址（目标站需返回 <code>Access-Control-Allow-Origin</code>，或与导航页同源）。<br>
-        · 导入后脚本全文保存在本机 IndexedDB，可在「ℹ 脚本」里导出为 .js 供 LX Music 客户端使用。
+        直接粘贴带时间轴的 LRC（如 <code>[00:09.360]</code> 一行一句），或点「从文件」选择 <code>.lrc</code> 后再点「应用」。
       </p>
+      <label>LRC 文本
+        <textarea name="lrc" rows="14" spellcheck="false"
+          placeholder="[00:09.360]第一行&#10;[00:10.410]第二行"></textarea>
+      </label>
+      <input type="file" id="music-lrc-file-input" accept=".lrc,text/plain" hidden />
       <div class="dialog-actions">
-        <button value="cancel" type="button" class="btn-secondary" data-close>取消</button>
-        <button value="ok" type="submit" class="btn-primary">拉取并缓存</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- 音乐 · 音源脚本说明 -->
-  <dialog id="dialog-music-source" class="glass-dialog">
-    <form method="dialog">
-      <h3>🎛 LX Music 协议音源</h3>
-      <p class="hint">
-        项目已内置 7 个 LX Music 协议的音源脚本，用于<b>在 LX Music 桌面客户端中</b>解析 QQ / 网易云 / 酷狗 / 酷我 / 咪咕 等平台的播放 URL。<br>
-        <small>浏览器里不能直接跑这些脚本（它们依赖桌面客户端注入的 <code>globalThis.lx</code> 并可能触发 CORS），所以这里把它们作为<b>标签</b>用于给歌曲分类；需要实际解析时请复制脚本到 LX Music 客户端导入使用。</small>
-      </p>
-      <ul id="music-source-list" class="music-source-list"></ul>
-      <div class="dialog-actions">
-        <button value="ok" class="btn-primary" data-close>关闭</button>
+        <button type="button" class="btn-secondary" data-close>取消</button>
+        <button type="button" class="btn-secondary" id="music-lrc-from-file">📄 从文件…</button>
+        <button type="submit" class="btn-primary">应用</button>
       </div>
     </form>
   </dialog>
 
   <!-- ===== AI 聊天浮动按钮 ===== -->
   <button id="ai-fab" class="ai-fab" title="AI 助手 (Alt+A)" aria-label="打开 AI 助手">
-    <span class="ai-fab-icon">🤖</span>
+    <span class="ai-fab-icon">🌸</span>
   </button>
 
   <!-- ===== AI 聊天面板 ===== -->
@@ -696,9 +663,10 @@
         <button class="icon-btn small" id="ai-refresh-models" title="刷新模型列表">↻</button>
         <button class="icon-btn small" id="ai-clear" title="清空会话">🗑</button>
         <button class="icon-btn small" id="ai-open-settings" title="AI 设置">⚙</button>
-        <button class="icon-btn small" id="ai-close" title="关闭">✕</button>
+        <button class="icon-btn small" id="ai-close" title="关闭面板（也可按 Esc）">✕</button>
       </div>
     </header>
+    <p class="hint" style="margin:0;padding:0 14px 10px;font-size:11px;opacity:.85">关闭：点右上角 ✕，或按键盘 <kbd>Esc</kbd></p>
     <div id="ai-messages" class="ai-messages">
       <div class="ai-empty">
         <div class="ai-empty-logo">🌸</div>
@@ -1009,11 +977,14 @@
   <script src="blog.js"></script>
   <script src="calendar.js"></script>
   <script src="sync.js"></script>
+  <script src="sakura-remote.js"></script>
+  <script src="sakura-media.js"></script>
   <script src="weather.js"></script>
   <script src="suggest.js"></script>
   <script src="exporter.js"></script>
-  <script src="idb.js"></script>
-  <script src="music.js"></script>
-  <script src="app.js"></script>
+    <script src="idb.js"></script>
+    <script src="music.js"></script>
+    <script src="storage-inspector.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

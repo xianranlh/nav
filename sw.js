@@ -4,7 +4,7 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.12.7";
+const VERSION = "v1.13.1";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
 
@@ -24,6 +24,7 @@ const CORE_FILES = [
   "./exporter.js",
   "./idb.js",
   "./music.js",
+  "./storage-inspector.js",
   "./app.js",
   "./manifest.json",
 ];
@@ -70,11 +71,11 @@ function isMediaRequest(req, url) {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  // 扩展程序、blob、data 等 scheme 不能进 Cache API，交给浏览器默认行为
+  if (url.protocol !== "http:" && url.protocol !== "https:") return;
   // 带鉴权头的请求（AI API / 同步）直接走网络
   if (req.headers.get("authorization")) return;
-  const url = new URL(req.url);
-  // 音乐统一 API：勿缓存
-  if (url.pathname.startsWith("/api/music")) return;
   // 媒体资源：不要缓存（避免 Range/大文件触发 cache.put 异常 → 被误判成 504）
   if (isMediaRequest(req, url)) return;
   // 动态 API：天气 / IP 定位 / 同步 / Gist，直接走网络

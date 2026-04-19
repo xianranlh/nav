@@ -1,7 +1,7 @@
 /* 登录鉴权模块
- * - 账号密码以 SHA-256(用户名::密码) 的形式保存在代码中（非明文）
- * - 登录成功后生成 token，保存到 localStorage，有效期 7 天
- * - 页面刷新时自动校验 token 是否有效；无效则显示登录层
+ * - 校验凭据：优先 localStorage 中的 SHA-256("用户名::密码")；未自定义时回退内置默认哈希
+ * - 用户可在「设置 → 账号与安全」中修改用户名与密码（会写入 localStorage，并退出登录）
+ * - 登录成功后生成 token，保存到 localStorage / sessionStorage，有效期 7 天
  *
  * 注意：纯前端无法做到真正的安全鉴权（客户端代码可绕过），
  * 此机制仅用于防止他人在你的设备上随手打开页面时看到数据。
@@ -10,17 +10,35 @@
   "use strict";
 
   const TOKEN_KEY = "sakura_nav_token_v1";
+  const CRED_KEY = "sakura_nav_auth_cred_v1";
   const SESSION_MS = 7 * 24 * 60 * 60 * 1000; // 7 天
 
-  // SHA-256("xianran::lh116688257")
-  const EXPECTED_HASH = "0ae8f34aa71b498f71b88924734ef40fcfa1c2e76c72ecede5c2b56de4244ed1";
-  // 用来混入 token 指纹，换账号时改这个即可使旧 token 失效
+  /** 未自定义凭据时的默认账号（与旧版一致）：SHA-256("xianran::lh116688257") */
+  const LEGACY_DEFAULT_HASH = "0ae8f34aa71b498f71b88924734ef40fcfa1c2e76c72ecede5c2b56de4244ed1";
+  // 用来混入 token 指纹
   const TOKEN_SECRET = "sakura-2026-v1";
 
   async function sha256(text) {
     const buf = new TextEncoder().encode(text);
     const hash = await crypto.subtle.digest("SHA-256", buf);
     return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  /** @returns {string|null} 64 位小写 hex */
+  function getStoredCredHash() {
+    try {
+      const raw = localStorage.getItem(CRED_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      const h = o && typeof o.h === "string" ? o.h.trim().toLowerCase() : "";
+      return /^[0-9a-f]{64}$/.test(h) ? h : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function setStoredCredHash(hashHex) {
+    localStorage.setItem(CRED_KEY, JSON.stringify({ h: hashHex }));
   }
 
   function readToken() {
@@ -61,7 +79,12 @@
   async function login(user, pass, remember = true) {
     if (!user || !pass) return { ok: false, reason: "请填写用户名与密码" };
     const hash = await sha256(`${user}::${pass}`);
-    if (hash !== EXPECTED_HASH) return { ok: false, reason: "用户名或密码不正确" };
+    const stored = getStoredCredHash();
+    if (stored) {
+      if (hash !== stored) return { ok: false, reason: "用户名或密码不正确" };
+    } else if (hash !== LEGACY_DEFAULT_HASH) {
+      return { ok: false, reason: "用户名或密码不正确" };
+    }
     const tk = await buildToken();
     if (remember) writeToken(tk);
     else {
@@ -91,11 +114,41 @@
     return await verifyToken(readTokenAny());
   }
 
+  /**
+   * 修改用户名与密码（需验证当前密码）
+   * @returns {Promise<{ok: boolean, reason?: string}>}
+   */
+  async function changeCredentials(curUser, curPass, newUser, newPass, newPass2) {
+    const cu = String(curUser || "").trim();
+    const cp = String(curPass || "");
+    const nu = String(newUser || "").trim();
+    const np = String(newPass || "");
+    const n2 = String(newPass2 || "");
+    if (!cu || !cp) return { ok: false, reason: "请填写当前用户名与密码" };
+    if (!nu) return { ok: false, reason: "请填写新用户名" };
+    if (np.length < 4) return { ok: false, reason: "新密码至少 4 个字符" };
+    if (np !== n2) return { ok: false, reason: "两次输入的新密码不一致" };
+    const curHash = await sha256(`${cu}::${cp}`);
+    const stored = getStoredCredHash();
+    const curOk = stored ? curHash === stored : curHash === LEGACY_DEFAULT_HASH;
+    if (!curOk) return { ok: false, reason: "当前用户名或密码不正确" };
+    const newHash = await sha256(`${nu}::${np}`);
+    setStoredCredHash(newHash);
+    logout();
+    return { ok: true };
+  }
+
+  function hasCustomCredentials() {
+    return !!getStoredCredHash();
+  }
+
   window.Auth = {
     isAuthed: isAuthedAny,
     login,
     logout,
-    // 便于调试
+    changeCredentials,
+    hasCustomCredentials,
+    // 便于调试 / 迁移说明
     _sha256: sha256,
   };
 })();

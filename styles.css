@@ -53,6 +53,33 @@
                  linear-gradient(160deg, #1a0f1d 0%, #2a1433 50%, #0f1a2e 100%);
 }
 
+/* 视觉氛围：页面渐变与玻璃高光（主色仍由设置里的「主色调」控制） */
+html[data-visual-theme="starlight"] {
+  --glass-shadow: 0 8px 32px rgba(120, 150, 255, 0.2);
+  --bg-gradient: radial-gradient(1100px 680px at 15% 12%, #e8eeff 0%, transparent 58%),
+                 radial-gradient(900px 620px at 88% 82%, #d4e0ff 0%, transparent 55%),
+                 linear-gradient(165deg, #f0f4ff 0%, #e8ecff 42%, #dfe8ff 100%);
+}
+[data-theme="dark"][data-visual-theme="starlight"] {
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.42);
+  --bg-gradient: radial-gradient(1100px 680px at 15% 12%, #1c2240 0%, transparent 58%),
+                 radial-gradient(900px 620px at 88% 82%, #152238 0%, transparent 55%),
+                 linear-gradient(165deg, #0f1020 0%, #121a30 45%, #0a1428 100%);
+}
+
+html[data-visual-theme="sycamore"] {
+  --glass-shadow: 0 8px 32px rgba(160, 120, 60, 0.16);
+  --bg-gradient: radial-gradient(1100px 700px at 18% 8%, #f5ecd8 0%, transparent 56%),
+                 radial-gradient(950px 600px at 82% 88%, #e8dcc4 0%, transparent 54%),
+                 linear-gradient(158deg, #faf6ee 0%, #f0e8d8 40%, #e8e4dc 100%);
+}
+[data-theme="dark"][data-visual-theme="sycamore"] {
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.38);
+  --bg-gradient: radial-gradient(1100px 700px at 18% 8%, #2a2418 0%, transparent 56%),
+                 radial-gradient(950px 600px at 82% 88%, #1e2218 0%, transparent 54%),
+                 linear-gradient(158deg, #1a1810 0%, #221c14 48%, #141a12 100%);
+}
+
 [data-density="compact"] { --card-size: 86px; --gap: 12px; }
 [data-density="cozy"]    { --card-size: 120px; --gap: 22px; }
 
@@ -463,6 +490,15 @@ body.has-bg {
   transform: translateY(-4px);
   background: var(--card-hover);
   box-shadow: 0 14px 30px rgba(255, 143, 171, 0.25);
+}
+
+.card .icon-slot {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .card img {
@@ -1054,6 +1090,47 @@ body.pre-auth #upcoming-card { display: none !important; }
 .settings-dialog form {
   max-height: 85vh;
   overflow-y: auto;
+}
+
+.storage-inspector {
+  margin-top: 8px;
+  max-height: min(420px, 50vh);
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.06);
+}
+[data-theme="dark"] .storage-inspector {
+  background: rgba(0, 0, 0, 0.15);
+}
+.storage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.storage-table th,
+.storage-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--glass-border);
+  vertical-align: top;
+  text-align: left;
+}
+.storage-table thead th {
+  font-size: 12px;
+  color: var(--text-soft);
+  font-weight: 600;
+}
+.storage-subh {
+  margin: 14px 0 8px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.storage-sum {
+  font-size: 12px;
+  color: var(--text-soft);
+  max-width: 14rem;
+  word-break: break-word;
 }
 
 .sec {
@@ -2419,33 +2496,7 @@ body.pre-auth #weather-card { display: none !important; }
 .input-with-voice .voice-btn.inline { font-size: 16px; padding: 4px 6px; }
 
 /* ===================== 音乐播放器 ===================== */
-body.pre-auth #music-fab,
-body.pre-auth #music-search-fab,
-body.pre-auth #music-panel { display: none !important; }
-
-/* 音乐搜索：独立浮动按钮（在 🎵 上方） */
-.music-search-fab {
-  position: fixed;
-  left: 25px;
-  bottom: 90px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  background: linear-gradient(135deg, #7ec8e3, #b8a9ff);
-  color: white;
-  font-size: 20px;
-  box-shadow: 0 8px 22px rgba(126, 200, 227, 0.45), 0 0 0 1px rgba(255,255,255,0.35) inset;
-  z-index: 501;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.music-search-fab:hover { transform: scale(1.06); }
-.music-search-fab:active { transform: scale(0.96); }
-
+/* 浮动入口始终可用；层级高于登录层 (2000)，未登录时也可打开播放器 */
 .music-fab {
   position: fixed;
   left: 22px;
@@ -2459,7 +2510,7 @@ body.pre-auth #music-panel { display: none !important; }
   color: white;
   font-size: 22px;
   box-shadow: 0 10px 30px rgba(162, 196, 255, 0.5), 0 0 0 1px rgba(255,255,255,0.4) inset;
-  z-index: 500;
+  z-index: 2100;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2498,7 +2549,7 @@ body.pre-auth #music-panel { display: none !important; }
   left: 16px;
   width: 420px;
   max-width: calc(100vw - 32px);
-  z-index: 600;
+  z-index: 2100;
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
@@ -2578,7 +2629,7 @@ body.pre-auth #music-panel { display: none !important; }
 }
 [data-theme="dark"] .music-sources-row select { background: rgba(255, 255, 255, 0.06); }
 
-/* 音乐 · LX 风格搜索弹窗（数据来自 /api/music → Node music-api） */
+/* 音乐搜索弹窗样式（历史 UI，当前未挂载） */
 .glass-dialog.music-search-dialog {
   max-width: min(920px, 96vw);
   width: min(920px, 96vw);
@@ -3086,6 +3137,18 @@ dialog.music-search-dialog[open] {
   padding-top: 70px;
   font-style: italic;
 }
+.lyric-plain-line {
+  opacity: 0.92;
+}
+.lyric-plain-hint {
+  margin-top: 18px;
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  text-align: center;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
 
 /* 控制区 */
 .music-controls {
@@ -3392,7 +3455,143 @@ dialog.music-search-dialog[open] {
 .city-chip.active .x { background: rgba(255, 255, 255, 0.25); }
 .city-chip.active .x:hover { background: rgba(255, 255, 255, 0.45); }
 
-/* ===================== 同步配置 ===================== */
+/* ===================== 设置：天气 / 同步 分区 ===================== */
+.settings-lead {
+  margin: 0 0 14px;
+  line-height: 1.55;
+  font-size: 13px;
+}
+.settings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-subcard {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.12);
+  padding: 12px 14px;
+}
+[data-theme="dark"] .settings-subcard {
+  background: rgba(0, 0, 0, 0.14);
+}
+.settings-subcard-accent {
+  border-color: rgba(var(--accent-rgb), 0.35);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.08), rgba(255, 255, 255, 0.06));
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12) inset;
+}
+[data-theme="dark"] .settings-subcard-accent {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12), rgba(0, 0, 0, 0.2));
+}
+.settings-subcard-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  letter-spacing: 0.02em;
+}
+.settings-subhint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.45;
+}
+.settings-toggle-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.glass-dialog .row-tight {
+  margin: 0;
+  align-items: center;
+}
+.glass-dialog .row-block {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.glass-dialog .row-block:last-child { margin-bottom: 0; }
+.settings-field-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.settings-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+.settings-field-label input {
+  margin-top: 4px;
+  font-weight: 400;
+}
+.settings-select-wide {
+  width: 100%;
+  max-width: 100%;
+}
+.settings-inline-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 480px) {
+  .settings-inline-pair { grid-template-columns: 1fr; }
+}
+.sync-backend-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.settings-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+.settings-btn-row--equal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 480px) {
+  .settings-btn-row--equal { grid-template-columns: 1fr; }
+}
+.settings-btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 520px) {
+  .settings-btn-grid { grid-template-columns: 1fr; }
+}
+.settings-file-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  margin: 0;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+.settings-sync-status {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  min-height: 1.2em;
+}
+.settings-sync-status.success { color: #3aa56f; }
+[data-theme="dark"] .settings-sync-status.success { color: #5ecf8f; }
+.settings-sync-status.error { color: #d0434a; }
+[data-theme="dark"] .settings-sync-status.error { color: #ff7a7a; }
+
+/* 旧 class 兼容 */
 .settings-section .row { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
 #sync-status { font-size: 12px; }
 #sync-status.success { color: #3aa56f; }

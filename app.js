@@ -48,6 +48,13 @@
     return ch.toUpperCase();
   }
 
+  /** 视觉氛围预设（渐变由 CSS [data-visual-theme] 覆盖；主色用于切换主题时默认与「重置」） */
+  const VISUAL_THEMES = {
+    sakura: { id: "sakura", label: "樱 · 樱花", accent: "#ff8fab", fab: "🌸", aiLogo: "🌸" },
+    starlight: { id: "starlight", label: "星光", accent: "#8b9fff", fab: "✨", aiLogo: "✨" },
+    sycamore: { id: "sycamore", label: "梧桐叶", accent: "#c4a06e", fab: "🍂", aiLogo: "🍂" },
+  };
+
   // ===================== 数据层 =====================
   const Store = {
     state: {
@@ -73,8 +80,8 @@
       bgInterval: 60,              // 秒
       bgOverlay: 0,
       bgBlur: 0,
-      // 本地上传背景（文件本体存 IndexedDB，这里只存元信息）
-      bgUpload: null,              // { kind: 'image'|'video', name, size, mime }
+      // 本地上传背景：IndexedDB 存文件；服务端模式可存 storage:'server' + remoteUrl
+      bgUpload: null,              // { kind, name, size, mime, storage?, remoteUrl? }
       // 组件
       showClock: true,
       showHitokoto: false,
@@ -87,6 +94,8 @@
       newTab: true,
       // 折叠分组
       collapsedGroups: {},
+      /** 视觉氛围：sakura | starlight | sycamore（影响渐变、粒子、AI 角标等） */
+      visualTheme: "sakura",
     },
 
     load() {
@@ -104,7 +113,10 @@
         this.settings.bgMode = "single";
       }
       if (!this.settings.collapsedGroups) this.settings.collapsedGroups = {};
-      if (!this.state.groups || !this.state.groups.length) this.seed();
+      if (!Array.isArray(this.state.groups)) this.state.groups = [];
+      if (!this.settings.visualTheme || !VISUAL_THEMES[this.settings.visualTheme]) {
+        this.settings.visualTheme = "sakura";
+      }
     },
 
     save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state)); },
@@ -123,38 +135,6 @@
       }, 200);
     },
 
-    // 首次默认数据
-    seed() {
-      this.state.groups = [
-        {
-          id: uid(), name: "常用", color: "#ff8fab",
-          links: [
-            { id: uid(), name: "GitHub", url: "https://github.com" },
-            { id: uid(), name: "Bilibili", url: "https://www.bilibili.com" },
-            { id: uid(), name: "知乎", url: "https://www.zhihu.com" },
-            { id: uid(), name: "YouTube", url: "https://www.youtube.com" },
-          ],
-        },
-        {
-          id: uid(), name: "效率", color: "#9ad5ff",
-          links: [
-            { id: uid(), name: "ChatGPT", url: "https://chat.openai.com" },
-            { id: uid(), name: "Notion", url: "https://www.notion.so" },
-            { id: uid(), name: "飞书", url: "https://www.feishu.cn" },
-          ],
-        },
-        {
-          id: uid(), name: "开发", color: "#bfa6ff",
-          links: [
-            { id: uid(), name: "MDN", url: "https://developer.mozilla.org" },
-            { id: uid(), name: "Stack Overflow", url: "https://stackoverflow.com" },
-            { id: uid(), name: "npm", url: "https://www.npmjs.com" },
-          ],
-        },
-      ];
-      this.save();
-    },
-
     findGroup(gid) { return this.state.groups.find((g) => g.id === gid); },
     findLink(lid) {
       for (const g of this.state.groups) {
@@ -164,6 +144,87 @@
       return null;
     },
   };
+
+  /** 同一站点 favicon 请求合并；失败过的 URL 本页内不再反复请求 */
+  const _faviconByPageUrl = new Map();
+  const _faviconFailedPageUrl = new Set();
+  /** 已成功解析的站点 -> 图标 URL（本会话内复用，减少重复探测） */
+  const _faviconResolved = new Map();
+
+  /**
+   * 带合并与缓存的 favicon 解析（供卡片渲染与后台预取共用）
+   */
+  function getBestIconDeduped(pageUrl) {
+    if (!pageUrl) return Promise.resolve(null);
+    if (_faviconFailedPageUrl.has(pageUrl)) return Promise.resolve(null);
+    const hit = _faviconResolved.get(pageUrl);
+    if (hit) return Promise.resolve(hit);
+    const BT = window.BookmarkTools;
+    if (!BT || !BT.getBestIcon) return Promise.resolve(null);
+    let p = _faviconByPageUrl.get(pageUrl);
+    if (!p) {
+      p = BT.getBestIcon(pageUrl).catch(() => null);
+      _faviconByPageUrl.set(pageUrl, p);
+      p.finally(() => {
+        setTimeout(() => {
+          if (_faviconByPageUrl.get(pageUrl) === p) _faviconByPageUrl.delete(pageUrl);
+        }, 12000);
+      });
+    }
+    return p.then((url) => {
+      if (url) _faviconResolved.set(pageUrl, url);
+      else _faviconFailedPageUrl.add(pageUrl);
+      return url;
+    });
+  }
+
+  /**
+   * 首屏渲染后空闲时批量预取：按「站点」去重、并发拉取，写入 link.icon 并持久化，
+   * 避免仅依赖卡片内异步链时出现「需交互后才出现图标」或刷新后丢失。
+   */
+  function schedulePrefetchLinkIcons() {
+    const BT = window.BookmarkTools;
+    if (!BT || !BT.normalizePageUrl) return;
+    const run = async () => {
+      const pageToLinks = new Map();
+      for (const g of Store.state.groups) {
+        for (const link of g.links) {
+          if (link.icon) continue;
+          const pu = BT.normalizePageUrl(link.url);
+          if (!pu) continue;
+          if (!pageToLinks.has(pu)) pageToLinks.set(pu, []);
+          pageToLinks.get(pu).push(link);
+        }
+      }
+      const entries = [...pageToLinks.entries()];
+      if (!entries.length) return;
+      let cursor = 0;
+      const CONCURRENCY = 8;
+      async function worker() {
+        while (true) {
+          const i = cursor++;
+          if (i >= entries.length) break;
+          const [pageUrl, links] = entries[i];
+          const iconUrl = await getBestIconDeduped(pageUrl);
+          if (!iconUrl) continue;
+          for (const link of links) {
+            if (link.icon) continue;
+            link.icon = iconUrl;
+            const card = document.querySelector(`.card[data-lid="${link.id}"]`);
+            if (!card) continue;
+            const slot = card.querySelector(".icon-slot");
+            if (slot) renderIcon(slot, link);
+          }
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, entries.length) }, () => worker()));
+      try { Store.save(); } catch (_) {}
+    };
+    // 立即调度：仅用 requestIdleCallback 时，部分环境要等用户交互后才空闲，图标会晚出现
+    setTimeout(() => {
+      run().catch((e) => console.warn("[icons] prefetch", e));
+    }, 0);
+  }
 
   // ===================== 渲染 =====================
   const groupsContainer = $("#groups-container");
@@ -345,6 +406,7 @@
   function renderIcon(slot, link) {
     slot.innerHTML = "";
     const showFallback = () => {
+      slot.innerHTML = "";
       const fb = document.createElement("div");
       fb.className = "fallback";
       fb.textContent = initialLetter(link.name, link.url);
@@ -356,31 +418,81 @@
       slot.appendChild(fb);
     };
 
-    if (link.icon) {
-      const img = new Image();
-      img.referrerPolicy = "no-referrer";
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.src = link.icon;
-      img.alt = "";
-      img.onload = () => { if (img.naturalWidth > 0) slot.appendChild(img); else showFallback(); };
-      img.onerror = () => showFallback();
-    } else {
-      // 未保存图标，尝试自动获取一次
+    const BT = window.BookmarkTools;
+    const pageUrl = BT && BT.normalizePageUrl ? BT.normalizePageUrl(link.url) : null;
+
+    function fetchAndPaintIcon() {
+      if (!pageUrl || !BT || !BT.getBestIcon) {
+        showFallback();
+        return;
+      }
+      if (_faviconFailedPageUrl.has(pageUrl)) {
+        showFallback();
+        return;
+      }
       showFallback();
-      BookmarkTools.getBestIcon(link.url).then((iconUrl) => {
-        if (!iconUrl) return;
+      getBestIconDeduped(pageUrl).then((iconUrl) => {
+        if (!iconUrl) {
+          showFallback();
+          return;
+        }
         link.icon = iconUrl;
-        Store.save();
+        try { Store.save(); } catch (_) {}
         slot.innerHTML = "";
         const img = new Image();
         img.referrerPolicy = "no-referrer";
-        img.loading = "lazy";
+        img.loading = "eager";
         img.decoding = "async";
         img.src = iconUrl;
-        img.onload = () => slot.appendChild(img);
-        img.onerror = () => showFallback();
+        img.alt = "";
+        img.onload = () => {
+          if (img.naturalWidth > 0) {
+            _faviconFailedPageUrl.delete(pageUrl);
+            slot.appendChild(img);
+          } else {
+            delete link.icon;
+            try { Store.save(); } catch (_) {}
+            _faviconFailedPageUrl.add(pageUrl);
+            showFallback();
+          }
+        };
+        img.onerror = () => {
+          delete link.icon;
+          try { Store.save(); } catch (_) {}
+          _faviconFailedPageUrl.add(pageUrl);
+          showFallback();
+        };
       });
+    }
+
+    if (link.icon) {
+      showFallback();
+      const img = new Image();
+      img.referrerPolicy = "no-referrer";
+      img.loading = "eager";
+      img.decoding = "async";
+      img.src = link.icon;
+      img.alt = "";
+      img.onload = () => {
+        if (img.naturalWidth > 0) {
+          if (pageUrl) _faviconFailedPageUrl.delete(pageUrl);
+          slot.innerHTML = "";
+          slot.appendChild(img);
+          return;
+        }
+        delete link.icon;
+        try { Store.save(); } catch (_) {}
+        slot.innerHTML = "";
+        fetchAndPaintIcon();
+      };
+      img.onerror = () => {
+        delete link.icon;
+        try { Store.save(); } catch (_) {}
+        slot.innerHTML = "";
+        fetchAndPaintIcon();
+      };
+    } else {
+      fetchAndPaintIcon();
     }
   }
 
@@ -936,6 +1048,34 @@
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = s.accent || "#ff8fab";
   }
+
+  function particleModeFromVisualTheme(vid) {
+    if (vid === "starlight") return "starlight";
+    if (vid === "sycamore") return "sycamore";
+    return "sakura";
+  }
+
+  function applyVisualTheme() {
+    const id = Store.settings.visualTheme || "sakura";
+    const meta = VISUAL_THEMES[id] || VISUAL_THEMES.sakura;
+    document.documentElement.dataset.visualTheme = id;
+    const fab = $(".ai-fab-icon");
+    if (fab) fab.textContent = meta.fab;
+    $$(".ai-logo, .ai-empty-logo").forEach((el) => { el.textContent = meta.aiLogo; });
+    const loginLogo = $(".login-logo");
+    if (loginLogo) loginLogo.textContent = meta.aiLogo;
+  }
+
+  function syncSakuraParticles() {
+    if (!window.Sakura) return;
+    const s = Store.settings;
+    Sakura.set({
+      particleMode: particleModeFromVisualTheme(s.visualTheme),
+      count: s.sakuraCount,
+      speed: s.sakuraSpeed,
+    });
+  }
+
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
   $("#btn-theme").addEventListener("click", () => {
@@ -958,8 +1098,16 @@
     const setV = (id, v) => { const el = $(id); if (el) el.value = v; };
     const setC = (id, v) => { const el = $(id); if (el) el.checked = !!v; };
 
+    ["#auth-cur-user", "#auth-cur-pass", "#auth-new-user", "#auth-new-pass", "#auth-new-pass2"].forEach((id) => {
+      const el = $(id);
+      if (el) el.value = "";
+    });
+    const authMsg = $("#auth-change-msg");
+    if (authMsg) authMsg.textContent = "";
+
     // --- 回填 ---
     setV("#set-theme", s.theme);
+    setV("#set-visual-theme", s.visualTheme || "sakura");
     setV("#set-accent", s.accent || "#ff8fab");
     setV("#set-fontsize", s.fontSize);
     setV("#set-radius", s.radius);
@@ -995,14 +1143,54 @@
     if (typeof UISync !== "undefined") UISync.fillForm();
     updateLabels();
     updateBgPanels();
+    if (typeof StorageInspector !== "undefined" && StorageInspector.refresh) {
+      StorageInspector.refresh();
+    }
 
     if (settingsBound) return;
     settingsBound = true;
 
+    $("#btn-auth-save")?.addEventListener("click", async () => {
+      const msg = $("#auth-change-msg");
+      if (msg) { msg.textContent = ""; msg.classList.remove("ok"); }
+      const r = await Auth.changeCredentials(
+        $("#auth-cur-user")?.value,
+        $("#auth-cur-pass")?.value,
+        $("#auth-new-user")?.value,
+        $("#auth-new-pass")?.value,
+        $("#auth-new-pass2")?.value,
+      );
+      if (!r.ok) {
+        if (msg) { msg.textContent = r.reason || "保存失败"; msg.style.color = ""; }
+        return;
+      }
+      try { dlgSettings.close(); } catch (_) {}
+      toast("账号已更新，请重新登录…");
+      location.reload();
+    });
+
     // --- 外观 ---
     $("#set-theme").addEventListener("change", (e) => { s.theme = e.target.value; Store.saveSettings(); applyTheme(); });
+    $("#set-visual-theme").addEventListener("change", (e) => {
+      s.visualTheme = e.target.value || "sakura";
+      const m = VISUAL_THEMES[s.visualTheme] || VISUAL_THEMES.sakura;
+      s.accent = m.accent;
+      const el = $("#set-accent");
+      if (el) el.value = m.accent;
+      Store.saveSettings();
+      applyStyle();
+      applyVisualTheme();
+      syncSakuraParticles();
+    });
     $("#set-accent").addEventListener("input", (e) => { s.accent = e.target.value; Store.saveSettings(); applyStyle(); });
-    $("#set-accent-reset").addEventListener("click", () => { s.accent = "#ff8fab"; $("#set-accent").value = s.accent; Store.saveSettings(); applyStyle(); });
+    $("#set-accent-reset").addEventListener("click", () => {
+      const m = VISUAL_THEMES[s.visualTheme] || VISUAL_THEMES.sakura;
+      s.accent = m.accent;
+      const el = $("#set-accent");
+      if (el) el.value = s.accent;
+      Store.saveSettings();
+      applyStyle();
+    });
     $("#set-fontsize").addEventListener("change", (e) => { s.fontSize = e.target.value; Store.saveSettings(); applyStyle(); });
     $("#set-radius").addEventListener("change", (e) => { s.radius = e.target.value; Store.saveSettings(); applyStyle(); });
     $("#set-density").addEventListener("change", (e) => { s.density = e.target.value; Store.saveSettings(); applyStyle(); });
@@ -1011,8 +1199,18 @@
     $("#set-glass-sat").addEventListener("input", (e) => { s.glassSat = +e.target.value; Store.saveSettings(true); applyStyle(); updateLabels(); });
 
     // --- 樱花 ---
-    $("#set-sakura-count").addEventListener("input", (e) => { s.sakuraCount = +e.target.value; Sakura.set({ count: s.sakuraCount }); Store.saveSettings(true); updateLabels(); });
-    $("#set-sakura-speed").addEventListener("input", (e) => { s.sakuraSpeed = +e.target.value; Sakura.set({ speed: s.sakuraSpeed }); Store.saveSettings(true); updateLabels(); });
+    $("#set-sakura-count").addEventListener("input", (e) => {
+      s.sakuraCount = +e.target.value;
+      syncSakuraParticles();
+      Store.saveSettings(true);
+      updateLabels();
+    });
+    $("#set-sakura-speed").addEventListener("input", (e) => {
+      s.sakuraSpeed = +e.target.value;
+      syncSakuraParticles();
+      Store.saveSettings(true);
+      updateLabels();
+    });
 
     // --- 背景 ---
     $("#set-bg-mode").addEventListener("change", (e) => {
@@ -1282,6 +1480,10 @@
       localStorage.removeItem(SETTINGS_KEY);
       location.reload();
     });
+
+    $("#btn-storage-refresh")?.addEventListener("click", () => {
+      if (typeof StorageInspector !== "undefined" && StorageInspector.refresh) StorageInspector.refresh();
+    });
   }
 
   function updateLabels() {
@@ -1344,26 +1546,36 @@
     // 尝试拿 blob 做缩略图
     let thumbHtml = `<div class="thumb" style="background:linear-gradient(135deg, var(--accent-soft), rgba(255,255,255,.3))"></div>`;
     try {
-      const blob = await BgIDB.get("bg-upload");
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        _uploadPreviewUrl = url;
-        if (info.kind === "video") {
-          thumbHtml = `<div class="thumb"><video src="${url}" muted playsinline autoplay loop></video></div>`;
+      if (info.storage === "server" && info.remoteUrl) {
+        const u = info.remoteUrl.startsWith("/") ? (location.origin + info.remoteUrl) : info.remoteUrl;
+        if (info.kind === "video" || (info.mime || "").startsWith("video/")) {
+          thumbHtml = `<div class="thumb"><video src=${JSON.stringify(u)} muted playsinline autoplay loop></video></div>`;
         } else {
-          thumbHtml = `<div class="thumb" style="background-image:url(${JSON.stringify(url)})"></div>`;
+          thumbHtml = `<div class="thumb" style="background-image:url(${JSON.stringify(u)})"></div>`;
+        }
+      } else {
+        const blob = await BgIDB.get("bg-upload");
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          _uploadPreviewUrl = url;
+          if (info.kind === "video") {
+            thumbHtml = `<div class="thumb"><video src="${url}" muted playsinline autoplay loop></video></div>`;
+          } else {
+            thumbHtml = `<div class="thumb" style="background-image:url(${JSON.stringify(url)})"></div>`;
+          }
         }
       }
     } catch (_) {}
     drop.classList.add("has-file");
     const badge = info.kind === "video" ? "🎬 视频" : "🖼 图片";
+    const srcHint = info.storage === "server" ? "服务端" : "本地";
     current.innerHTML = `
       ${thumbHtml}
       <div class="info">
         <div class="name"><span class="badge">${badge}</span>${escapeHtml(info.name || "")}</div>
         <div class="meta">${fmtSize(info.size)} · 点击可重新上传</div>
       </div>`;
-    if (meta) meta.textContent = `来自本地 · ${info.mime || ""}`;
+    if (meta) meta.textContent = `${srcHint} · ${info.mime || ""}`;
   }
 
   // ===================== IndexedDB：大文件背景本体 =====================
@@ -1427,6 +1639,21 @@
         const meta = s.bgUpload;
         if (!meta) { this.clearLayers(); this.clearVideo(); return; }
         try {
+          if (meta.storage === "server" && meta.remoteUrl) {
+            const raw = meta.remoteUrl.trim();
+            const abs = raw.startsWith("/") ? (location.origin + raw) : raw;
+            if (token !== this._applyToken) return;
+            this._revokeBlobUrl();
+            const isVid = meta.kind === "video" || (meta.mime || "").startsWith("video/") || isVideoUrl(raw);
+            if (isVid) {
+              this.clearLayers();
+              this.showVideo(abs);
+            } else {
+              this.clearVideo();
+              this.swap(abs);
+            }
+            return;
+          }
           const blob = await BgIDB.get("bg-upload");
           if (token !== this._applyToken) return; // 已有新操作
           if (!blob) {
@@ -1538,11 +1765,16 @@
 
     clearVideo() {
       if (!this.video) return;
+      const vs = (this.video.currentSrc || this.video.src || "").trim();
       this.video.classList.remove("active");
       try { this.video.pause(); } catch (_) {}
       this.video.removeAttribute("src");
       this.video.load();
-      this._revokeBlobUrl();
+      // 只撤销「视频元素正在使用的」blob:，勿调用 _revokeBlobUrl()——否则会误删即将用于图层的 upload 图片 blob
+      if (vs && vs.startsWith("blob:")) {
+        try { URL.revokeObjectURL(vs); } catch (_) {}
+        if (this._currentBlobUrl && vs === this._currentBlobUrl) this._currentBlobUrl = null;
+      }
     },
 
     _revokeBlobUrl() {
@@ -1568,6 +1800,32 @@
         return false;
       }
       const kind = (file.type || "").startsWith("video/") ? "video" : "image";
+      const s = Store.settings;
+
+      if (window.SakuraMedia && SakuraMedia.enabled && SakuraMedia.uploadBg) {
+        try {
+          const up = await SakuraMedia.uploadBg(file);
+          if (up && up.url) {
+            try { await BgIDB.del("bg-upload"); } catch (_) {}
+            s.bgUpload = {
+              kind,
+              name: file.name || (kind === "video" ? "video.mp4" : "image"),
+              size: file.size,
+              mime: file.type || "",
+              storage: "server",
+              remoteUrl: up.url,
+            };
+            s.bgMode = "upload";
+            Store.saveSettings();
+            this.apply();
+            return true;
+          }
+        } catch (e) {
+          console.warn("服务端背景上传失败，尝试本地", e);
+          toast("服务端上传失败，已改存本浏览器：" + (e?.message || e), 4000);
+        }
+      }
+
       try {
         await BgIDB.put("bg-upload", file);
       } catch (e) {
@@ -1575,7 +1833,6 @@
         toast("保存失败：" + (e?.message || e), 3000);
         return false;
       }
-      const s = Store.settings;
       s.bgUpload = {
         kind,
         name: file.name || (kind === "video" ? "video.mp4" : "image"),
@@ -1589,6 +1846,10 @@
     },
 
     async clearUpload() {
+      const prev = Store.settings.bgUpload;
+      if (prev && prev.storage === "server" && prev.remoteUrl && window.SakuraMedia && SakuraMedia.removeByUrl) {
+        await SakuraMedia.removeByUrl(prev.remoteUrl);
+      }
       try { await BgIDB.del("bg-upload"); } catch (_) {}
       const s = Store.settings;
       s.bgUpload = null;
@@ -1694,6 +1955,16 @@
   });
 
   function exportJson() {
+    if (window.SyncUtils && typeof SyncUtils.collect === "function") {
+      const blob = new Blob([JSON.stringify(SyncUtils.collect(), null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `sakura-nav-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast("已导出完整备份（与设置里「本地备份 JSON」相同）");
+      return;
+    }
     const payload = {
       exportedAt: new Date().toISOString(),
       groups: Store.state.groups,
@@ -1705,7 +1976,7 @@
     a.download = `sakura-nav-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-    toast("已导出 JSON 备份");
+    toast("已导出 JSON（仅导航与设置，精简版）");
   }
 
   function exportBookmarksHtml() {
@@ -1750,11 +2021,21 @@
       if (!f) return;
       try {
         const data = JSON.parse(await f.text());
-        if (!Array.isArray(data.groups)) throw new Error("文件内容不是有效备份");
-        if (!confirm("导入将覆盖当前数据，继续？")) return;
+        if (data && typeof data.schema === "string" && data.schema.startsWith("sakura-nav@")) {
+          if (!window.SyncUtils || typeof SyncUtils.apply !== "function") {
+            throw new Error("同步模块未加载");
+          }
+          if (!confirm("将用备份覆盖本地全部数据并刷新页面（与设置 → 同步与备份 → 从备份还原相同），继续？")) return;
+          SyncUtils.apply(data, "replace");
+          toast("已还原，正在刷新…");
+          setTimeout(() => location.reload(), 600);
+          return;
+        }
+        if (!Array.isArray(data.groups)) throw new Error("不是有效的备份（需含 schema 或为旧版 groups 数组）");
+        if (!confirm("导入将覆盖当前导航数据，继续？")) return;
         Store.state.groups = data.groups;
         Store.save(); render();
-        toast("已导入 JSON 备份");
+        toast("已导入 JSON（仅导航分组）");
       } catch (e) {
         toast("导入失败：" + e.message, 3000);
       }
@@ -1885,11 +2166,14 @@
 
     render();
     Filter.apply();
+    schedulePrefetchLinkIcons();
 
     Sakura.init({
       count: Store.settings.sakuraCount,
       speed: Store.settings.sakuraSpeed,
+      particleMode: particleModeFromVisualTheme(Store.settings.visualTheme),
     });
+    applyVisualTheme();
 
     // 注册 service worker（仅 http/https 环境）
     if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
@@ -1899,6 +2183,11 @@
     UICal.init();
     if (typeof UIWeather !== "undefined") UIWeather.init();
     if (typeof UISync !== "undefined") UISync.init();
+    if (window.SakuraRemote && SakuraRemote.ready) {
+      SakuraRemote.ready.then(() => {
+        if (typeof UISync !== "undefined" && UISync.refreshRemotePanel) UISync.refreshRemotePanel();
+      }).catch(() => {});
+    }
     if (typeof UIVoice !== "undefined") UIVoice.init();
     if (typeof UISuggest !== "undefined") UISuggest.init();
     if (typeof UIRecent !== "undefined") UIRecent.init();
@@ -2013,12 +2302,12 @@
       renderMessages();
     });
     $("#ai-close").addEventListener("click", close);
-    // Esc 关闭面板（仅当 AI 面板可见且焦点不在输入框时）
+    // Esc 关闭面板；若当前有 <dialog open>（含 AI 设置）则交给弹窗，不抢 Esc
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape" || panel.hidden) return;
-      const tag = document.activeElement?.tagName;
-      const inInput = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
-      if (!inInput) { e.preventDefault(); close(); }
+      if (document.querySelector("dialog[open]")) return;
+      e.preventDefault();
+      close();
     });
     $("#ai-open-settings").addEventListener("click", () => {
       const wasOpen = !panel.hidden;
@@ -3314,8 +3603,9 @@
 
     function setStatus(msg, type = "") {
       const el = $("#sync-status");
+      if (!el) return;
       el.textContent = msg;
-      el.className = "hint " + type;
+      el.className = "hint settings-sync-status " + (type || "").trim();
     }
 
     function fillForm() {
@@ -3329,11 +3619,26 @@
       $("#sync-gist-file").value = Sync.data.gist.fileName || "sakura-nav.json";
       $("#set-sync-auto").checked = !!Sync.data.auto;
       $("#set-sync-include-keys").checked = !!Sync.data.includeAiKeys;
+      const incAuth = $("#set-sync-include-auth");
+      if (incAuth) incAuth.checked = !!Sync.data.includeAuthCred;
       toggleBackend();
       const msg = [];
       if (Sync.data.lastPushed) msg.push("上次上传：" + new Date(Sync.data.lastPushed).toLocaleString("zh-CN"));
       if (Sync.data.lastPulled) msg.push("上次下载：" + new Date(Sync.data.lastPulled).toLocaleString("zh-CN"));
       setStatus(msg.join(" · "));
+      refreshRemotePanel();
+    }
+    async function refreshRemotePanel() {
+      const panel = $("#sync-local-server-panel");
+      if (!panel) return;
+      try {
+        if (window.SakuraRemote && SakuraRemote.ready) await SakuraRemote.ready;
+      } catch (_) {}
+      const show =
+        window.SakuraRemote &&
+        typeof SakuraRemote.isRemote === "function" &&
+        SakuraRemote.isRemote();
+      panel.hidden = !show;
     }
     function toggleBackend() {
       const b = $("#sync-backend").value;
@@ -3351,6 +3656,8 @@
       Sync.data.gist.fileName = $("#sync-gist-file").value.trim() || "sakura-nav.json";
       Sync.data.auto = $("#set-sync-auto").checked;
       Sync.data.includeAiKeys = $("#set-sync-include-keys").checked;
+      const incAuth = $("#set-sync-include-auth");
+      if (incAuth) Sync.data.includeAuthCred = incAuth.checked;
       Sync.save();
     }
 
@@ -3362,26 +3669,26 @@
       [
         "#sync-webdav-url", "#sync-webdav-user", "#sync-webdav-pass", "#sync-webdav-path",
         "#sync-gist-token", "#sync-gist-id", "#sync-gist-file",
-        "#set-sync-auto", "#set-sync-include-keys",
-      ].forEach((s) => $(s).addEventListener("change", readForm));
+        "#set-sync-auto", "#set-sync-include-keys", "#set-sync-include-auth",
+      ].forEach((s) => $(s)?.addEventListener("change", readForm));
 
       $("#btn-sync-push").addEventListener("click", async () => {
         readForm();
         try {
-          setStatus("上传中...");
+          setStatus("正在上传到云端…");
           await SyncUtils.push();
-          setStatus("上传成功：" + new Date().toLocaleString("zh-CN"), "success");
-          toast("☁ 已上传");
+          setStatus("云端上传成功 · " + new Date().toLocaleString("zh-CN"), "success");
+          toast("☁ 已上传到云端");
         } catch (e) { setStatus("上传失败：" + e.message, "error"); toast("上传失败"); }
       });
       $("#btn-sync-pull").addEventListener("click", async () => {
         if (!confirm("从云端下载并覆盖本地数据？")) return;
         readForm();
         try {
-          setStatus("下载中...");
+          setStatus("正在从云端下载…");
           await SyncUtils.pull();
-          setStatus("下载成功：" + new Date().toLocaleString("zh-CN"), "success");
-          toast("☁ 已同步，正在刷新...");
+          setStatus("云端已同步到本地 · " + new Date().toLocaleString("zh-CN"), "success");
+          toast("☁ 已同步，正在刷新…");
           setTimeout(() => location.reload(), 800);
         } catch (e) { setStatus("下载失败：" + e.message, "error"); }
       });
@@ -3404,8 +3711,37 @@
         } catch (err) { toast("还原失败：" + err.message); }
         e.target.value = "";
       });
+
+      $("#btn-sync-remote-push")?.addEventListener("click", async () => {
+        try {
+          setStatus("正在上传到服务器…");
+          if (window.SakuraRemote && SakuraRemote.ready) await SakuraRemote.ready;
+          if (!SakuraRemote?.pushNow) throw new Error("服务端同步不可用");
+          await SakuraRemote.pushNow();
+          setStatus("已保存到服务器 · " + new Date().toLocaleString("zh-CN"), "success");
+          toast("已同步到服务器");
+        } catch (e) {
+          setStatus(String(e.message || e), "error");
+          toast("上传失败");
+        }
+      });
+      $("#btn-sync-remote-pull")?.addEventListener("click", async () => {
+        if (!confirm("从服务器拉取并覆盖当前页数据？未上传到服务器的本地修改将丢失。")) return;
+        try {
+          setStatus("正在从服务器拉取…");
+          if (window.SakuraRemote && SakuraRemote.ready) await SakuraRemote.ready;
+          if (!SakuraRemote?.pullNow) throw new Error("服务端同步不可用");
+          await SakuraRemote.pullNow();
+          setStatus("已拉取并应用 · " + new Date().toLocaleString("zh-CN"), "success");
+          toast("已同步，正在刷新…");
+          setTimeout(() => location.reload(), 800);
+        } catch (e) {
+          setStatus(String(e.message || e), "error");
+          toast("拉取失败");
+        }
+      });
     }
-    return { init, fillForm };
+    return { init, fillForm, refreshRemotePanel };
   })();
 
   // ===================== 语音输入 UI =====================
@@ -3713,11 +4049,15 @@
 
   // 入口：先鉴权，通过才加载主应用
   (async function entry() {
+    if (window.SakuraRemote && SakuraRemote.ready) await SakuraRemote.ready;
     // 即使未登录，也提前加载设置并渲染背景/主题/樱花，让登录页更统一
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
       if (raw) Object.assign(Store.settings, JSON.parse(raw));
     } catch (_) {}
+    if (!Store.settings.visualTheme || !VISUAL_THEMES[Store.settings.visualTheme]) {
+      Store.settings.visualTheme = "sakura";
+    }
 
     applyTheme();
     applyStyle();
@@ -3725,7 +4065,9 @@
     Sakura.init({
       count: Store.settings.sakuraCount,
       speed: Store.settings.sakuraSpeed,
+      particleMode: particleModeFromVisualTheme(Store.settings.visualTheme),
     });
+    applyVisualTheme();
 
     if (await Auth.isAuthed()) {
       await bootApp();

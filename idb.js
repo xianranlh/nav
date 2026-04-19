@@ -3,10 +3,10 @@
  * 历史上有两个独立 DB：
  *   - "sakura-nav-bg"    ->  store "files"    （本地上传背景）
  *   - "sakura-nav-music" ->  store "tracks"   （音乐文件）
- *     v2 起增加 store "scripts"（在线导入的 LX 音源脚本全文缓存）
+ *     v2 起曾有 store "scripts"（历史遗留，已不再使用）
  * 为了保持旧用户数据不丢，保留这两个 DB 不合并，只把"打开 + 增删改查"这一层提公共。
  *
- * 暴露：window.NavIDB = { bg, music, musicScripts }
+ * 暴露：window.NavIDB = { bg, music }
  *   StoreLike: put(key, value) / get(key) / del(key) / clear() / keys()
  */
 (function () {
@@ -96,6 +96,5 @@
   window.NavIDB = {
     bg: makeStore("sakura-nav-bg", 1, "files", ["files"]),
     music: makeStore(MUSIC_DB, MUSIC_VER, "tracks", MUSIC_STORES),
-    musicScripts: makeStore(MUSIC_DB, MUSIC_VER, "scripts", MUSIC_STORES),
   };
 })();

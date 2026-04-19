@@ -75,6 +75,26 @@
   }
 
   /**
+   * 规范化为绝对 URL（补全 https、拒绝 javascript/data）
+   */
+  function normalizePageUrl(url) {
+    const s = String(url || "").trim();
+    if (!s) return null;
+    if (/^(javascript|data|blob):/i.test(s)) return null;
+    try {
+      return new URL(s).href;
+    } catch (_) {
+      try {
+        const t = s.replace(/^\/\//, "");
+        if (!t) return null;
+        return new URL("https://" + t).href;
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  /**
    * 猜测一个网站的 favicon 候选列表（多级回退）
    * 使用多个第三方服务，避免单点失效
    */
@@ -120,7 +140,9 @@
    * 获取一个网址最好的 favicon（从候选列表中选第一个能加载的）
    */
   async function getBestIcon(url) {
-    for (const candidate of iconCandidates(url)) {
+    const n = normalizePageUrl(url);
+    if (!n) return null;
+    for (const candidate of iconCandidates(n)) {
       const ok = await tryLoadIcon(candidate);
       if (ok) return ok;
     }
@@ -146,6 +168,7 @@
 
   window.BookmarkTools = {
     parseBookmarksHTML,
+    normalizePageUrl,
     iconCandidates,
     tryLoadIcon,
     getBestIcon,

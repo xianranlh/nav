@@ -4,7 +4,9 @@
  *   - GitHub Gist（Personal Access Token）
  *   - 本地文件导入导出（备份用）
  *
- * 同步数据：nav / settings / blog / calendar / ai.providers(不含 key 可选)
+ * 打包数据（sakura-nav@2）：导航、设置、博客、日历、AI、聊天、天气、音乐元数据、同步配置；
+ * 可选：登录凭据哈希（仅本地 JSON 备份，勿上传不可信云端）
+ * 说明：IndexedDB（仅纯静态模式下的本地上传）不在此 JSON；Docker 同源部署时背景/音乐可走服务端 media。
  * 数据：localStorage["sakura_nav_sync_v1"]
  */
 (function () {
@@ -17,6 +19,8 @@
       webdav: { url: "", user: "", pass: "", path: "sakura-nav.json" },
       gist: { token: "", gistId: "", fileName: "sakura-nav.json" },
       includeAiKeys: false,
+      /** 仅影响本地「备份 JSON」是否附带 sakura_nav_auth_cred_v1（云端上传/拉取不含） */
+      includeAuthCred: false,
       auto: false,         // 自动上传（每次重要变更延迟 30s）
       lastPushed: 0,
       lastPulled: 0,
@@ -31,42 +35,80 @@
   };
 
   // ===================== 打包 / 解包 =====================
-  function collect() {
+  function collect(forCloud) {
+    const stripAiKeys = forCloud === true || !Sync.data.includeAiKeys;
     const data = {
-      schema: "sakura-nav@1",
+      schema: "sakura-nav@2",
       savedAt: Date.now(),
       nav: JSON.parse(localStorage.getItem("sakura_nav_v1") || "null"),
       settings: JSON.parse(localStorage.getItem("sakura_nav_settings_v1") || "null"),
       blog: JSON.parse(localStorage.getItem("sakura_nav_blog_v1") || "null"),
       calendar: JSON.parse(localStorage.getItem("sakura_nav_calendar_v1") || "null"),
       ai: JSON.parse(localStorage.getItem("sakura_nav_ai_v1") || "null"),
+      chat: JSON.parse(localStorage.getItem("sakura_nav_chat_v1") || "null"),
+      weather: JSON.parse(localStorage.getItem("sakura_nav_weather_v1") || "null"),
+      music: JSON.parse(localStorage.getItem("sakura_nav_music_v1") || "null"),
+      sync: JSON.parse(localStorage.getItem("sakura_nav_sync_v1") || "null"),
     };
-    if (data.ai && !Sync.data.includeAiKeys) {
+    if (data.ai && stripAiKeys) {
+      data.ai = JSON.parse(JSON.stringify(data.ai));
       data.ai.providers = (data.ai.providers || []).map((p) => ({ ...p, apiKey: "" }));
+    }
+    if (forCloud !== true && Sync.data.includeAuthCred) {
+      const raw = localStorage.getItem("sakura_nav_auth_cred_v1");
+      data.authCred = raw ? JSON.parse(raw) : null;
     }
     return data;
   }
+
+  function mergeAiFromLocal(ai) {
+    if (!ai) return ai;
+    if (Sync.data.includeAiKeys) return ai;
+    const merged = JSON.parse(JSON.stringify(ai));
+    const local = JSON.parse(localStorage.getItem("sakura_nav_ai_v1") || "null");
+    if (local && local.providers && merged.providers) {
+      merged.providers.forEach((p) => {
+        const old = local.providers.find((x) => x.id === p.id);
+        if (old && old.apiKey) p.apiKey = old.apiKey;
+      });
+    }
+    return merged;
+  }
+
   function apply(data, mode = "replace") {
-    if (!data || data.schema !== "sakura-nav@1") throw new Error("数据格式不匹配");
-    const set = (k, v) => { if (v) localStorage.setItem(k, JSON.stringify(v)); };
-    if (mode === "replace") {
+    if (!data || typeof data.schema !== "string" || !data.schema.startsWith("sakura-nav@")) {
+      throw new Error("数据格式不匹配");
+    }
+    if (mode !== "replace") throw new Error("仅支持 replace");
+    const isV1 = data.schema === "sakura-nav@1";
+
+    if (isV1) {
+      const set = (k, v) => { if (v) localStorage.setItem(k, JSON.stringify(v)); };
       set("sakura_nav_v1", data.nav);
       set("sakura_nav_settings_v1", data.settings);
       set("sakura_nav_blog_v1", data.blog);
       set("sakura_nav_calendar_v1", data.calendar);
-      if (data.ai) {
-        // 合并 API key：如果远程没 key 就保留本地 key
-        if (!Sync.data.includeAiKeys) {
-          const local = JSON.parse(localStorage.getItem("sakura_nav_ai_v1") || "null");
-          if (local && local.providers && data.ai.providers) {
-            data.ai.providers.forEach((p) => {
-              const old = local.providers.find((x) => x.id === p.id);
-              if (old && old.apiKey) p.apiKey = old.apiKey;
-            });
-          }
-        }
-        set("sakura_nav_ai_v1", data.ai);
-      }
+      if (data.ai) set("sakura_nav_ai_v1", mergeAiFromLocal(data.ai));
+      return;
+    }
+
+    const set = (k, v) => {
+      if (v === undefined) return;
+      localStorage.setItem(k, JSON.stringify(v));
+    };
+    if ("nav" in data) set("sakura_nav_v1", data.nav);
+    if ("settings" in data) set("sakura_nav_settings_v1", data.settings);
+    if ("blog" in data) set("sakura_nav_blog_v1", data.blog);
+    if ("calendar" in data) set("sakura_nav_calendar_v1", data.calendar);
+    if (data.ai) set("sakura_nav_ai_v1", mergeAiFromLocal(data.ai));
+    if ("chat" in data) set("sakura_nav_chat_v1", data.chat);
+    if ("weather" in data) set("sakura_nav_weather_v1", data.weather);
+    if ("music" in data) set("sakura_nav_music_v1", data.music);
+    if ("sync" in data) set("sakura_nav_sync_v1", data.sync);
+    if ("authCred" in data && data.authCred != null) {
+      localStorage.setItem("sakura_nav_auth_cred_v1", JSON.stringify(data.authCred));
+    } else if ("authCred" in data && data.authCred === null) {
+      localStorage.removeItem("sakura_nav_auth_cred_v1");
     }
   }
 
@@ -137,7 +179,7 @@
 
   // ===================== 对外 =====================
   async function push() {
-    const body = JSON.stringify(collect(), null, 2);
+    const body = JSON.stringify(collect(true), null, 2);
     if (Sync.data.backend === "webdav") await davPut(Sync.data.webdav, body);
     else if (Sync.data.backend === "gist") await gistPush(Sync.data.gist, body);
     else throw new Error("未选择同步后端");
@@ -164,9 +206,9 @@
     autoTimer = setTimeout(() => { push().catch(() => {}); }, 30 * 1000);
   }
 
-  // 本地备份 / 还原
+  // 本地备份 / 还原（含完整 localStorage 业务数据；不含 IndexedDB 大文件）
   function exportBlob() {
-    return new Blob([JSON.stringify(collect(), null, 2)], { type: "application/json" });
+    return new Blob([JSON.stringify(collect(false), null, 2)], { type: "application/json" });
   }
   async function importFromFile(file, mode = "replace") {
     const text = await file.text();

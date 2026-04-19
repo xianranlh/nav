@@ -25,35 +25,146 @@
     del: async () => {},
     clear: async () => {},
   };
-  const SCRIPT_IDB = (window.NavIDB && window.NavIDB.musicScripts) || {
-    put: async () => { throw new Error("IndexedDB 不可用"); },
-    get: async () => null,
-    del: async () => {},
-  };
-  const sourceUid = () => "cs_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
 
   // ===================== LRC 解析 =====================
-  const TAG_RE = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
-  function parseLrc(text) {
-    if (!text) return [];
+  /** 统一全角符号、去 BOM、部分客户端把整包 JSON 存成 .lrc */
+  function preprocessLrcText(text) {
+    let s = String(text || "").replace(/^\uFEFF/, "");
+    const tr = s.trim();
+    if (tr.startsWith("{")) {
+      try {
+        const j = JSON.parse(tr);
+        if (typeof j.lyric === "string") s = j.lyric;
+        else if (typeof j.lrc === "string") s = j.lrc;
+        else if (j.data && typeof j.data.lyric === "string") s = j.data.lyric;
+        else if (j.result && typeof j.result.lyric === "string") s = j.result.lyric;
+      } catch (_) { /* 非 JSON，保持原样 */ }
+    }
+    s = s.replace(/［/g, "[").replace(/］/g, "]");
+    s = s.replace(/(\[\d{1,3})[：](\d{1,2})/g, "$1:$2");
+    return s;
+  }
+
+  /** 从 [mm:ss] / [mm:ss.xx] / [mm:ss:xx] 算秒；fraction 多为百分秒或毫秒 */
+  function timeFromTag(mm, ss, fracRaw, mode) {
+    const m = +mm;
+    const sec = +ss;
+    if (!fracRaw && fracRaw !== 0) return m * 60 + sec;
+    const fr = String(fracRaw);
+    const n = +fr;
+    if (mode === "colon3") {
+      if (n <= 99 && fr.length <= 2) return m * 60 + sec + n / 100;
+      return m * 60 + sec + n / 1000;
+    }
+    return m * 60 + sec + parseInt((fr + "000").slice(0, 3), 10) / 1000;
+  }
+
+  /**
+   * 两段 [mm:ss.xx]（允许标签内空格）；三段 [mm:ss:xx] 需先匹配，否则 [00:12:50] 会被误拆成 mm+ss+小数
+   */
+  const TAG_RE_2 = /\[\s*(\d{1,3})\s*:\s*(\d{1,2})\s*(?:[.:]\s*(\d{1,3}))?\s*\]/g;
+  const TAG_RE_3 = /\[\s*(\d{1,3})\s*:\s*(\d{1,2})\s*:\s*(\d{1,3})\s*\]/g;
+
+  /** 仅含 [mm:ss] 时间轴的标准 LRC */
+  function parseLrcTimed(text) {
+    const src = preprocessLrcText(text);
+    if (!src) return [];
     const lines = [];
-    for (const raw of text.split(/\r?\n/)) {
+    for (const raw of src.split(/\r\n|\n|\r/)) {
+      const line = raw.trim();
+      if (!line) continue;
       const stamps = [];
-      let m, lastEnd = 0;
-      TAG_RE.lastIndex = 0;
-      while ((m = TAG_RE.exec(raw)) !== null) {
-        const mm = +m[1], ss = +m[2];
-        const frac = m[3] ? parseInt((m[3] + "000").slice(0, 3), 10) / 1000 : 0;
-        stamps.push(mm * 60 + ss + frac);
-        lastEnd = m.index + m[0].length;
+      let lastEnd = 0;
+      let m;
+
+      TAG_RE_3.lastIndex = 0;
+      const hasTriple = TAG_RE_3.test(line);
+      TAG_RE_3.lastIndex = 0;
+
+      if (hasTriple) {
+        while ((m = TAG_RE_3.exec(line)) !== null) {
+          stamps.push(timeFromTag(m[1], m[2], m[3], "colon3"));
+          lastEnd = m.index + m[0].length;
+        }
+      } else {
+        TAG_RE_2.lastIndex = 0;
+        while ((m = TAG_RE_2.exec(line)) !== null) {
+          stamps.push(timeFromTag(m[1], m[2], m[3], "dot"));
+          lastEnd = m.index + m[0].length;
+        }
       }
-      const txt = raw.slice(lastEnd).trim();
+
+      if (!stamps.length) continue;
+
+      let txt = line.slice(lastEnd).trim();
+      txt = txt.replace(/<[\d:.,\s]+>/g, "").trim();
       if (stamps.length && txt) {
         for (const t of stamps) lines.push({ t, text: txt });
       }
     }
     lines.sort((a, b) => a.t - b.t);
     return lines;
+  }
+
+  /** 网易云等导出的「假 .lrc」：只有逐行歌词，无时间标签 */
+  function extractPlainLyricLines(text) {
+    const src = preprocessLrcText(text);
+    if (!src) return [];
+    return src.split(/\r\n|\n|\r/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+  }
+
+  /**
+   * 优先解析带时间轴的 LRC；否则退化为纯文本逐行展示（不与播放进度同步）
+   */
+  function parseLrc(text) {
+    const timed = parseLrcTimed(text);
+    if (timed.length) return timed;
+    const plain = extractPlainLyricLines(text);
+    if (!plain.length) return [];
+    return plain.map((line) => ({ t: 0, text: line, plain: true }));
+  }
+
+  /**
+   * 读取 .lrc 文本：网易云/本地下载常为 GBK；Windows 记事本另存可能是 UTF-16 LE
+   * 用 UTF-8 直接读会导致乱码，时间轴匹配失败 → 界面仍显示「暂无歌词」
+   */
+  async function readLrcFileText(file) {
+    const buf = await file.arrayBuffer();
+    const u8 = new Uint8Array(buf);
+    if (!u8.length) return "";
+
+    const decode = (enc) => {
+      try {
+        return new TextDecoder(enc, { fatal: false }).decode(u8);
+      } catch (_) {
+        return "";
+      }
+    };
+
+    const score = (text) => parseLrc(text).length;
+
+    if (u8.length >= 2 && u8[0] === 0xff && u8[1] === 0xfe) {
+      const t = decode("utf-16le");
+      if (score(t) > 0) return t;
+    }
+    if (u8.length >= 2 && u8[0] === 0xfe && u8[1] === 0xff) {
+      const t = decode("utf-16be");
+      if (score(t) > 0) return t;
+    }
+
+    let best = decode("utf-8");
+    let bestN = score(best);
+    for (const enc of ["gb18030", "gbk"]) {
+      const t = decode(enc);
+      const n = score(t);
+      if (n > bestN) {
+        best = t;
+        bestN = n;
+      }
+    }
+    return best;
   }
 
   function fmtTime(s) {
@@ -69,33 +180,14 @@
     return (b / 1024 / 1024).toFixed(1) + " MB";
   }
 
-  // ===================== 内置 LX Music 协议音源清单 =====================
-  // 浏览器里无法直接执行这些脚本（它们依赖 LX Music 桌面客户端的 globalThis.lx 与服务端 API）。
-  // 这里只作为"源标签"使用，同时让用户一键下载脚本以便导入 LX Music 客户端。
-  const BUILTIN_SOURCES = [
-    { id: "file",       name: "本地文件",         desc: "从电脑选择 mp3/m4a/flac/wav/ogg 等", file: null },
-    { id: "url",        name: "在线 URL",         desc: "粘贴音频直链，浏览器直接流式播放",    file: null },
-    { id: "lx-aggregate",     name: "全豆要 · 聚合音源 v9.3", desc: "LX Music 协议（QQ/网易/酷狗/酷我/咪咕/B 站）", file: "lx-sources/quandouyao-aggregate-v9.3.js" },
-    { id: "lx-changqing",     name: "长青 SVIP 音源",          desc: "LX Music 协议（多平台 SVIP）",                 file: "lx-sources/changqing-svip.js" },
-    { id: "lx-nianxin",       name: "念心音源 v1.0.0",         desc: "LX Music 协议",                                file: "lx-sources/nianxin-v1.0.0.js" },
-    { id: "lx-luoxue",        name: "洛雪音乐源 v2-fix",       desc: "LX Music 协议（QQ/酷狗/酷我/网易/咪咕）",      file: "lx-sources/luoxue-v2-fix.js" },
-    { id: "lx-aggregate-api", name: "聚合 API (CF)",           desc: "LX Music 协议（Cloudflare 聚合代理 v3）",      file: "lx-sources/aggregate-api.js" },
-    { id: "lx-luoxue-wechat-v3",   name: "洛雪公众号音源 V3.0",     desc: "LX Music 协议（公众号 / API 服务端，多平台音质）", file: "lx-sources/luoxue-wechat-v3.0.js" },
-    { id: "lx-luoxue-wechat-v3-2", name: "洛雪公众号音源 V3.0 · 副本", desc: "同上脚本另一份拷贝，便于对比或备份",                 file: "lx-sources/luoxue-wechat-v3.0-2.js" },
-  ];
-
   // ===================== 数据层 =====================
   const Music = {
     data: {
-      tracks: [],        // [{id, kind:'file'|'url', name, size?, mime?, duration?, lrc, source, url?}]
+      tracks: [],        // [{id, kind:'file'|'url', name, size?, mime?, duration?, lrc, url?}]
       current: -1,
       shuffle: false,
       loop: "all",       // none | all | one
       volume: 0.75,
-      currentSource: "file",  // 当前选中的"源"标签（用于添加时默认 + 过滤）
-      sourceFilter: "__all__", // 播放列表过滤：__all__ 或某个 source id
-      /** 在线导入的音源：元信息在 localStorage，脚本全文在 NavIDB.musicScripts */
-      customSources: [], // [{ id, name, remoteUrl }]
     },
     audio: null,
     _ctx: null, _analyser: null, _srcNode: null, _dataArr: null,
@@ -107,7 +199,17 @@
     load() {
       try {
         const raw = localStorage.getItem(META_KEY);
-        if (raw) Object.assign(this.data, JSON.parse(raw));
+        if (!raw) return;
+        const o = JSON.parse(raw);
+        Object.assign(this.data, o);
+        delete this.data.currentSource;
+        delete this.data.sourceFilter;
+        delete this.data.customSources;
+        if (Array.isArray(this.data.tracks)) {
+          for (const t of this.data.tracks) {
+            if (t && typeof t === "object") delete t.source;
+          }
+        }
       } catch (_) {}
     },
     save() { localStorage.setItem(META_KEY, JSON.stringify(this.data)); },
@@ -159,12 +261,43 @@
     async addFiles(files) {
       if (!files || !files.length) return 0;
       let added = 0;
-      const srcTag = (this.data.currentSource === "url") ? "file" : this.data.currentSource;
-      for (const f of files) {
-        if (!f || !f.type) continue;
-        const isAudio = f.type.startsWith("audio/") || /\.(mp3|m4a|flac|wav|ogg|aac|opus)$/i.test(f.name);
+      const useServer = window.SakuraMedia && SakuraMedia.enabled && SakuraMedia.uploadMusic;
+      // 先音频后歌词：同批多选时 OS 给出的顺序不定，避免 .lrc 先于 .mp3 被处理导致绑错/无效
+      const ordered = [...files].sort((a, b) => {
+        const al = a && /\.lrc$/i.test(a.name);
+        const bl = b && /\.lrc$/i.test(b.name);
+        if (al === bl) return 0;
+        return al ? 1 : -1;
+      });
+      for (const f of ordered) {
+        if (!f) continue;
+        const isAudio = (f.type && f.type.startsWith("audio/")) || /\.(mp3|m4a|flac|wav|ogg|aac|opus)$/i.test(f.name);
+        // Windows 下 .lrc 常为 file.type === ""，不能用 !f.type 直接跳过
         const isLrc = /\.lrc$/i.test(f.name) || f.type === "application/x-subrip" || f.type === "text/plain";
         if (isAudio) {
+          if (useServer) {
+            try {
+              const up = await SakuraMedia.uploadMusic(f);
+              if (up && up.url) {
+                const id = uid();
+                this.data.tracks.push({
+                  id,
+                  kind: "url",
+                  url: up.url,
+                  name: f.name.replace(/\.[^.]+$/, ""),
+                  size: f.size,
+                  mime: f.type,
+                  duration: 0,
+                  lrc: "",
+                  storage: "server",
+                });
+                added++;
+                continue;
+              }
+            } catch (e) {
+              toast("服务端上传失败，改存本地：" + (e.message || e), 3500);
+            }
+          }
           const id = uid();
           try { await IDB.put(id, f); } catch (e) { toast("保存失败：" + (e.message || e)); continue; }
           this.data.tracks.push({
@@ -172,13 +305,11 @@
             kind: "file",
             name: f.name.replace(/\.[^.]+$/, ""),
             size: f.size, mime: f.type, duration: 0, lrc: "",
-            source: srcTag || "file",
           });
           added++;
         } else if (isLrc) {
-          // 尝试匹配同名音频
           const baseName = f.name.replace(/\.lrc$/i, "").toLowerCase();
-          const text = await f.text();
+          const text = await readLrcFileText(f);
           let matched = this.data.tracks.find((t) => t.name.toLowerCase() === baseName);
           if (!matched) matched = this.data.tracks[this.data.tracks.length - 1];
           if (matched) {
@@ -189,6 +320,8 @@
               MusicUI.renderLyrics();
             }
             toast(`歌词已绑定到《${matched.name}》`);
+          } else {
+            toast("请先导入与歌词同名的音频（例如 歌名.mp3 + 歌名.lrc）", 3200);
           }
         }
       }
@@ -198,14 +331,11 @@
       return added;
     },
 
-    /** 在线导入：把一个远程 URL 加为曲目（不落 IDB）；source 可显式指定音源标签 */
-    addUrl({ url, name, lrc, source } = {}) {
+    /** 在线导入：把一个远程 URL 加为曲目（不落 IDB） */
+    addUrl({ url, name, lrc } = {}) {
       if (!url) return null;
       if (!/^https?:\/\//i.test(url)) { toast("URL 必须以 http(s):// 开头"); return null; }
       const fname = name || decodeURIComponent(url.split("?")[0].split("#")[0].split("/").pop() || "远程音乐");
-      let srcTag;
-      if (typeof source === "string" && source.length) srcTag = source;
-      else srcTag = (this.data.currentSource && this.data.currentSource !== "file" ? this.data.currentSource : "url");
       const id = uid();
       this.data.tracks.push({
         id,
@@ -215,7 +345,6 @@
         mime: "",
         duration: 0,
         lrc: lrc || "",
-        source: srcTag,
       });
       if (this.data.current < 0) this.data.current = this.data.tracks.length - 1;
       this.save();
@@ -229,6 +358,9 @@
       const track = this.data.tracks[idx];
       const wasCurrent = this.data.current === idx;
       this.data.tracks.splice(idx, 1);
+      if (track && track.storage === "server" && track.url && window.SakuraMedia && SakuraMedia.removeByUrl) {
+        await SakuraMedia.removeByUrl(track.url);
+      }
       // 只有本地 file 类型才在 IDB 里有实体
       if (track && track.kind !== "url") { try { await IDB.del(id); } catch (_) {} }
       if (wasCurrent) {
@@ -249,7 +381,12 @@
       this.pause();
       this._revokeBlobUrl();
       this.audio && this.audio.removeAttribute("src");
-      // 只清 IDB 里的本地文件；URL 曲目无实体
+      if (window.SakuraMedia && SakuraMedia.removeByUrl) {
+        for (const t of this.data.tracks) {
+          if (t && t.storage === "server" && t.url) await SakuraMedia.removeByUrl(t.url);
+        }
+      }
+      // 只清 IDB 里的本地文件；外链 URL 曲目无实体
       try { await IDB.clear(); } catch (_) {}
       this.data.tracks = []; this.data.current = -1;
       this._lrcLines = [];
@@ -264,11 +401,9 @@
       this._revokeBlobUrl();
 
       if (t.kind === "url") {
-        // 在线 URL：很多直链不带 CORS，浏览器会报“跨域不支持”而无法播放；改走同源流代理
         const raw = String(t.url || "").trim();
-        const proxied = toSameOriginStreamUrl(raw);
         audio.removeAttribute("crossorigin");
-        audio.src = proxied || raw;
+        audio.src = raw;
       } else {
         let blob;
         try { blob = await IDB.get(t.id); } catch (_) {}
@@ -286,17 +421,6 @@
       this.save();
       MusicUI.render();
       MusicUI.renderLyrics();
-    },
-
-    setSource(id) {
-      this.data.currentSource = id;
-      this.save();
-      MusicUI.render();
-    },
-    setFilter(id) {
-      this.data.sourceFilter = id;
-      this.save();
-      MusicUI.render();
     },
 
     _revokeBlobUrl() {
@@ -367,6 +491,7 @@
         MusicUI.renderLyrics();
       }
       this.save();
+      if (typeof MusicUI !== "undefined" && MusicUI.render) MusicUI.render();
     },
 
     _onTime() {
@@ -378,58 +503,9 @@
       this.next();
     },
 
-    /** 从 URL 拉取 .js 音源并写入 IndexedDB，加入自定义音源列表 */
-    async importRemoteSource(url, displayName) {
-      const u = (url || "").trim();
-      if (!/^https?:\/\//i.test(u)) { toast("URL 必须以 http(s):// 开头"); return null; }
-      toast("正在拉取音源脚本…");
-      let text;
-      try {
-        const r = await fetch(u, { mode: "cors", credentials: "omit" });
-        if (!r.ok) throw new Error(r.status + " " + r.statusText);
-        text = await r.text();
-      } catch (e) {
-        toast("获取失败：" + (e.message || e) + "（若站点未放行 CORS，请改用同源直链或先下载再本地托管）");
-        return null;
-      }
-      if (!text || text.length < 30) { toast("内容过短，可能不是有效脚本"); return null; }
-      const id = sourceUid();
-      const dispName = (displayName || "").trim()
-        || decodeURIComponent(u.split("?")[0].split("#")[0].split("/").pop() || "").replace(/\.js$/i, "")
-        || "自定义音源";
-      try {
-        await SCRIPT_IDB.put(id, { body: text, remoteUrl: u, name: dispName, fetchedAt: Date.now(), size: text.length });
-      } catch (e) {
-        toast("缓存失败：" + (e.message || e));
-        return null;
-      }
-      this.data.customSources = this.data.customSources || [];
-      this.data.customSources.push({ id, name: dispName, remoteUrl: u });
-      this.save();
-      MusicUI.refreshSourceSelect();
-      toast("音源已在线导入并缓存 🎛");
-      return id;
-    },
-
-    async removeCustomSource(rid) {
-      const list = this.data.customSources || [];
-      const idx = list.findIndex((x) => x.id === rid);
-      if (idx < 0) return;
-      list.splice(idx, 1);
-      try { await SCRIPT_IDB.del(rid); } catch (_) {}
-      for (const t of this.data.tracks) {
-        if (t.source === rid) t.source = "file";
-      }
-      if (this.data.currentSource === rid) this.data.currentSource = "file";
-      if (this.data.sourceFilter === rid) this.data.sourceFilter = "__all__";
-      this.save();
-      MusicUI.refreshSourceSelect();
-      MusicUI.render();
-      toast("已移除该在线音源");
-    },
-
     _updateLyric() {
       if (!this._lrcLines || !this._lrcLines.length || !this.audio) return;
+      if (this._lrcLines[0] && this._lrcLines[0].plain) return;
       const t = this.audio.currentTime;
       let idx = -1;
       for (let i = 0; i < this._lrcLines.length; i++) {
@@ -442,99 +518,19 @@
     },
   };
 
-  function getSourceDef(id) {
-    const c = Music.data.customSources && Music.data.customSources.find((x) => x.id === id);
-    if (c) {
-      return {
-        id: c.id, name: c.name, desc: "在线导入（脚本缓存在本机 IndexedDB）", file: null, isCustom: true, remoteUrl: c.remoteUrl,
-      };
-    }
-    return BUILTIN_SOURCES.find((s) => s.id === id) || null;
-  }
-  function getSourceName(id) { return getSourceDef(id)?.name || id || ""; }
-
-  /** 音乐统一 API（与当前页面同协议/同域，避免 HTTPS 页去请求 http:// 触发混合内容） */
-  const MUSIC_API = (() => {
-    try {
-      const { protocol, origin } = window.location;
-      if (protocol === "http:" || protocol === "https:") {
-        return `${origin.replace(/\/$/, "")}/api/music`;
-      }
-    } catch (_) {}
-    return "/api/music";
-  })();
-
-  async function fetchMusicSearch(platform, q, page = 1, pageSize = 25) {
-    const r = await fetch(`${MUSIC_API}/search?${new URLSearchParams({
-      platform,
-      q,
-      page: String(page),
-      pageSize: String(pageSize),
-    })}`);
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error?.message || `HTTP ${r.status}`);
-    return data;
-  }
-
-  async function fetchMusicPlayUrl(platform, id, quality = "128k") {
-    const r = await fetch(`${MUSIC_API}/url?${new URLSearchParams({ platform, id, quality })}`);
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error?.message || `HTTP ${r.status}`);
-    return data.url;
-  }
-
-  function toSameOriginStreamUrl(upstreamUrl) {
-    if (!upstreamUrl) return "";
-    const u = String(upstreamUrl).trim();
-    if (!/^https?:\/\//i.test(u)) return "";
-    return `${MUSIC_API}/stream?${new URLSearchParams({ u })}`;
-  }
-
-  async function fetchMusicLyric(platform, id) {
-    const r = await fetch(`${MUSIC_API}/lyric?${new URLSearchParams({ platform, id })}`);
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error?.message || `HTTP ${r.status}`);
-    return typeof data.lrc === "string" ? data.lrc : "";
-  }
-
-  const MUSIC_SEARCH_Q_KEY = "musicSearchLastQ";
-
-  function getSearchQuality() {
-    const sel = $("#music-search-quality");
-    const v = sel && sel.value ? String(sel.value) : "128k";
-    return v === "320k" ? "320k" : "128k";
-  }
-
-  const MSD_EMPTY_DEFAULT = `<p class="msd-empty-title">搜我所想~~ 😉</p>
-    <p class="msd-empty-sub">已接入：<b>酷我 / 网易云 / QQ / 酷狗 / 咪咕</b> 搜索，<b>聚合</b> 为多源交错结果。单击选行、双击或 ▶ 播放；<b>词</b> 会尝试拉取歌词；<b>QQ</b> 仅搜索、试听需换源。<br><small>若某源超时，请换其它 Tab 或稍后重试。</small></p>`;
-
-  /** 在线搜索加入列表时打的音源标签：优先当前选中的 LX 源，否则「在线 URL」 */
-  function pickSourceTagForSearch() {
-    const s = Music.data.currentSource;
-    if (s && s !== "file" && s !== "url") return s;
-    return "url";
-  }
-
   // ===================== UI =====================
   const MusicUI = {
     inited: false,
     vizRaf: null,
-    _searchHits: [],
-    _searchPlatform: "kw",
-    _searchType: "song",
-    _searchPage: 1,
-    _searchQuery: "",
-    _searchIsEnd: true,
-    _searchLoading: false,
-    _searchSelIdx: -1,
 
     init() {
       if (this.inited) return;
-      this.inited = true;
-
       const fab = $("#music-fab");
       const panel = $("#music-panel");
-      $("#music-fab").addEventListener("click", () => this.toggle());
+      if (!fab || !panel) return;
+      this.inited = true;
+
+      fab.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); this.toggle(); });
       $("#music-close").addEventListener("click", () => this.hide());
 
       $("#music-play").addEventListener("click", () => Music.togglePlay());
@@ -587,119 +583,45 @@
         }
       });
 
-      // 在线导入音源脚本（URL → IndexedDB scripts）
-      const dlgSrc = $("#dialog-music-source-url");
-      $("#music-source-import")?.addEventListener("click", () => {
-        if (!dlgSrc) return;
-        const f = dlgSrc.querySelector("form");
-        f?.reset();
-        dlgSrc.showModal();
-      });
-      dlgSrc?.querySelector("form")?.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const fd = new FormData(e.target);
-        const sid = await Music.importRemoteSource(
-          (fd.get("url") || "").toString().trim(),
-          (fd.get("name") || "").toString().trim(),
-        );
-        if (sid) dlgSrc.close();
-      });
+      const dlgLrc = $("#dialog-music-lrc");
+      const formLrc = $("#form-music-lrc");
+      const lrcFileInp = $("#music-lrc-file-input");
+      const btnLrcFile = $("#music-lrc-from-file");
 
-      // 音源切换 + 过滤（"全部"= 仅用于过滤，不作"当前源"）
-      const srcSel = $("#music-source-select");
-      if (srcSel && !srcSel._musicBound) {
-        srcSel._musicBound = true;
-        srcSel.addEventListener("change", (e) => {
-          const v = e.target.value;
-          Music.setFilter(v);
-          if (v !== "__all__") Music.setSource(v);  // 选中具体源 → 也作为"当前源"标签
-        });
+      function feedbackLrcBind(text) {
+        const trimmed = String(text || "").trim();
+        const parsed = parseLrc(text || "");
+        if (!trimmed) toast("已清空歌词");
+        else if (parsed.length > 0) {
+          toast(parsed[0].plain
+            ? `已绑定 ${parsed.length} 行（纯文本，无时间轴，仅展示）`
+            : `歌词已绑定（${parsed.length} 行）`);
+        } else toast("未能识别为歌词文本", 3000);
       }
-      this.refreshSourceSelect();
-      $("#music-source-info")?.addEventListener("click", () => this.openSourceDialog());
 
-      $("#music-open-search")?.addEventListener("click", () => this.openSearchModal());
-      $("#music-search-fab")?.addEventListener("click", () => this.openSearchModal());
-      const dlgSearch = $("#dialog-music-search");
-      $("#music-search-modal-close")?.addEventListener("click", () => { try { dlgSearch?.close(); } catch (_) {} });
-      $("#music-search-modal-go")?.addEventListener("click", () => this.doSearchModal());
-      $("#music-search-modal-input")?.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); this.doSearchModal(); }
-      });
-      $("#music-search-modal-more")?.addEventListener("click", () => this.loadMoreSearch());
-      dlgSearch?.addEventListener("keydown", (e) => this.onSearchModalKeydown(e));
-
-      $(".msd-source-tabs")?.addEventListener("click", (e) => {
-        const t = e.target.closest(".msd-src-tab");
-        if (!t) return;
-        if (t.dataset.available === "0") {
-          toast("该平台网页版暂未接入，请先用「小蜗音乐」（酷我）");
-          return;
-        }
-        $$(".msd-src-tab", dlgSearch || document).forEach((b) => b.classList.remove("active"));
-        t.classList.add("active");
-        this._searchPlatform = t.dataset.platform || "kw";
-      });
-      $(".msd-source-tabs")?.addEventListener("keydown", (e) => {
-        const t = e.target.closest(".msd-src-tab");
-        if (!t) return;
-        if (e.key !== "Enter" && e.key !== " ") return;
-        if (t.dataset.available === "0") {
-          e.preventDefault();
-          toast("该平台网页版暂未接入，请先用「小蜗音乐」（酷我）");
-        }
+      formLrc?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const tid = dlgLrc && dlgLrc.dataset.tid;
+        if (!tid) return;
+        const raw = (new FormData(formLrc).get("lrc") || "").toString();
+        Music.setLyrics(tid, raw);
+        feedbackLrcBind(raw);
+        dlgLrc.close();
       });
 
-      $(".msd-type-tabs")?.addEventListener("click", (e) => {
-        const t = e.target.closest(".msd-type-tab");
-        if (!t) return;
-        $$(".msd-type-tab", dlgSearch || document).forEach((b) => b.classList.remove("active"));
-        t.classList.add("active");
-        this._searchType = t.dataset.searchType || "song";
-        const plHint = $("#music-search-modal-playlist-hint");
-        const table = $("#music-search-modal-table");
-        const empty = $("#music-search-modal-empty");
-        if (this._searchType === "playlist") {
-          if (table) table.hidden = true;
-          if (empty) empty.hidden = true;
-          if (plHint) plHint.hidden = false;
-          this.updateSearchFooter();
-        } else {
-          if (plHint) plHint.hidden = true;
-          if (this._searchHits.length) {
-            if (table) table.hidden = false;
-            if (empty) empty.hidden = true;
-          } else {
-            if (table) table.hidden = true;
-            if (empty) { empty.hidden = false; empty.innerHTML = MSD_EMPTY_DEFAULT; }
-          }
-          this.updateSearchFooter();
+      btnLrcFile?.addEventListener("click", () => lrcFileInp && lrcFileInp.click());
+      lrcFileInp?.addEventListener("change", async () => {
+        const f = lrcFileInp.files && lrcFileInp.files[0];
+        lrcFileInp.value = "";
+        if (!f || !formLrc) return;
+        try {
+          const text = await readLrcFileText(f);
+          const ta = formLrc.querySelector("textarea[name=lrc]");
+          if (ta) ta.value = text;
+          toast("已从文件载入，可编辑后点「应用」");
+        } catch (err) {
+          toast("读取失败：" + err.message);
         }
-      });
-
-      $("#music-search-modal-tbody")?.addEventListener("click", async (e) => {
-        const btn = e.target.closest("button[data-act]");
-        if (btn) {
-          const act = btn.dataset.act;
-          const idx = +btn.dataset.idx;
-          if (!Number.isFinite(idx)) return;
-          e.stopPropagation();
-          if (act === "add") await this.addFromSearchHit(idx);
-          else if (act === "play") await this.playFromSearchHit(idx);
-          else if (act === "lrc") await this.addFromSearchHitWithLyric(idx);
-          return;
-        }
-        const tr = e.target.closest("tr.msd-row");
-        if (tr) {
-          const idx = +tr.dataset.idx;
-          if (Number.isFinite(idx)) this.selectSearchRow(idx, { scroll: true });
-        }
-      });
-      $("#music-search-modal-tbody")?.addEventListener("dblclick", async (e) => {
-        const tr = e.target.closest("tr.msd-row");
-        if (!tr) return;
-        const idx = +tr.dataset.idx;
-        await this.playFromSearchHit(idx);
       });
 
       $("#music-clear").addEventListener("click", async () => {
@@ -720,18 +642,35 @@
           if (a === "del") { e.stopPropagation(); await Music.removeTrack(id); return; }
           if (a === "lrc") {
             e.stopPropagation();
-            const inp = document.createElement("input");
-            inp.type = "file"; inp.accept = ".lrc,text/plain";
-            inp.onchange = async () => {
-              const f = inp.files && inp.files[0];
-              if (!f) return;
-              try {
-                const text = await f.text();
-                Music.setLyrics(id, text);
-                toast("歌词已绑定");
-              } catch (err) { toast("读取失败：" + err.message); }
-            };
-            inp.click();
+            const dlgLrc = $("#dialog-music-lrc");
+            const formLrc = $("#form-music-lrc");
+            const ta = formLrc && formLrc.querySelector("textarea[name=lrc]");
+            if (!dlgLrc || !formLrc || !ta) {
+              const inp = document.createElement("input");
+              inp.type = "file"; inp.accept = ".lrc,text/plain";
+              inp.onchange = async () => {
+                const f = inp.files && inp.files[0];
+                if (!f) return;
+                try {
+                  const text = await readLrcFileText(f);
+                  Music.setLyrics(id, text);
+                  const parsed = parseLrc(text);
+                  const n = parsed.length;
+                  if (n > 0) {
+                    toast(parsed[0].plain
+                      ? `已绑定 ${n} 行（纯文本，无时间轴，仅展示）`
+                      : `歌词已绑定（${n} 行）`);
+                  } else toast("未能识别为歌词文本", 3000);
+                } catch (err) { toast("读取失败：" + err.message); }
+              };
+              inp.click();
+              return;
+            }
+            dlgLrc.dataset.tid = id;
+            const tr = Music.data.tracks.find((x) => x.id === id);
+            ta.value = tr && tr.lrc ? tr.lrc : "";
+            dlgLrc.showModal();
+            requestAnimationFrame(() => { try { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (_) {} });
             return;
           }
         }
@@ -778,8 +717,10 @@
       $("#music-play").textContent = playing ? "❚❚" : "▶";
       $("#music-title").textContent = t ? t.name : "— 没有歌曲 —";
       $("#music-meta").textContent = t
-        ? `${fmtSize(t.size)} · ${(t.mime || "").split("/")[1] || "音频"}`
-        : "导入本地音乐文件开始使用";
+        ? (t.kind === "url"
+          ? `在线 URL · ${(t.mime || "").split("/")[1] || "流式"}`
+          : `${fmtSize(t.size)} · ${(t.mime || "").split("/")[1] || "音频"}`)
+        : "导入本地音乐文件或添加在线 URL";
 
       // shuffle / loop 状态
       $("#music-shuffle").classList.toggle("active", !!Music.data.shuffle);
@@ -789,20 +730,10 @@
       lb.textContent = Music.data.loop === "one" ? "🔂" : "🔁";
       lb.title = { none: "关闭循环", all: "列表循环", one: "单曲循环" }[Music.data.loop];
 
-      // 播放列表（按过滤器筛选）
       const list = $("#music-list");
-      const filter = Music.data.sourceFilter || "__all__";
       const allTracks = Music.data.tracks;
-      const visible = filter === "__all__"
-        ? allTracks.map((t, i) => ({ t, i }))
-        : allTracks.map((t, i) => ({ t, i })).filter(({ t }) => (t.source || "file") === filter);
-
       const countEl = $("#music-list-count");
-      if (countEl) {
-        countEl.textContent = filter === "__all__"
-          ? (allTracks.length ? `(${allTracks.length})` : "")
-          : `(${visible.length} / ${allTracks.length})`;
-      }
+      if (countEl) countEl.textContent = allTracks.length ? `(${allTracks.length})` : "";
 
       if (!allTracks.length) {
         list.innerHTML = `<li class="music-empty">
@@ -810,397 +741,25 @@
           也可以直接拖拽音乐/LRC 文件到此面板。<br>
           <small>支持 mp3 · m4a · flac · wav · ogg · aac · opus</small>
         </li>`;
-      } else if (!visible.length) {
-        list.innerHTML = `<li class="music-empty">
-          当前"${escapeHtml(getSourceName(filter))}"源下没有曲目。<br>
-          <small>切换到"全部"即可看到其他源的歌曲。</small>
-        </li>`;
       } else {
-        list.innerHTML = visible.map(({ t, i }) => {
+        list.innerHTML = allTracks.map((t, i) => {
           const active = i === Music.data.current;
           const isUrl = t.kind === "url";
-          const srcLabel = (t.source && t.source !== "file") ? `<span class="mt-source-badge">${escapeHtml(getSourceName(t.source))}</span>` : "";
           const sizeLabel = isUrl ? "在线" : fmtSize(t.size);
           return `<li class="music-track${active ? " active" : ""}" data-tid="${t.id}">
             <div class="mt-num">${active && playing ? "🎵" : i + 1}</div>
             <div class="mt-main">
               <div class="mt-name">${isUrl ? "🌐 " : ""}${escapeHtml(t.name)}</div>
-              <div class="mt-sub">${srcLabel}${sizeLabel}${t.duration ? ` · ${fmtTime(t.duration)}` : ""}${t.lrc ? " · 🎤" : ""}</div>
+              <div class="mt-sub">${sizeLabel}${t.duration ? ` · ${fmtTime(t.duration)}` : ""}${t.lrc ? " · 🎤" : ""}</div>
             </div>
             <div class="mt-actions">
-              <button data-act="lrc" title="绑定歌词 (.lrc)">📝</button>
+              <button data-act="lrc" title="绑定歌词（粘贴 LRC 文本或 .lrc 文件）">📝</button>
               <button data-act="del" title="移除">✕</button>
             </div>
           </li>`;
         }).join("");
       }
       this.renderProgress();
-    },
-
-    openSearchModal() {
-      const d = $("#dialog-music-search");
-      if (!d) { toast("搜索组件未加载，请刷新页面"); return; }
-      try {
-        if (d.open) d.close();
-      } catch (_) {}
-      try {
-        if (typeof d.showModal === "function") d.showModal();
-        else d.setAttribute("open", "");
-      } catch (err) {
-        console.warn("showModal:", err);
-        try { d.show(); } catch (_) { d.setAttribute("open", ""); }
-      }
-      try {
-        const last = sessionStorage.getItem(MUSIC_SEARCH_Q_KEY);
-        const inp = $("#music-search-modal-input");
-        if (inp && last && !inp.value.trim()) inp.value = last;
-      } catch (_) {}
-      setTimeout(() => $("#music-search-modal-input")?.focus(), 80);
-    },
-
-    setSearchLoading(on) {
-      this._searchLoading = !!on;
-      const wrap = $("#music-search-modal-table-wrap");
-      if (wrap) wrap.classList.toggle("msd-table-wrap--loading", !!on);
-      this.updateSearchFooter();
-    },
-
-    updateSearchFooter() {
-      const footer = $("#music-search-modal-footer");
-      const status = $("#music-search-modal-status");
-      const more = $("#music-search-modal-more");
-      const table = $("#music-search-modal-table");
-      if (!footer || !status || !more) return;
-      const show = table && !table.hidden && this._searchHits.length > 0 && this._searchType === "song";
-      footer.hidden = !show;
-      if (!show) return;
-      status.textContent = `第 ${this._searchPage} 页 · 共 ${this._searchHits.length} 条${this._searchIsEnd ? " · 已到底" : ""}`;
-      more.disabled = this._searchLoading || this._searchIsEnd;
-    },
-
-    renderSearchModalTable() {
-      const tbody = $("#music-search-modal-tbody");
-      if (!tbody) return;
-      tbody.innerHTML = this._searchHits.map((hit, i) => {
-        const dur = (hit.durationMs != null && Number.isFinite(hit.durationMs))
-          ? fmtTime(hit.durationMs / 1000)
-          : "—";
-        const sel = i === this._searchSelIdx ? " msd-row--sel" : "";
-        return `<tr class="msd-row${sel}" data-idx="${i}">
-          <td>${i + 1}</td>
-          <td><span class="msd-name">${escapeHtml(hit.name)}</span> <span class="msd-plat">${escapeHtml(hit.platform)}</span></td>
-          <td>${escapeHtml(hit.artists || "—")}</td>
-          <td>${escapeHtml(hit.album || "—")}</td>
-          <td>${dur}</td>
-          <td><button type="button" class="msd-icon-btn" data-act="play" data-idx="${i}" title="播放">▶</button></td>
-          <td><button type="button" class="mini-btn" data-act="add" data-idx="${i}">加入</button></td>
-          <td><button type="button" class="msd-icon-btn" data-act="lrc" data-idx="${i}" title="加入并拉取歌词">词</button></td>
-        </tr>`;
-      }).join("");
-      this.updateSearchFooter();
-    },
-
-    selectSearchRow(idx, opts) {
-      const n = this._searchHits.length;
-      if (!n) {
-        this._searchSelIdx = -1;
-        return;
-      }
-      this._searchSelIdx = Math.max(0, Math.min(idx, n - 1));
-      const tbody = $("#music-search-modal-tbody");
-      if (!tbody) return;
-      $$("tr.msd-row", tbody).forEach((row, i) => {
-        row.classList.toggle("msd-row--sel", i === this._searchSelIdx);
-      });
-      if (opts && opts.scroll) {
-        const row = tbody.querySelector(`tr.msd-row[data-idx="${this._searchSelIdx}"]`);
-        row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }
-    },
-
-    onSearchModalKeydown(e) {
-      const dlg = $("#dialog-music-search");
-      if (!dlg || !dlg.open) return;
-      const tag = document.activeElement?.tagName;
-      const inInput = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
-
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        try { dlg.close(); } catch (_) {}
-        return;
-      }
-
-      if (this._searchType !== "song" || !this._searchHits.length) return;
-
-      if (e.key === "ArrowDown") {
-        if (inInput) return;
-        e.preventDefault();
-        const start = this._searchSelIdx < 0 ? -1 : this._searchSelIdx;
-        this.selectSearchRow(start + 1, { scroll: true });
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        if (inInput) return;
-        e.preventDefault();
-        const start = this._searchSelIdx < 0 ? 0 : this._searchSelIdx;
-        this.selectSearchRow(start - 1, { scroll: true });
-        return;
-      }
-      if (e.key === "Enter" && !inInput) {
-        e.preventDefault();
-        if (this._searchSelIdx >= 0) this.playFromSearchHit(this._searchSelIdx);
-      }
-    },
-
-    async loadMoreSearch() {
-      await this.runSearchModal(true);
-    },
-
-    async doSearchModal() {
-      await this.runSearchModal(false);
-    },
-
-    async runSearchModal(append) {
-      const inp = $("#music-search-modal-input");
-      const tbody = $("#music-search-modal-tbody");
-      const table = $("#music-search-modal-table");
-      const empty = $("#music-search-modal-empty");
-      const plHint = $("#music-search-modal-playlist-hint");
-      if (!inp || !tbody || !table || !empty) return;
-
-      if (this._searchType === "playlist") {
-        table.hidden = true;
-        empty.hidden = true;
-        if (plHint) plHint.hidden = false;
-        this.updateSearchFooter();
-        return;
-      }
-      if (plHint) plHint.hidden = true;
-
-      const q = inp.value.trim();
-      if (!q) { toast("请输入关键词"); return; }
-
-      if (append) {
-        if (!this._searchQuery || q !== this._searchQuery) {
-          toast("请先完成当前关键词的首次搜索");
-          return;
-        }
-        if (this._searchIsEnd || this._searchLoading) return;
-      }
-
-      const platform = this._searchPlatform || "kw";
-      const page = append ? this._searchPage + 1 : 1;
-      const pageSize = 25;
-
-      this.setSearchLoading(true);
-      try {
-        if (!append) toast("正在搜索…", 1200);
-        else toast("加载更多…", 1000);
-
-        const data = await fetchMusicSearch(platform, q, page, pageSize);
-        const items = Array.isArray(data.items) ? data.items : [];
-
-        if (!append) {
-          this._searchHits = items;
-          this._searchQuery = q;
-          try { sessionStorage.setItem(MUSIC_SEARCH_Q_KEY, q); } catch (_) {}
-          this._searchSelIdx = items.length ? 0 : -1;
-        } else {
-          const seen = new Set(this._searchHits.map((h) => `${h.platform}:${h.id}`));
-          for (const it of items) {
-            const k = `${it.platform}:${it.id}`;
-            if (!seen.has(k)) {
-              seen.add(k);
-              this._searchHits.push(it);
-            }
-          }
-        }
-
-        this._searchPage = page;
-        this._searchIsEnd = data.isEnd === true || items.length < pageSize;
-
-        if (!this._searchHits.length) {
-          table.hidden = true;
-          tbody.innerHTML = "";
-          empty.hidden = false;
-          empty.innerHTML = `<p class="msd-empty-title">没有匹配结果</p><p class="msd-empty-sub">换个关键词试试</p>`;
-          this.updateSearchFooter();
-          return;
-        }
-
-        empty.hidden = true;
-        table.hidden = false;
-        this.renderSearchModalTable();
-      } catch (e) {
-        if (!append) {
-          this._searchHits = [];
-          this._searchQuery = "";
-          this._searchSelIdx = -1;
-          table.hidden = true;
-          tbody.innerHTML = "";
-          empty.hidden = false;
-          empty.innerHTML = `<p class="msd-empty-title">搜索失败</p><p class="msd-empty-sub">${escapeHtml(e.message || e)}<br><small>请确认已 <b>docker compose up</b> 启动 music-api 与 nginx 反代。</small></p>`;
-        } else {
-          toast("加载失败：" + (e.message || e));
-        }
-      } finally {
-        this.setSearchLoading(false);
-      }
-    },
-
-    async addFromSearchHit(idx) {
-      const hit = this._searchHits[idx];
-      if (!hit?.id || !hit?.platform) { toast("数据无效"); return; }
-      const title = hit.artists ? `${hit.name} — ${hit.artists}` : hit.name;
-      const q = getSearchQuality();
-      try {
-        toast("正在解析直链…", 1500);
-        const raw = await fetchMusicPlayUrl(hit.platform, hit.id, q);
-        const url = toSameOriginStreamUrl(raw) || raw;
-        Music.addUrl({ url, name: title, source: pickSourceTagForSearch() });
-        toast("已加入播放列表");
-      } catch (err) {
-        toast("加入失败：" + (err.message || err));
-      }
-    },
-
-    async addFromSearchHitWithLyric(idx) {
-      const hit = this._searchHits[idx];
-      if (!hit?.id || !hit?.platform) { toast("数据无效"); return; }
-      const title = hit.artists ? `${hit.name} — ${hit.artists}` : hit.name;
-      const q = getSearchQuality();
-      try {
-        toast("正在解析直链与歌词…", 2000);
-        const [raw, lrc] = await Promise.all([
-          fetchMusicPlayUrl(hit.platform, hit.id, q),
-          fetchMusicLyric(hit.platform, hit.id),
-        ]);
-        const url = toSameOriginStreamUrl(raw) || raw;
-        Music.addUrl({
-          url,
-          name: title,
-          source: pickSourceTagForSearch(),
-          lrc: (lrc && lrc.trim()) ? lrc : "",
-        });
-        if (lrc && lrc.trim()) toast("已加入（含歌词）");
-        else toast("已加入（暂无歌词）");
-      } catch (err) {
-        toast("加入失败：" + (err.message || err));
-      }
-    },
-
-    async playFromSearchHit(idx) {
-      const hit = this._searchHits[idx];
-      if (!hit?.id || !hit?.platform) { toast("数据无效"); return; }
-      const title = hit.artists ? `${hit.name} — ${hit.artists}` : hit.name;
-      const q = getSearchQuality();
-      try {
-        toast("正在解析并播放…", 1500);
-        const raw = await fetchMusicPlayUrl(hit.platform, hit.id, q);
-        const url = toSameOriginStreamUrl(raw) || raw;
-        const id = Music.addUrl({ url, name: title, source: pickSourceTagForSearch() });
-        const j = Music.data.tracks.findIndex((t) => t.id === id);
-        if (j >= 0) await Music.playIndex(j);
-      } catch (err) {
-        toast("播放失败：" + (err.message || err));
-      }
-    },
-
-    refreshSourceSelect() {
-      const sel = $("#music-source-select");
-      if (!sel) return;
-      const want = Music.data.sourceFilter || "__all__";
-      const addOpt = (parent, val, text) => {
-        const o = document.createElement("option");
-        o.value = val;
-        o.textContent = text;
-        parent.appendChild(o);
-      };
-      sel.textContent = "";
-      addOpt(sel, "__all__", "全部");
-      addOpt(sel, "file", "本地文件");
-      addOpt(sel, "url", "在线 URL");
-      const ogIn = document.createElement("optgroup");
-      ogIn.label = "内置 LX Music 协议脚本";
-      sel.appendChild(ogIn);
-      for (const s of BUILTIN_SOURCES) {
-        if (!s.file) continue;
-        addOpt(ogIn, s.id, s.name);
-      }
-      const customs = Music.data.customSources || [];
-      if (customs.length) {
-        const ogC = document.createElement("optgroup");
-        ogC.label = "在线导入";
-        sel.appendChild(ogC);
-        for (const c of customs) addOpt(ogC, c.id, c.name);
-      }
-      if ([...sel.options].some((o) => o.value === want)) sel.value = want;
-      else {
-        sel.value = "__all__";
-        Music.data.sourceFilter = "__all__";
-        Music.save();
-      }
-    },
-
-    /** 打开音源说明 / 下载列表 */
-    openSourceDialog() {
-      const dlg = $("#dialog-music-source");
-      const ul = $("#music-source-list");
-      if (!dlg || !ul) return;
-      const built = BUILTIN_SOURCES.map((s) => {
-        const action = s.file
-          ? `<a class="s-link" href="${escapeHtml(s.file)}" download target="_blank" rel="noopener">⇩ 下载脚本</a>`
-          : `<span class="s-link" style="opacity:.5">—</span>`;
-        return `<li>
-          <div>
-            <div class="s-name">${escapeHtml(s.name)}</div>
-            <div class="s-desc">${escapeHtml(s.desc)}</div>
-          </div>
-          ${action}
-        </li>`;
-      }).join("");
-      const customs = Music.data.customSources || [];
-      const customHtml = customs.length
-        ? `<li class="music-source-subtitle"><strong>在线导入</strong>（缓存在本机，可导出给 LX Music 客户端）</li>`
-        + customs.map((c) => `<li class="music-source-custom">
-          <div>
-            <div class="s-name">${escapeHtml(c.name)}</div>
-            <div class="s-desc">${escapeHtml(c.remoteUrl || "")}</div>
-          </div>
-          <div class="s-actions">
-            <button type="button" class="s-link-btn" data-export-source="${escapeHtml(c.id)}">⇩ 导出 .js</button>
-            <button type="button" class="s-link-btn danger" data-remove-source="${escapeHtml(c.id)}">移除</button>
-          </div>
-        </li>`).join("")
-        : "";
-      ul.innerHTML = built + customHtml;
-      ul.onclick = async (e) => {
-        const exp = e.target.closest("[data-export-source]");
-        const rm = e.target.closest("[data-remove-source]");
-        if (exp) {
-          e.preventDefault();
-          const id = exp.getAttribute("data-export-source");
-          const rec = await SCRIPT_IDB.get(id);
-          if (!rec || !rec.body) { toast("本地缓存不存在"); return; }
-          const blob = new Blob([rec.body], { type: "text/javascript;charset=utf-8" });
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = ((rec.name || id).replace(/[\\/:*?"<>|]+/g, "_")) + ".js";
-          a.click();
-          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-          return;
-        }
-        if (rm) {
-          e.preventDefault();
-          const id = rm.getAttribute("data-remove-source");
-          if (confirm("确定移除该在线导入的音源？已打此标签的曲目将改回「本地文件」分类。")) {
-            await Music.removeCustomSource(id);
-            this.openSourceDialog();
-          }
-        }
-      };
-      dlg.showModal();
     },
 
     renderProgress() {
@@ -1221,7 +780,12 @@
       if (!box) return;
       const lines = Music._lrcLines || [];
       if (!lines.length) {
-        box.innerHTML = `<div class="lyric-empty">此曲暂无歌词，点列表上的 📝 绑定 .lrc</div>`;
+        box.innerHTML = `<div class="lyric-empty">此曲暂无歌词，点列表上的 📝 粘贴或导入 .lrc</div>`;
+        return;
+      }
+      if (lines[0].plain) {
+        box.innerHTML = lines.map((l, i) => `<div class="lyric-line lyric-plain-line" data-idx="${i}">${escapeHtml(l.text)}</div>`).join("")
+          + `<div class="lyric-plain-hint">纯文本歌词（无 [分:秒] 时间轴），仅展示，不与播放同步</div>`;
         return;
       }
       box.innerHTML = lines.map((l, i) => `<div class="lyric-line" data-idx="${i}">${escapeHtml(l.text)}</div>`).join("");
@@ -1306,7 +870,8 @@
   };
 
   // 初始化（等 DOMContentLoaded，让 app.js 暴露 toast 后再 init）
-  window.addEventListener("DOMContentLoaded", () => {
+  window.addEventListener("DOMContentLoaded", async () => {
+    if (window.SakuraRemote && SakuraRemote.ready) await SakuraRemote.ready;
     Music.load();
     // 延迟到用户交互时才确保 audio 元素；此处仅绑定 UI
     MusicUI.init();
@@ -1314,18 +879,11 @@
     window.addEventListener("keydown", (e) => {
       const tag = document.activeElement?.tagName;
       const inInput = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
-      if (!inInput && MusicUI.isVisible() && (e.ctrlKey && (e.key === "k" || e.key === "K") || (e.altKey && (e.key === "f" || e.key === "F")))) {
-        e.preventDefault();
-        MusicUI.openSearchModal();
-        return;
-      }
       if (e.altKey && (e.key === "m" || e.key === "M")) {
         e.preventDefault();
         MusicUI.toggle();
         return;
       }
-      const dlgMusicSearch = document.getElementById("dialog-music-search");
-      if (dlgMusicSearch && dlgMusicSearch.open) return;
       if (!MusicUI.isVisible()) return;
       if (e.key === "Escape" && !inInput) { MusicUI.hide(); return; }
       if (e.code === "Space" && !inInput) { e.preventDefault(); Music.togglePlay(); }
