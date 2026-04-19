@@ -14,7 +14,16 @@
       "Bash(git stash)",
       "Bash(git pull *)",
       "Bash(git stash *)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(ssh-keyscan *)",
+      "Bash(ssh *)",
+      "Bash(cat)",
+      "Bash(host *)",
+      "Bash(hostname *)",
+      "Bash(user *)",
+      "Bash(identityfile *)",
+      "Bash(identitiesonly *)",
+      "Bash(eof)"
     ]
   },
   "$version": 3
