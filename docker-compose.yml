@@ -46,11 +46,7 @@ services:
       retries: 3
       start_period: 15s
 
-    read_only: true
-    tmpfs:
-      - /var/cache/nginx:size=16m
-      - /var/run:size=8m
-      - /tmp:size=16m
+    # 安全加固：禁止提权
     security_opt:
       - no-new-privileges:true
 
