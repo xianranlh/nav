@@ -99,21 +99,50 @@
     },
 
     load() {
+      // 1. 加载数据
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) this.state = JSON.parse(raw);
-      } catch (e) { console.warn("load data failed", e); }
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          // 确保解析结果是对象且不是 null
+          if (parsed && typeof parsed === "object") {
+            this.state = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn("load data failed", e);
+      }
+
+      // 2. 加载设置
       try {
         const raw = localStorage.getItem(SETTINGS_KEY);
-        if (raw) Object.assign(this.settings, JSON.parse(raw));
-      } catch (e) { console.warn("load settings failed", e); }
-      // 兼容旧字段：bg (单张) → bgSingle
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            Object.assign(this.settings, parsed);
+          }
+        }
+      } catch (e) {
+        console.warn("load settings failed", e);
+      }
+
+      // 3. 最终防御性修正
+      if (!this.state || typeof this.state !== "object") {
+        this.state = { groups: [] };
+      }
+      // 确保 groups 数组存在（兼容旧数据无 groups 字段）
+      if (!this.state.groups || !Array.isArray(this.state.groups)) {
+        this.state.groups = [];
+      }
+
+      // 4. 其它兼容性处理
       if (this.settings.bg && !this.settings.bgSingle) {
         this.settings.bgSingle = this.settings.bg;
         this.settings.bgMode = "single";
       }
-      if (!this.settings.collapsedGroups) this.settings.collapsedGroups = {};
-      if (!Array.isArray(this.state.groups)) this.state.groups = [];
+      if (!this.settings.collapsedGroups) {
+        this.settings.collapsedGroups = {};
+      }
       if (!this.settings.visualTheme || !VISUAL_THEMES[this.settings.visualTheme]) {
         this.settings.visualTheme = "sakura";
       }
@@ -250,6 +279,7 @@
         <input class="group-name" value="${escapeHtml(g.name)}" />
         <span class="group-count">${g.links.length} 个</span>
         <div class="group-actions">
+          <button data-act="edit" title="编辑分组（含背景）">✏️</button>
           <button data-act="color" title="分组颜色">🎨</button>
           <button data-act="up" title="上移">↑</button>
           <button data-act="down" title="下移">↓</button>
@@ -258,6 +288,7 @@
       </div>
       <div class="cards"></div>
     `;
+    applyBgLayer(el, g.bg, "group-bg");
 
     const cards = $(".cards", el);
     const sortedLinks = [...g.links].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
@@ -301,6 +332,13 @@
       const act = btn.dataset.act;
       if (act === "del") {
         if (!confirm(`删除分组 "${g.name}" 及其 ${g.links.length} 个链接？`)) return;
+        // 清理服务端媒体
+        if (window.SakuraMedia && SakuraMedia.removeByUrl) {
+          if (g.bg && g.bg.url) SakuraMedia.removeByUrl(g.bg.url).catch(() => {});
+          for (const l of g.links) {
+            if (l.bg && l.bg.url) SakuraMedia.removeByUrl(l.bg.url).catch(() => {});
+          }
+        }
         Store.state.groups = Store.state.groups.filter((x) => x.id !== g.id);
         Store.save(); render();
       } else if (act === "up" || act === "down") {
@@ -315,6 +353,8 @@
           g.color = c;
           Store.save(); render();
         });
+      } else if (act === "edit") {
+        openGroupDialog(g);
       }
     });
 
@@ -345,6 +385,8 @@
     name.textContent = link.name || safeHost(link.url);
     a.appendChild(name);
 
+    applyBgLayer(a, link.bg, "card-bg");
+
     const del = document.createElement("button");
     del.className = "del";
     del.type = "button";
@@ -353,6 +395,9 @@
     del.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (link.bg && link.bg.url && window.SakuraMedia && SakuraMedia.removeByUrl) {
+        SakuraMedia.removeByUrl(link.bg.url).catch(() => {});
+      }
       group.links = group.links.filter((x) => x.id !== link.id);
       Store.save(); render();
     });
@@ -606,6 +651,144 @@
     render();
   }
 
+  // ===================== 卡片/分组背景编辑器 =====================
+  /** 绑定到 <details class="bg-editor"> 片段，返回 getValue/setValue/cleanup 接口。
+   *  value 形如：{ url, kind:"image"|"video", opacity, blur, mask } */
+  function bindBgEditor(root) {
+    if (!root) return null;
+    const preview = root.querySelector("[data-bg-preview]");
+    const urlInp = root.querySelector("[data-bg-url]");
+    const fileInp = root.querySelector("[data-bg-file]");
+    const clearBtn = root.querySelector("[data-bg-clear]");
+    const opacityInp = root.querySelector("[data-bg-opacity]");
+    const blurInp = root.querySelector("[data-bg-blur]");
+    const maskInp = root.querySelector("[data-bg-mask]");
+    const opacityLbl = root.querySelector("[data-bg-opacity-val]");
+    const blurLbl = root.querySelector("[data-bg-blur-val]");
+    const maskLbl = root.querySelector("[data-bg-mask-val]");
+    let uploadingCleanup = null;
+
+    const detectKind = (u) => {
+      if (!u) return null;
+      if (/\.(mp4|webm|ogv|mov)(\?|#|$)/i.test(u)) return "video";
+      if (u.startsWith("data:video/")) return "video";
+      return "image";
+    };
+
+    function renderPreview() {
+      const url = (urlInp.value || "").trim();
+      const kind = detectKind(url);
+      preview.style.setProperty("--bg-opacity", (+opacityInp.value) / 100);
+      preview.style.setProperty("--bg-blur", (+blurInp.value) + "px");
+      preview.style.setProperty("--bg-mask", (+maskInp.value) / 100);
+      opacityLbl.textContent = opacityInp.value + "%";
+      blurLbl.textContent = blurInp.value + "px";
+      maskLbl.textContent = maskInp.value + "%";
+      if (!url) { preview.innerHTML = '<span class="hint">未设置</span>'; return; }
+      if (kind === "video") {
+        preview.innerHTML = "";
+        const v = document.createElement("video");
+        v.src = url;
+        v.autoplay = true; v.loop = true; v.muted = true; v.playsInline = true;
+        preview.appendChild(v);
+      } else {
+        preview.innerHTML = "";
+        const img = document.createElement("img");
+        img.src = url;
+        img.referrerPolicy = "no-referrer";
+        preview.appendChild(img);
+      }
+    }
+
+    urlInp.addEventListener("input", renderPreview);
+    [opacityInp, blurInp, maskInp].forEach((el) => el.addEventListener("input", renderPreview));
+    clearBtn.addEventListener("click", () => {
+      urlInp.value = ""; opacityInp.value = 100; blurInp.value = 0; maskInp.value = 0; renderPreview();
+    });
+    fileInp.addEventListener("change", async () => {
+      const f = fileInp.files && fileInp.files[0];
+      fileInp.value = "";
+      if (!f) return;
+      const useServer = window.SakuraMedia && SakuraMedia.enabled && SakuraMedia.enabled() && SakuraMedia.uploadBg;
+      if (useServer) {
+        try {
+          clearBtn.disabled = true;
+          const up = await SakuraMedia.uploadBg(f);
+          if (up && up.url) { urlInp.value = up.url; renderPreview(); toast("背景已上传到服务端"); }
+        } catch (e) { toast("上传失败：" + (e.message || e), 3500); }
+        finally { clearBtn.disabled = false; }
+        return;
+      }
+      // 纯静态兜底：图片走 dataURL（限制大小），视频不允许
+      if (f.type.startsWith("video/")) {
+        toast("视频背景需启用服务端模式（Docker 部署）", 3500);
+        return;
+      }
+      if (f.size > 2 * 1024 * 1024) {
+        toast("纯静态模式下图片 > 2MB 无法本地保存；请使用 URL 或启用服务端", 3800);
+        return;
+      }
+      try {
+        const reader = new FileReader();
+        reader.onload = () => { urlInp.value = String(reader.result); renderPreview(); };
+        reader.readAsDataURL(f);
+      } catch (e) { toast("读取失败：" + (e.message || e)); }
+    });
+
+    return {
+      setValue(v) {
+        v = v || {};
+        urlInp.value = v.url || "";
+        opacityInp.value = v.opacity != null ? Math.round(v.opacity * 100) : 100;
+        blurInp.value = v.blur != null ? v.blur : 0;
+        maskInp.value = v.mask != null ? Math.round(v.mask * 100) : 0;
+        renderPreview();
+      },
+      getValue() {
+        const url = (urlInp.value || "").trim();
+        if (!url) return null;
+        return {
+          url,
+          kind: detectKind(url),
+          opacity: (+opacityInp.value) / 100,
+          blur: +blurInp.value,
+          mask: (+maskInp.value) / 100,
+        };
+      },
+      cleanup() { if (uploadingCleanup) try { uploadingCleanup(); } catch (_) {} },
+    };
+  }
+  const linkBgEditor = bindBgEditor(document.querySelector(".bg-editor[data-target=link]"));
+  const groupBgEditor = bindBgEditor(document.querySelector(".bg-editor[data-target=group]"));
+
+  /** 把 bg 对象应用到一个 .card-bg / .group-bg 容器（创建或更新 <img>/<video>）。
+   *  返回 wrapper 元素（无则返回 null） */
+  function applyBgLayer(host, bg, containerClass) {
+    // 移除旧层
+    const old = host.querySelector(":scope > ." + containerClass);
+    if (old) old.remove();
+    host.classList.remove("has-bg");
+    if (!bg || !bg.url) return null;
+    const wrap = document.createElement("div");
+    wrap.className = containerClass;
+    const kind = bg.kind || (/\.(mp4|webm|ogv|mov)(\?|#|$)/i.test(bg.url) ? "video" : "image");
+    if (kind === "video") {
+      const v = document.createElement("video");
+      v.src = bg.url; v.autoplay = true; v.loop = true; v.muted = true; v.playsInline = true;
+      wrap.appendChild(v);
+    } else {
+      const img = document.createElement("img");
+      img.src = bg.url; img.referrerPolicy = "no-referrer"; img.alt = "";
+      wrap.appendChild(img);
+    }
+    wrap.style.setProperty("--bg-opacity", bg.opacity != null ? bg.opacity : 1);
+    wrap.style.setProperty("--bg-blur", (bg.blur || 0) + "px");
+    wrap.style.setProperty("--bg-mask", bg.mask != null ? bg.mask : 0);
+    host.prepend(wrap);
+    host.classList.add("has-bg");
+    return wrap;
+  }
+
   // ===================== 链接 弹窗 =====================
   const dlgLink = $("#dialog-link");
   const formLink = $("#form-link");
@@ -658,7 +841,9 @@
     formLink.desc.value = link ? (link.desc || "") : "";
     sel.value = groupId || (link && Store.findLink(link.id)?.group.id) || Store.state.groups[0]?.id;
     formLink.dataset.editId = link ? link.id : "";
+    formLink.dataset.prevBgUrl = link && link.bg && link.bg.url ? link.bg.url : "";
     updateIconPreview(formLink.icon.value);
+    if (linkBgEditor) linkBgEditor.setValue(link ? link.bg : null);
     dlgLink.showModal();
     setTimeout(() => formLink.name.focus(), 50);
   }
@@ -698,6 +883,8 @@
     const dstGroup = Store.findGroup(data.groupId);
     if (!dstGroup) { dlgLink.close(); return; }
 
+    const bg = linkBgEditor ? linkBgEditor.getValue() : null;
+    const prevBgUrl = formLink.dataset.prevBgUrl || "";
     if (editId) {
       const found = Store.findLink(editId);
       if (found) {
@@ -708,6 +895,7 @@
           url: data.url,
           icon: data.icon || "",
           desc: data.desc || "",
+          bg: bg || null,
         });
         dstGroup.links.push(found.link);
       }
@@ -718,7 +906,12 @@
         url: data.url,
         icon: data.icon || "",
         desc: data.desc || "",
+        bg: bg || null,
       });
+    }
+    // 旧 server URL 若与新 URL 不同，清服务端文件
+    if (prevBgUrl && prevBgUrl !== (bg && bg.url) && window.SakuraMedia && SakuraMedia.removeByUrl) {
+      SakuraMedia.removeByUrl(prevBgUrl).catch(() => {});
     }
     Store.save();
     render();
@@ -729,10 +922,13 @@
   const dlgGroup = $("#dialog-group");
   const formGroup = $("#form-group");
 
-  function openGroupDialog() {
-    $("#group-title").textContent = "新建分组";
-    formGroup.name.value = "";
-    formGroup.color.value = "#f6a5c0";
+  function openGroupDialog(existing) {
+    $("#group-title").textContent = existing ? "编辑分组" : "新建分组";
+    formGroup.name.value = existing ? existing.name : "";
+    formGroup.color.value = existing ? (existing.color || "#f6a5c0") : "#f6a5c0";
+    formGroup.dataset.editId = existing ? existing.id : "";
+    formGroup.dataset.prevBgUrl = existing && existing.bg && existing.bg.url ? existing.bg.url : "";
+    if (groupBgEditor) groupBgEditor.setValue(existing ? existing.bg : null);
     dlgGroup.showModal();
     setTimeout(() => formGroup.name.focus(), 50);
   }
@@ -741,12 +937,28 @@
     e.preventDefault();
     const data = Object.fromEntries(new FormData(formGroup));
     if (!data.name) return;
-    Store.state.groups.push({
-      id: uid(),
-      name: data.name,
-      color: data.color || "#f6a5c0",
-      links: [],
-    });
+    const bg = groupBgEditor ? groupBgEditor.getValue() : null;
+    const prevBgUrl = formGroup.dataset.prevBgUrl || "";
+    const editId = formGroup.dataset.editId || "";
+    if (editId) {
+      const g = Store.findGroup(editId);
+      if (g) {
+        g.name = data.name;
+        g.color = data.color || g.color || "#f6a5c0";
+        g.bg = bg || null;
+      }
+    } else {
+      Store.state.groups.push({
+        id: uid(),
+        name: data.name,
+        color: data.color || "#f6a5c0",
+        links: [],
+        bg: bg || null,
+      });
+    }
+    if (prevBgUrl && prevBgUrl !== (bg && bg.url) && window.SakuraMedia && SakuraMedia.removeByUrl) {
+      SakuraMedia.removeByUrl(prevBgUrl).catch(() => {});
+    }
     Store.save(); render();
     dlgGroup.close();
   });
@@ -1953,7 +2165,7 @@
 
   // ===================== 顶部按钮 =====================
   $("#btn-add").addEventListener("click", () => openLinkDialog(null));
-  $("#btn-add-group").addEventListener("click", openGroupDialog);
+  $("#btn-add-group").addEventListener("click", () => openGroupDialog(null));
   $("#btn-settings").addEventListener("click", () => { bindSettings(); dlgSettings.showModal(); });
   $("#btn-import").addEventListener("click", () => {
     pendingImportGroups = null;
