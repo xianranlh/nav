@@ -759,46 +759,49 @@
     </footer>
   </aside>
 
-  <!-- ===== AI 设置弹窗 ===== -->
   <dialog id="dialog-ai" class="glass-dialog ai-dialog">
     <form method="dialog">
-      <h3>🤖 AI 设置</h3>
+      <div class="dialog-header">
+        <h3><span>🤖</span> AI 助手设置</h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
 
-      <details class="sec" open>
-        <summary>🔌 API 供应商</summary>
-        <div id="ai-providers-list" class="ai-providers-list"></div>
-        <div class="dialog-actions" style="justify-content: flex-start">
-          <button type="button" class="mini-btn" id="ai-add-provider">+ 添加供应商</button>
-          <button type="button" class="mini-btn" id="ai-add-preset-openai">OpenAI 预设</button>
-          <button type="button" class="mini-btn" id="ai-add-preset-deepseek">DeepSeek 预设</button>
-          <button type="button" class="mini-btn" id="ai-add-preset-kimi">Kimi 预设</button>
-          <button type="button" class="mini-btn" id="ai-add-preset-ollama">Ollama 本地</button>
-        </div>
-      </details>
+      <div class="dialog-body">
+        <details class="sec" open>
+          <summary>🔌 API 供应商</summary>
+          <div id="ai-providers-list" class="ai-providers-list"></div>
+          <div class="dialog-actions" style="justify-content: flex-start; padding: 0; border: none; background: transparent; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="mini-btn" id="ai-add-provider">+ 添加供应商</button>
+            <button type="button" class="mini-btn" id="ai-add-preset-openai">OpenAI 预设</button>
+            <button type="button" class="mini-btn" id="ai-add-preset-deepseek">DeepSeek 预设</button>
+            <button type="button" class="mini-btn" id="ai-add-preset-kimi">Kimi 预设</button>
+            <button type="button" class="mini-btn" id="ai-add-preset-ollama">Ollama 本地</button>
+          </div>
+        </details>
 
-      <details class="sec">
-        <summary>🎭 角色 / 人设</summary>
-        <div id="ai-personas-list" class="ai-personas-list"></div>
-        <button type="button" class="mini-btn" id="ai-add-persona">+ 添加角色</button>
-      </details>
+        <details class="sec">
+          <summary>🎭 角色 / 人设定义</summary>
+          <div id="ai-personas-list" class="ai-personas-list"></div>
+          <button type="button" class="mini-btn" id="ai-add-persona">+ 添加自定义角色</button>
+        </details>
 
-      <details class="sec">
-        <summary>🪪 个人签名 / 附加信息</summary>
-        <label>会自动附加到每次对话的 system prompt 末尾（如你的身份、联系方式、TG 链接等）
-          <textarea id="ai-signature" rows="4" placeholder="例：&#10;- 我是小A，前端开发&#10;- Telegram: @xianran&#10;- 偏好使用中文"></textarea>
-        </label>
-      </details>
+        <details class="sec">
+          <summary>🪪 个人签名 / 附加上下文</summary>
+          <p class="hint" style="margin-bottom:8px">此信息将自动附加在每次对话的系统提示词（System Prompt）末尾。</p>
+          <textarea id="ai-signature" rows="4" placeholder="例：我是前端开发、偏好使用中文等..."></textarea>
+        </details>
 
-      <details class="sec">
-        <summary>⚡ 行为</summary>
-        <label class="row"><input type="checkbox" id="ai-auto-apply" />
-          收到 JSON 指令块时自动执行（默认需手动确认）
-        </label>
-      </details>
+        <details class="sec">
+          <summary>⚡ 交互行为控制</summary>
+          <label class="row row-tight">
+            <input type="checkbox" id="ai-auto-apply" />
+            <span>检测到 JSON 指令块时自动执行（无需手动点击）</span>
+          </label>
+        </details>
+      </div>
 
       <div class="dialog-actions">
-        <button type="button" class="btn-secondary" data-close>关闭</button>
-        <button value="ok" class="btn-primary" data-close>完成</button>
+        <button value="ok" class="btn-primary" data-close>完成并保存</button>
       </div>
     </form>
   </dialog>
