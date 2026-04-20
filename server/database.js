@@ -10,10 +10,14 @@ import Database from "better-sqlite3";
 const LEGACY_JSON = "sakura-state.json";
 
 let db;
+let currentDbPath = "";
+let currentDataDir = "";
 
 export function openDatabase(dataDir) {
   fs.mkdirSync(dataDir, { recursive: true });
   const dbPath = path.join(dataDir, "sakura.db");
+  currentDbPath = dbPath;
+  currentDataDir = dataDir;
   db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
@@ -100,4 +104,51 @@ export function getSqliteStorageStats() {
   } catch (_) {
     return { appDataBytes: 0, mediaTableRows: 0 };
   }
+}
+
+/** 列出 bundle 顶层 key 的体积和简要摘要 */
+export function getKeyInventory() {
+  const bundle = getBundle() || {};
+  const out = [];
+  for (const [key, value] of Object.entries(bundle)) {
+    if (value === null || value === undefined) {
+      out.push({ key, bytes: 0, isEmpty: true });
+      continue;
+    }
+    const raw = JSON.stringify(value);
+    out.push({ key, bytes: raw.length, isEmpty: false });
+  }
+  return out;
+}
+
+export function getKeyValue(key) {
+  const bundle = getBundle() || {};
+  return key in bundle ? bundle[key] : null;
+}
+
+export function deleteKey(key) {
+  const bundle = getBundle();
+  if (!bundle) return false;
+  if (!(key in bundle)) return false;
+  if (key === "schema" || key === "savedAt") return false;
+  delete bundle[key];
+  setBundle(bundle);
+  return true;
+}
+
+/** 关闭当前 DB（导入前需要） */
+export function closeDatabase() {
+  try { db && db.close(); } catch (_) {}
+  db = null;
+}
+
+export function getDbPath() { return currentDbPath; }
+export function getDataDir() { return currentDataDir; }
+
+/** 生成一份 DB 的安全快照文件路径（用于打包导出）；调用方负责删除 */
+export function snapshotDatabaseTo(targetPath) {
+  if (!db) throw new Error("数据库未打开");
+  // better-sqlite3 提供 backup API，避免直接拷贝 WAL 未刷新的文件
+  db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+  fs.copyFileSync(currentDbPath, targetPath);
 }

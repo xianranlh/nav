@@ -10,7 +10,7 @@
 
   function parseMediaRef(url) {
     if (!url || typeof url !== "string") return null;
-    const m = /^\/api\/media\/file\/(bg|music)\/([^/?#]+)/.exec(url.trim());
+    const m = /^\/api\/media\/file\/(bg|music|lrc)\/([^/?#]+)/.exec(url.trim());
     if (!m) return null;
     return { category: m[1], filename: decodeURIComponent(m[2]) };
   }
@@ -53,11 +53,40 @@
     return r.json();
   }
 
+  async function uploadLrc(fileOrText, hintName) {
+    if (!enabled()) return null;
+    const fd = new FormData();
+    if (fileOrText instanceof Blob) {
+      fd.append("file", fileOrText, (fileOrText.name || hintName || "lyric.lrc"));
+    } else if (typeof fileOrText === "string") {
+      const blob = new Blob([fileOrText], { type: "text/plain;charset=utf-8" });
+      fd.append("file", blob, hintName || "lyric.lrc");
+    } else {
+      return null;
+    }
+    const r = await fetch("/api/media/lrc", { method: "POST", body: fd, credentials: "same-origin" });
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      throw new Error(t || "歌词上传失败 HTTP " + r.status);
+    }
+    return r.json();
+  }
+
+  async function fetchLrcText(url) {
+    const ref = parseMediaRef(url);
+    if (!ref || ref.category !== "lrc") return null;
+    const r = await fetch(url, { credentials: "same-origin" });
+    if (!r.ok) throw new Error("读取歌词失败 HTTP " + r.status);
+    return r.text();
+  }
+
   window.SakuraMedia = {
     enabled,
     parseMediaRef,
     removeByUrl,
     uploadBg,
     uploadMusic,
+    uploadLrc,
+    fetchLrcText,
   };
 })();

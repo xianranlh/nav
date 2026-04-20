@@ -36,7 +36,8 @@
 
   // ===================== 打包 / 解包 =====================
   function collect(forCloud) {
-    const stripAiKeys = forCloud === true || !Sync.data.includeAiKeys;
+    // 本地 / 服务端 bundle 默认保留 AI 密钥（可信边界）；仅在上传到 WebDAV / Gist 等云端时按 includeAiKeys 开关决定
+    const stripAiKeys = forCloud === true && !Sync.data.includeAiKeys;
     const data = {
       schema: "sakura-nav@2",
       savedAt: Date.now(),
@@ -54,20 +55,26 @@
       data.ai = JSON.parse(JSON.stringify(data.ai));
       data.ai.providers = (data.ai.providers || []).map((p) => ({ ...p, apiKey: "" }));
     }
-    if (forCloud !== true && Sync.data.includeAuthCred) {
+    // 本地/服务端 bundle 默认带 authCred（让账号哈希跨设备一致）；仅在 WebDAV/Gist 等云端上传时按开关决定
+    if (forCloud !== true) {
+      const raw = localStorage.getItem("sakura_nav_auth_cred_v1");
+      data.authCred = raw ? JSON.parse(raw) : null;
+    } else if (Sync.data.includeAuthCred) {
       const raw = localStorage.getItem("sakura_nav_auth_cred_v1");
       data.authCred = raw ? JSON.parse(raw) : null;
     }
     return data;
   }
 
+  /** 应用 bundle 里的 AI 配置时：若 bundle 的某个 provider 没带 key（典型是从云端拉下来的被剥离数据），
+   *  用本地已有的同 id key 补回，避免"覆盖后本机反而没 key"。服务端 bundle 默认含 key，不需要补。 */
   function mergeAiFromLocal(ai) {
     if (!ai) return ai;
-    if (Sync.data.includeAiKeys) return ai;
     const merged = JSON.parse(JSON.stringify(ai));
     const local = JSON.parse(localStorage.getItem("sakura_nav_ai_v1") || "null");
     if (local && local.providers && merged.providers) {
       merged.providers.forEach((p) => {
+        if (p.apiKey) return;
         const old = local.providers.find((x) => x.id === p.id);
         if (old && old.apiKey) p.apiKey = old.apiKey;
       });

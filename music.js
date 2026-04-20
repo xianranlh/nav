@@ -313,7 +313,7 @@
           let matched = this.data.tracks.find((t) => t.name.toLowerCase() === baseName);
           if (!matched) matched = this.data.tracks[this.data.tracks.length - 1];
           if (matched) {
-            matched.lrc = text;
+            await this._persistLyrics(matched, text, f.name);
             if (this.currentTrack() && this.currentTrack().id === matched.id) {
               this._lrcLines = parseLrc(text);
               this._lastLrcIdx = -1;
@@ -361,6 +361,9 @@
       if (track && track.storage === "server" && track.url && window.SakuraMedia && SakuraMedia.removeByUrl) {
         await SakuraMedia.removeByUrl(track.url);
       }
+      if (track && track.lrcUrl && window.SakuraMedia && SakuraMedia.removeByUrl) {
+        SakuraMedia.removeByUrl(track.lrcUrl).catch(() => {});
+      }
       // 只有本地 file 类型才在 IDB 里有实体
       if (track && track.kind !== "url") { try { await IDB.del(id); } catch (_) {} }
       if (wasCurrent) {
@@ -384,6 +387,7 @@
       if (window.SakuraMedia && SakuraMedia.removeByUrl) {
         for (const t of this.data.tracks) {
           if (t && t.storage === "server" && t.url) await SakuraMedia.removeByUrl(t.url);
+          if (t && t.lrcUrl) SakuraMedia.removeByUrl(t.lrcUrl).catch(() => {});
         }
       }
       // 只清 IDB 里的本地文件；外链 URL 曲目无实体
@@ -421,6 +425,17 @@
       this.save();
       MusicUI.render();
       MusicUI.renderLyrics();
+      // 若服务端有歌词文件但本地 inline 为空，异步补回
+      if (!t.lrc && t.lrcUrl && window.SakuraMedia && SakuraMedia.fetchLrcText) {
+        SakuraMedia.fetchLrcText(t.lrcUrl).then((text) => {
+          if (!text || this.currentTrack() !== t) return;
+          t.lrc = text;
+          this._lrcLines = parseLrc(text);
+          this._lastLrcIdx = -1;
+          this.save();
+          MusicUI.renderLyrics();
+        }).catch(() => {});
+      }
     },
 
     _revokeBlobUrl() {
@@ -481,17 +496,38 @@
       this.save();
       MusicUI.render();
     },
-    setLyrics(id, lrc) {
+    async setLyrics(id, lrc) {
       const t = this.data.tracks.find((x) => x.id === id);
       if (!t) return;
-      t.lrc = lrc || "";
+      await this._persistLyrics(t, lrc || "", (t.name || "lyric") + ".lrc");
       if (this.currentTrack() && this.currentTrack().id === id) {
         this._lrcLines = parseLrc(lrc || "");
         this._lastLrcIdx = -1;
         MusicUI.renderLyrics();
       }
-      this.save();
       if (typeof MusicUI !== "undefined" && MusicUI.render) MusicUI.render();
+    },
+
+    /** 写入歌词：服务端模式下同时落盘到 /api/media/lrc，并清掉旧文件；总是保留 inline 文本作为兜底 */
+    async _persistLyrics(track, text, filename) {
+      track.lrc = text || "";
+      const useServer = window.SakuraMedia && SakuraMedia.enabled && SakuraMedia.uploadLrc;
+      if (useServer && text) {
+        try {
+          const prevUrl = track.lrcUrl;
+          const up = await SakuraMedia.uploadLrc(text, filename);
+          if (up && up.url) track.lrcUrl = up.url;
+          if (prevUrl && prevUrl !== track.lrcUrl && SakuraMedia.removeByUrl) {
+            SakuraMedia.removeByUrl(prevUrl).catch(() => {});
+          }
+        } catch (e) {
+          console.warn("[music] 歌词落盘失败，已保留 inline 文本", e);
+        }
+      } else if (useServer && !text && track.lrcUrl && SakuraMedia.removeByUrl) {
+        SakuraMedia.removeByUrl(track.lrcUrl).catch(() => {});
+        delete track.lrcUrl;
+      }
+      this.save();
     },
 
     _onTime() {

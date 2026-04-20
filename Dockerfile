@@ -12,12 +12,12 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
 COPY server/package.json server/package-lock.json* ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev --no-audit --no-fund
 
 COPY server/index.js server/database.js ./
 
 COPY index.html styles.css manifest.json sw.js /usr/share/nginx/html/
-COPY sakura.js bookmarks.js auth.js ai.js blog.js calendar.js sync.js sakura-remote.js sakura-media.js \
+COPY sakura.js progress.js bookmarks.js auth.js ai.js blog.js calendar.js sync.js sakura-remote.js sakura-media.js \
      weather.js suggest.js exporter.js idb.js music.js storage-inspector.js app.js /usr/share/nginx/html/
 COPY lx-sources/ /usr/share/nginx/html/lx-sources/
 

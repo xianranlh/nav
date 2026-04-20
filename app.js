@@ -816,13 +816,16 @@
     if (dedupe) groups = BookmarkTools.dedupe(groups);
 
     if (!keep) {
-      // 全部合并为一个分组
       const merged = { name: "导入书签", links: [] };
       groups.forEach((g) => merged.links.push(...g.links));
       groups = [merged];
     }
 
-    // 合并到现有
+    const prog = window.NavProgress ? NavProgress.open("导入书签") : null;
+    prog?.step(0.05, "合并到现有分组…");
+
+    const totalIncoming = groups.reduce((s, g) => s + g.links.length, 0);
+    let mergedCount = 0;
     for (const g of groups) {
       let existing = Store.state.groups.find((x) => x.name === g.name);
       if (!existing) {
@@ -834,38 +837,52 @@
         existing.links.push({
           id: uid(), name: l.name, url: l.url, icon: l.icon || "",
         });
+        mergedCount++;
+        if (mergedCount % 20 === 0) {
+          prog?.step(0.05 + 0.25 * (mergedCount / Math.max(1, totalIncoming)), `合并中 ${mergedCount}/${totalIncoming}`);
+        }
       }
     }
 
     Store.save();
     render();
     dlgImport.close();
-    toast(`已导入 ${groups.reduce((s, g) => s + g.links.length, 0)} 个链接`);
 
-    if (auto) {
-      // 异步并发（低并发）获取图标，避免打爆网络
-      const allLinks = [];
-      Store.state.groups.forEach((g) => g.links.forEach((l) => { if (!l.icon) allLinks.push(l); }));
-      const CONCURRENCY = 6;
-      let idx = 0, finished = 0;
-      const total = allLinks.length;
-      if (total === 0) return;
-      toast(`正在为 ${total} 个链接获取图标…`, 2500);
-      const workers = Array(Math.min(CONCURRENCY, total)).fill(0).map(async () => {
-        while (idx < allLinks.length) {
-          const link = allLinks[idx++];
-          const url = await BookmarkTools.getBestIcon(link.url);
-          if (url) link.icon = url;
-          finished++;
-          if (finished % 10 === 0 || finished === total) Store.save();
-        }
-      });
-      Promise.all(workers).then(() => {
-        Store.save();
-        render();
-        toast(`图标获取完成 (${finished}/${total})`);
-      });
+    if (!auto) {
+      prog?.step(1, `已导入 ${mergedCount} 个链接`);
+      prog?.done("导入完成");
+      toast(`已导入 ${mergedCount} 个链接`);
+      return;
     }
+
+    prog?.step(0.32, "开始抓取图标…");
+    const allLinks = [];
+    Store.state.groups.forEach((g) => g.links.forEach((l) => { if (!l.icon) allLinks.push(l); }));
+    const CONCURRENCY = 6;
+    let idx = 0, finished = 0;
+    const total = allLinks.length;
+    if (total === 0) {
+      prog?.done(`已导入 ${mergedCount} 个链接（无需抓取图标）`);
+      toast(`已导入 ${mergedCount} 个链接`);
+      return;
+    }
+    const workers = Array(Math.min(CONCURRENCY, total)).fill(0).map(async () => {
+      while (idx < allLinks.length) {
+        const link = allLinks[idx++];
+        const url = await BookmarkTools.getBestIcon(link.url);
+        if (url) link.icon = url;
+        finished++;
+        if (finished % 5 === 0 || finished === total) {
+          prog?.step(0.32 + 0.68 * (finished / total), `正在抓取图标 ${finished}/${total}`);
+        }
+        if (finished % 10 === 0 || finished === total) Store.save();
+      }
+    });
+    await Promise.all(workers);
+    Store.save();
+    render();
+    prog?.done(`已导入 ${mergedCount} 个链接，图标 ${finished}/${total} 完成`);
+    toast(`图标获取完成 (${finished}/${total})`);
   });
 
   function randomPink() {
@@ -1484,6 +1501,19 @@
     $("#btn-storage-refresh")?.addEventListener("click", () => {
       if (typeof StorageInspector !== "undefined" && StorageInspector.refresh) StorageInspector.refresh();
     });
+    $("#btn-storage-export-zip")?.addEventListener("click", () => {
+      if (typeof StorageInspector !== "undefined" && StorageInspector.exportZip) StorageInspector.exportZip();
+    });
+    const importZipInput = $("#storage-import-zip-file");
+    $("#btn-storage-import-zip")?.addEventListener("click", () => { importZipInput?.click(); });
+    importZipInput?.addEventListener("change", async (e) => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!f) return;
+      if (typeof StorageInspector !== "undefined" && StorageInspector.importZip) {
+        await StorageInspector.importZip(f);
+      }
+    });
   }
 
   function updateLabels() {
@@ -1955,35 +1985,48 @@
   });
 
   function exportJson() {
-    if (window.SyncUtils && typeof SyncUtils.collect === "function") {
-      const blob = new Blob([JSON.stringify(SyncUtils.collect(), null, 2)], { type: "application/json" });
+    const run = window.NavProgress ? NavProgress.run : (_t, fn) => fn({ step() {}, indeterminate() {}, setLabel() {}, done() {}, fail() {} });
+    run("导出备份 JSON", async (p) => {
+      p.step(0.2, "收集数据…");
+      if (window.SyncUtils && typeof SyncUtils.collect === "function") {
+        const json = JSON.stringify(SyncUtils.collect(), null, 2);
+        p.step(0.75, `生成文件 (${(json.length / 1024).toFixed(1)} KB)…`);
+        const blob = new Blob([json], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `sakura-nav-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        p.done("已导出完整备份（与「本地备份 JSON」相同）");
+        toast("已导出完整备份");
+        return;
+      }
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        groups: Store.state.groups,
+        settings: Store.settings,
+      };
+      const json = JSON.stringify(payload, null, 2);
+      p.step(0.75, `生成文件 (${(json.length / 1024).toFixed(1)} KB)…`);
+      const blob = new Blob([json], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `sakura-nav-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `sakura-nav-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
-      toast("已导出完整备份（与设置里「本地备份 JSON」相同）");
-      return;
-    }
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      groups: Store.state.groups,
-      settings: Store.settings,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `sakura-nav-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast("已导出 JSON（仅导航与设置，精简版）");
+      p.done("已导出 JSON（仅导航与设置，精简版）");
+      toast("已导出 JSON");
+    });
   }
 
   function exportBookmarksHtml() {
-    // Netscape Bookmark File Format
-    const ts = Math.floor(Date.now() / 1000);
-    const esc = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    let html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+    const runFn = window.NavProgress ? NavProgress.run : (_t, fn) => fn({ step() {}, done() {} });
+    runFn("导出浏览器书签 HTML", async (p) => {
+      const ts = Math.floor(Date.now() / 1000);
+      const esc = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      const totalLinks = Store.state.groups.reduce((s, g) => s + (g.links?.length || 0), 0);
+      p.step(0.1, `整理 ${Store.state.groups.length} 个分组 / ${totalLinks} 个链接…`);
+      let html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <!-- This is an automatically generated file by Sakura Nav. -->
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
 <TITLE>Bookmarks</TITLE>
@@ -1992,24 +2035,28 @@
     <DT><H3 ADD_DATE="${ts}" LAST_MODIFIED="${ts}" PERSONAL_TOOLBAR_FOLDER="true">樱 · 个人导航</H3>
     <DL><p>
 `;
-    for (const g of Store.state.groups) {
-      html += `        <DT><H3 ADD_DATE="${ts}" LAST_MODIFIED="${ts}">${esc(g.name)}</H3>\n        <DL><p>\n`;
-      for (const l of g.links) {
-        const icon = l.icon ? ` ICON="${esc(l.icon)}"` : "";
-        html += `            <DT><A HREF="${esc(l.url)}" ADD_DATE="${ts}"${icon}>${esc(l.name || l.url)}</A>\n`;
+      let seen = 0;
+      for (const g of Store.state.groups) {
+        html += `        <DT><H3 ADD_DATE="${ts}" LAST_MODIFIED="${ts}">${esc(g.name)}</H3>\n        <DL><p>\n`;
+        for (const l of g.links) {
+          const icon = l.icon ? ` ICON="${esc(l.icon)}"` : "";
+          html += `            <DT><A HREF="${esc(l.url)}" ADD_DATE="${ts}"${icon}>${esc(l.name || l.url)}</A>\n`;
+          seen++;
+          if (seen % 100 === 0) p.step(0.1 + 0.8 * (seen / Math.max(1, totalLinks)), `编排中 ${seen}/${totalLinks}`);
+        }
+        html += `        </DL><p>\n`;
       }
-      html += `        </DL><p>\n`;
-    }
-    html += `    </DL><p>
-</DL><p>
-`;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `sakura-bookmarks-${new Date().toISOString().slice(0, 10)}.html`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast("已导出浏览器书签 HTML");
+      html += `    </DL><p>\n</DL><p>\n`;
+      p.step(0.95, "下载文件…");
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `sakura-bookmarks-${new Date().toISOString().slice(0, 10)}.html`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      p.done(`已导出 ${totalLinks} 个链接`);
+      toast("已导出浏览器书签 HTML");
+    });
   }
 
   $("#btn-import-json").addEventListener("click", () => {
@@ -2019,24 +2066,33 @@
     input.onchange = async () => {
       const f = input.files[0];
       if (!f) return;
+      const p = window.NavProgress ? NavProgress.open("导入 JSON 备份") : null;
       try {
+        p?.step(0.2, `读取 ${f.name} (${(f.size / 1024).toFixed(1)} KB)…`);
         const data = JSON.parse(await f.text());
+        p?.step(0.55, "解析完成，准备应用…");
         if (data && typeof data.schema === "string" && data.schema.startsWith("sakura-nav@")) {
           if (!window.SyncUtils || typeof SyncUtils.apply !== "function") {
             throw new Error("同步模块未加载");
           }
-          if (!confirm("将用备份覆盖本地全部数据并刷新页面（与设置 → 同步与备份 → 从备份还原相同），继续？")) return;
+          if (!confirm("将用备份覆盖本地全部数据并刷新页面（与设置 → 同步与备份 → 从备份还原相同），继续？")) {
+            p?.close();
+            return;
+          }
           SyncUtils.apply(data, "replace");
+          p?.done("已还原，正在刷新…");
           toast("已还原，正在刷新…");
           setTimeout(() => location.reload(), 600);
           return;
         }
         if (!Array.isArray(data.groups)) throw new Error("不是有效的备份（需含 schema 或为旧版 groups 数组）");
-        if (!confirm("导入将覆盖当前导航数据，继续？")) return;
+        if (!confirm("导入将覆盖当前导航数据，继续？")) { p?.close(); return; }
         Store.state.groups = data.groups;
         Store.save(); render();
+        p?.done(`已导入 ${data.groups.length} 个分组`);
         toast("已导入 JSON（仅导航分组）");
       } catch (e) {
+        p?.fail("导入失败：" + e.message);
         toast("导入失败：" + e.message, 3000);
       }
     };
@@ -2686,34 +2742,79 @@
     $("#ai-add-preset-" + k).addEventListener("click", () => openProviderDialog(null, presets[k]));
   });
 
+  function populateProviderModelsDatalist(models) {
+    const dl = $("#provider-models-dl");
+    if (!dl) return;
+    dl.innerHTML = (models || []).map((m) => `<option value="${escapeHtml(m)}"></option>`).join("");
+  }
+
   function openProviderDialog(existing, preset) {
     const f = $("#form-provider");
     $("#provider-title").textContent = existing ? "编辑 AI 供应商" : "添加 AI 供应商";
     f.reset();
+    const msg = $("#provider-fetch-msg");
+    if (msg) { msg.textContent = ""; msg.classList.remove("err", "ok"); }
     if (existing) {
       f.name.value = existing.name;
       f.baseUrl.value = existing.baseUrl;
       f.apiKey.value = existing.apiKey || "";
       f.defaultModel.value = existing.defaultModel || "";
+      populateProviderModelsDatalist(existing.models || []);
+      f.dataset.fetchedModels = JSON.stringify(existing.models || []);
     } else if (preset) {
       f.name.value = preset.name;
       f.baseUrl.value = preset.baseUrl;
       f.defaultModel.value = preset.defaultModel;
+      populateProviderModelsDatalist([]);
+      f.dataset.fetchedModels = "[]";
+    } else {
+      populateProviderModelsDatalist([]);
+      f.dataset.fetchedModels = "[]";
     }
     f.dataset.editId = existing ? existing.id : "";
     dlgProvider.showModal();
   }
 
+  $("#provider-fetch-models")?.addEventListener("click", async () => {
+    const f = $("#form-provider");
+    const btn = $("#provider-fetch-models");
+    const msg = $("#provider-fetch-msg");
+    const baseUrl = (f.baseUrl.value || "").trim();
+    const apiKey = (f.apiKey.value || "").trim();
+    if (!baseUrl) {
+      if (msg) { msg.textContent = "请先填写 Base URL"; msg.classList.add("err"); }
+      return;
+    }
+    if (msg) { msg.textContent = "正在拉取模型列表…"; msg.classList.remove("err", "ok"); }
+    btn.disabled = true;
+    try {
+      const models = await AI.fetchModels({ baseUrl, apiKey });
+      populateProviderModelsDatalist(models);
+      f.dataset.fetchedModels = JSON.stringify(models);
+      if (!f.defaultModel.value && models[0]) f.defaultModel.value = models[0];
+      if (msg) { msg.textContent = `已加载 ${models.length} 个模型，点击输入框可下拉选择`; msg.classList.remove("err"); msg.classList.add("ok"); }
+    } catch (e) {
+      if (msg) { msg.textContent = "拉取失败：" + String(e.message || e).slice(0, 200); msg.classList.add("err"); }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   $("#form-provider").addEventListener("submit", (e) => {
     e.preventDefault();
     const f = e.target;
     const data = Object.fromEntries(new FormData(f));
+    let fetched = [];
+    try { fetched = JSON.parse(f.dataset.fetchedModels || "[]"); } catch (_) {}
     const editId = f.dataset.editId;
     if (editId) {
       const p = AI.AIStore.data.providers.find((x) => x.id === editId);
-      if (p) Object.assign(p, data);
+      if (p) {
+        Object.assign(p, data);
+        if (fetched.length) p.models = fetched;
+      }
     } else {
-      const newP = Object.assign({ id: AI.uid(), models: [] }, data);
+      const newP = Object.assign({ id: AI.uid(), models: fetched }, data);
       AI.AIStore.data.providers.push(newP);
       if (!AI.AIStore.data.currentProviderId) AI.AIStore.data.currentProviderId = newP.id;
     }
@@ -3674,69 +3775,107 @@
 
       $("#btn-sync-push").addEventListener("click", async () => {
         readForm();
+        const p = window.NavProgress ? NavProgress.open("上传到云端（" + Sync.data.backend + "）") : null;
+        p?.indeterminate(true);
+        p?.setLabel("正在上传到云端…");
         try {
           setStatus("正在上传到云端…");
           await SyncUtils.push();
           setStatus("云端上传成功 · " + new Date().toLocaleString("zh-CN"), "success");
+          p?.done("☁ 已上传到云端");
           toast("☁ 已上传到云端");
-        } catch (e) { setStatus("上传失败：" + e.message, "error"); toast("上传失败"); }
+        } catch (e) {
+          setStatus("上传失败：" + e.message, "error");
+          p?.fail("上传失败：" + e.message);
+          toast("上传失败");
+        }
       });
       $("#btn-sync-pull").addEventListener("click", async () => {
         if (!confirm("从云端下载并覆盖本地数据？")) return;
         readForm();
+        const p = window.NavProgress ? NavProgress.open("从云端拉取（" + Sync.data.backend + "）") : null;
+        p?.indeterminate(true);
+        p?.setLabel("正在从云端下载…");
         try {
           setStatus("正在从云端下载…");
           await SyncUtils.pull();
           setStatus("云端已同步到本地 · " + new Date().toLocaleString("zh-CN"), "success");
+          p?.done("☁ 已同步，正在刷新…");
           toast("☁ 已同步，正在刷新…");
           setTimeout(() => location.reload(), 800);
-        } catch (e) { setStatus("下载失败：" + e.message, "error"); }
+        } catch (e) {
+          setStatus("下载失败：" + e.message, "error");
+          p?.fail("下载失败：" + e.message);
+        }
       });
       $("#btn-sync-export").addEventListener("click", () => {
-        const blob = SyncUtils.exportBlob();
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `sakura-nav-backup-${new Date().toISOString().slice(0, 10)}.json`;
-        a.click();
-        URL.revokeObjectURL(a.href);
+        const run = window.NavProgress ? NavProgress.run : (_t, fn) => fn({ step() {}, done() {} });
+        run("导出本地备份 JSON", async (p) => {
+          p.step(0.25, "收集数据…");
+          const blob = SyncUtils.exportBlob();
+          p.step(0.8, `下载文件 (${(blob.size / 1024).toFixed(1)} KB)…`);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = `sakura-nav-backup-${new Date().toISOString().slice(0, 10)}.json`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+          p.done("已生成备份文件");
+        });
       });
       $("#sync-import-file").addEventListener("change", async (e) => {
         const f = e.target.files?.[0];
         if (!f) return;
         if (!confirm("从文件还原会覆盖本地所有数据，继续？")) { e.target.value = ""; return; }
+        const p = window.NavProgress ? NavProgress.open("从备份还原") : null;
         try {
+          p?.step(0.2, `读取 ${f.name} (${(f.size / 1024).toFixed(1)} KB)…`);
           await SyncUtils.importFromFile(f);
+          p?.step(0.95, "应用到本地…");
+          p?.done("已还原，正在刷新…");
           toast("已还原，正在刷新...");
           setTimeout(() => location.reload(), 800);
-        } catch (err) { toast("还原失败：" + err.message); }
+        } catch (err) {
+          p?.fail("还原失败：" + err.message);
+          toast("还原失败：" + err.message);
+        }
         e.target.value = "";
       });
 
       $("#btn-sync-remote-push")?.addEventListener("click", async () => {
+        const p = window.NavProgress ? NavProgress.open("上传到服务器") : null;
+        p?.indeterminate(true);
+        p?.setLabel("正在上传到服务器…");
         try {
           setStatus("正在上传到服务器…");
           if (window.SakuraRemote && SakuraRemote.ready) await SakuraRemote.ready;
           if (!SakuraRemote?.pushNow) throw new Error("服务端同步不可用");
           await SakuraRemote.pushNow();
           setStatus("已保存到服务器 · " + new Date().toLocaleString("zh-CN"), "success");
+          p?.done("已同步到服务器");
           toast("已同步到服务器");
         } catch (e) {
           setStatus(String(e.message || e), "error");
+          p?.fail(String(e.message || e));
           toast("上传失败");
         }
       });
       $("#btn-sync-remote-pull")?.addEventListener("click", async () => {
         if (!confirm("从服务器拉取并覆盖当前页数据？未上传到服务器的本地修改将丢失。")) return;
+        const p = window.NavProgress ? NavProgress.open("从服务器拉取") : null;
+        p?.indeterminate(true);
+        p?.setLabel("正在从服务器拉取…");
         try {
           setStatus("正在从服务器拉取…");
           if (window.SakuraRemote && SakuraRemote.ready) await SakuraRemote.ready;
           if (!SakuraRemote?.pullNow) throw new Error("服务端同步不可用");
           await SakuraRemote.pullNow();
           setStatus("已拉取并应用 · " + new Date().toLocaleString("zh-CN"), "success");
+          p?.done("已同步，正在刷新…");
           toast("已同步，正在刷新…");
           setTimeout(() => location.reload(), 800);
         } catch (e) {
           setStatus(String(e.message || e), "error");
+          p?.fail(String(e.message || e));
           toast("拉取失败");
         }
       });
@@ -3984,17 +4123,20 @@
       });
       if (staticBtn) staticBtn.addEventListener("click", () => {
         if (!window.Blog?.list?.().length) return toast("暂无文章可导出");
-        try {
+        const run = window.NavProgress ? NavProgress.run : (_t, fn) => fn({ step() {}, done() {}, fail() {} });
+        run("导出静态博客站点 (ZIP)", async (p) => {
+          const posts = Blog.list();
+          p.step(0.25, `编排 ${posts.length} 篇文章…`);
           const blob = Exporter.buildStaticSite();
+          p.step(0.85, `生成 ZIP (${(blob.size / 1024).toFixed(1)} KB)…`);
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob);
           a.download = `sakura-blog-${new Date().toISOString().slice(0, 10)}.zip`;
           a.click();
           URL.revokeObjectURL(a.href);
+          p.done(`已打包 ${posts.length} 篇文章`);
           toast("已打包静态博客站点");
-        } catch (e) {
-          toast("导出失败：" + e.message);
-        }
+        });
       });
     }
     return { init };

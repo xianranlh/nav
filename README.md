@@ -1,7 +1,9 @@
 # 樱 · 个人导航 (Sakura Nav)
 
-一个纯前端的个人浏览器起始页，主打 **毛玻璃质感 + 碎樱花飘舞** 的视觉氛围。
-无需构建、无需后端，双击 `index.html` 即可使用。所有数据保存在浏览器 `localStorage`。
+一个个人浏览器起始页，主打 **毛玻璃质感 + 碎樱花飘舞** 的视觉氛围。
+支持两种运行方式：
+- **🐳 Docker 部署**（推荐）：自带 Node + SQLite 服务端，**数据存在服务器**，多浏览器 / 多机器访问同一地址看到的就是同一份数据
+- **🌐 纯静态**：双击 `index.html` 也能跑，数据走浏览器 `localStorage` / IndexedDB（仅本机可见）
 
 ![preview](https://dummyimage.com/900x500/ffd6e6/ffffff&text=Sakura+Nav)
 
@@ -307,6 +309,27 @@ nav/
 
 ## 🧭 数据存储
 
+项目有两种运行模式，数据落点不同：
+
+### 🐳 服务端模式（推荐：Docker / 同源部署，**多端共享**）
+
+只要访问的页面同源能命中 `/api/data`（见 `docker-compose.yml` + `nginx.conf.template`），前端会 **自动切换为"服务端模式"**：所有业务数据都存到服务端 SQLite，不再进浏览器 `localStorage`。这意味着不同浏览器、不同机器访问同一个部署地址，看到的是同一份数据。
+
+- 业务数据库：`<DATA_DIR>/sakura.db`（默认 `./data/sakura-nav/sakura.db`，宿主可见）
+  - 表 `app_data`：整包 JSON（导航 / 设置 / 博客 / 日历 / AI 配置 / 聊天记录 / 天气 / 音乐元数据 / 同步配置）
+  - 表 `media_files`：已上传媒体元数据
+- 媒体文件：`<DATA_DIR>/media/bg/*`、`<DATA_DIR>/media/music/*`（背景图 / 音乐走服务端，刷新/换浏览器均可见）
+- 鉴权：可选。未配置 `SAKURA_API_KEY` 时 `/api` 对同容器内 nginx 放行（容器内 Node 仅监听 `127.0.0.1`，不直接对外）；配置了 `SAKURA_API_KEY` 后 nginx 会自动注入 `Authorization: Bearer`，浏览器不携带密钥
+
+**仍保留在浏览器本地（不会同步）：**
+- `sakura_nav_token_v1`：登录会话 token（每台机器单独登录，符合安全预期）
+- `sakura_nav_auth_cred_v1`：账号密码的 SHA-256 哈希（可选，默认使用内置账号）
+
+> 设置面板底部有 **"清空所有数据"** / **"存储一览"**：在服务端模式下会显示 SQLite 库体积与媒体目录占用。
+
+### 🌐 纯静态模式（双击 `index.html` 打开）
+
+页面无 `/api/data` 时自动回退，所有数据写入浏览器本地：
 - 导航数据：`localStorage["sakura_nav_v1"]`
 - 用户设置：`localStorage["sakura_nav_settings_v1"]`
 - AI 配置 / 会话：`localStorage["sakura_nav_ai_v1"]` / `["sakura_nav_chat_v1"]`
@@ -314,8 +337,9 @@ nav/
 - 日历任务：`localStorage["sakura_nav_calendar_v1"]`
 - 同步配置：`localStorage["sakura_nav_sync_v1"]`
 - 天气缓存：`localStorage["sakura_nav_weather_v1"]`
+- 背景 / 音乐大文件：IndexedDB（`sakura-nav-bg` / `sakura-nav-music`）
 
-> 设置面板底部有 **"清空所有数据"** 按钮，可一键重置导航数据。AI / 博客数据目前在 AI 设置与博客后台中独立管理。
+此模式下跨浏览器 / 跨机器不共享，需通过"设置 → 同步"走 WebDAV / Gist 或手动备份 JSON。
 
 ---
 

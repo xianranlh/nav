@@ -432,12 +432,15 @@
       </details>
 
       <details class="sec">
-        <summary>💾 存储内容（浏览器）</summary>
-        <p class="hint">列出当前浏览器 <code>localStorage</code> 与 <code>IndexedDB</code> 中与本应用相关的数据。清除后多数情况会刷新页面。Docker 部署时，导航等还会在<strong>服务端 SQLite</strong>存一份（见上方同步说明）。</p>
+        <summary>💾 存储内容</summary>
+        <p class="hint">显示服务端 SQLite 与媒体目录中的数据；每项可下载 JSON / 单独删除 / 整库打包 ZIP 一键迁移到另一台机器。纯静态（双击 index.html）打开时，下方会同时列出浏览器 <code>localStorage</code> / <code>IndexedDB</code> 里的数据。</p>
         <p class="hint" id="storage-remote-hint" hidden></p>
         <div id="storage-inspector-mount" class="storage-inspector"></div>
-        <div class="row" style="margin-top:8px">
+        <div class="row" style="margin-top:8px; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn-secondary" id="btn-storage-refresh">↻ 刷新列表</button>
+          <button type="button" class="btn-primary" id="btn-storage-export-zip">📦 导出完整备份 ZIP</button>
+          <button type="button" class="btn-secondary" id="btn-storage-import-zip">📥 从 ZIP 一键迁移</button>
+          <input type="file" id="storage-import-zip-file" accept=".zip,application/zip" hidden />
         </div>
       </details>
 
@@ -745,7 +748,14 @@
       <label>名称 <input name="name" required placeholder="如：OpenAI / 我的 Kimi" /></label>
       <label>Base URL <input name="baseUrl" required placeholder="https://api.openai.com/v1" /></label>
       <label>API Key <input name="apiKey" type="password" placeholder="sk-..." /></label>
-      <label>默认模型（可留空，稍后在面板切换） <input name="defaultModel" placeholder="如：gpt-4o-mini" /></label>
+      <label>默认模型（可留空，稍后在面板切换）
+        <div class="input-with-btn">
+          <input name="defaultModel" list="provider-models-dl" placeholder="如：gpt-4o-mini" autocomplete="off" />
+          <button type="button" class="btn-secondary btn-inline" id="provider-fetch-models" title="用当前 Base URL + API Key 拉取模型列表">↻ 获取模型</button>
+        </div>
+        <datalist id="provider-models-dl"></datalist>
+        <p class="hint" id="provider-fetch-msg" style="font-size:11px;margin:4px 0 0;min-height:1em"></p>
+      </label>
       <div class="dialog-actions">
         <button type="button" class="btn-secondary" data-close>取消</button>
         <button value="ok" type="submit" class="btn-primary">保存</button>
@@ -971,6 +981,7 @@
   </dialog>
 
   <script src="sakura.js"></script>
+  <script src="progress.js"></script>
   <script src="bookmarks.js"></script>
   <script src="auth.js"></script>
   <script src="ai.js"></script>
