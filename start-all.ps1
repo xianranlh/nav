@@ -20,7 +20,7 @@ if (-not (Test-Path (Join-Path $ProjectRoot "server\node_modules"))) {
   npm install --prefix server
 }
 
-Write-Host "启动开发服务：http://127.0.0.1:8080  （Ctrl+C 停止）" -ForegroundColor Green
+Write-Host "启动开发服务：http://127.0.0.1:18080  （Ctrl+C 停止）" -ForegroundColor Green
 Write-Host "DATA_DIR=$($env:DATA_DIR)" -ForegroundColor DarkGray
 
 npm run dev

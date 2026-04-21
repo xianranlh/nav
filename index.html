@@ -280,7 +280,7 @@
 
   <!-- 设置 弹窗 -->
   <dialog id="dialog-settings" class="glass-dialog settings-dialog">
-    <form method="dialog" id="form-settings">
+    <div id="form-settings" class="dialog-form">
       <div class="dialog-header">
         <h3><span>⚙️</span> 设置</h3>
         <button type="button" class="close-btn" data-close title="关闭">&times;</button>
@@ -289,26 +289,35 @@
       <div class="dialog-body">
         <details class="sec" open>
           <summary>🔐 账号与安全</summary>
-          <p class="hint">修改用户名或密码后，当前会话会退出，请用新凭据重新登录。须先输入<strong>当前</strong>账号以验证身份。</p>
-          <label>当前用户名
-            <input type="text" id="auth-cur-user" autocomplete="username" spellcheck="false" />
-          </label>
-          <label>当前密码
-            <input type="password" id="auth-cur-pass" autocomplete="current-password" />
-          </label>
-          <label>新用户名
-            <input type="text" id="auth-new-user" autocomplete="off" spellcheck="false" />
-          </label>
-          <label>新密码（至少 4 个字符）
-            <input type="password" id="auth-new-pass" autocomplete="new-password" />
-          </label>
-          <label>确认新密码
-            <input type="password" id="auth-new-pass2" autocomplete="new-password" />
-          </label>
-          <div class="row" style="margin-top:8px">
-            <button type="button" class="btn-primary" id="btn-auth-save">保存新账号</button>
-          </div>
-          <p class="hint" id="auth-change-msg" style="min-height:1.2em;color:var(--text-soft)"></p>
+          <p class="hint">修改用户名或密码后，当前会话会退出，请用新凭据重新登录。先验证当前账号，再设置新账号。</p>
+
+          <form id="form-settings-auth-verify" autocomplete="on">
+            <label>当前用户名
+              <input type="text" id="auth-cur-user" autocomplete="username" spellcheck="false" />
+            </label>
+            <label>当前密码
+              <input type="password" id="auth-cur-pass" autocomplete="current-password" />
+            </label>
+            <div class="row" style="margin-top:8px">
+              <button type="submit" class="btn-primary" id="btn-auth-verify">验证当前账号</button>
+            </div>
+          </form>
+
+          <form id="form-settings-auth-update" autocomplete="on">
+            <label>新用户名
+              <input type="text" id="auth-new-user" autocomplete="off" spellcheck="false" />
+            </label>
+            <label>新密码（至少 4 个字符）
+              <input type="password" id="auth-new-pass" autocomplete="new-password" />
+            </label>
+            <label>确认新密码
+              <input type="password" id="auth-new-pass2" autocomplete="new-password" />
+            </label>
+            <div class="row" style="margin-top:8px">
+              <button type="submit" class="btn-primary" id="btn-auth-save">保存新账号</button>
+            </div>
+            <p class="hint" id="auth-change-msg" style="min-height:1.2em;color:var(--text-soft)"></p>
+          </form>
         </details>
 
         <!-- 外观 -->
@@ -544,25 +553,56 @@
                   <option value="gist">GitHub Gist</option>
                 </select>
               </label>
-              <div id="sync-webdav-conf" class="sync-backend-fields">
-                <label class="row row-block">URL <input type="url" id="sync-webdav-url" /></label>
-                <div class="settings-inline-pair">
-                  <label class="row row-block">用户 <input type="text" id="sync-webdav-user" /></label>
-                  <label class="row row-block">密码 <input type="password" id="sync-webdav-pass" /></label>
+
+              <form id="form-sync-webdav" class="sync-backend-fields" autocomplete="on">
+                <div id="sync-webdav-conf">
+                  <label class="row row-block">URL <input type="url" id="sync-webdav-url" /></label>
+                  <div class="settings-inline-pair">
+                    <label class="row row-block">用户 <input type="text" id="sync-webdav-user" autocomplete="username" /></label>
+                    <label class="row row-block">密码 <input type="password" id="sync-webdav-pass" autocomplete="current-password" /></label>
+                  </div>
+                  <label class="row row-block">路径 <input type="text" id="sync-webdav-path" placeholder="sakura-nav.json" /></label>
+                  <div class="settings-btn-row">
+                    <button type="submit" class="btn-primary" id="btn-sync-save-webdav">保存 WebDAV 配置</button>
+                  </div>
                 </div>
-              </div>
+              </form>
+
+              <form id="form-sync-gist" class="sync-backend-fields" autocomplete="on">
+                <div id="sync-gist-conf" hidden>
+                  <label class="row row-block">Token <input type="password" id="sync-gist-token" placeholder="ghp_..." autocomplete="off" /></label>
+                  <label class="row row-block">Gist ID <input type="text" id="sync-gist-id" placeholder="如：a1b2c3d4e5..." autocomplete="off" /></label>
+                  <label class="row row-block">文件名 <input type="text" id="sync-gist-file" placeholder="sakura-nav.json" autocomplete="off" /></label>
+                  <div class="settings-btn-row">
+                    <button type="submit" class="btn-primary" id="btn-sync-save-gist">保存 Gist 配置</button>
+                  </div>
+                </div>
+              </form>
             </div>
 
             <div class="settings-subcard">
               <h4 class="settings-subcard-title">备份选项</h4>
-              <div class="settings-toggle-col">
-                <label class="row row-tight"><input type="checkbox" id="set-sync-auto" /> 自动同步变更</label>
-                <label class="row row-tight"><input type="checkbox" id="set-sync-include-keys" /> 包含 API Key</label>
-              </div>
+              <form id="form-sync-options" autocomplete="on">
+                <div class="settings-toggle-col">
+                  <label class="row row-tight"><input type="checkbox" id="set-sync-auto" /> 自动同步变更</label>
+                  <label class="row row-tight"><input type="checkbox" id="set-sync-include-keys" /> 包含 API Key</label>
+                  <label class="row row-tight"><input type="checkbox" id="set-sync-include-auth" /> 包含账号凭据</label>
+                </div>
+                <div class="settings-btn-row" style="margin-top:12px">
+                  <button type="submit" class="btn-primary" id="btn-sync-save-options">保存备份选项</button>
+                </div>
+              </form>
+
               <div class="settings-btn-grid" style="margin-top:12px">
-                <button type="button" class="btn-primary" id="btn-sync-push">⇧ 推送</button>
-                <button type="button" class="btn-secondary" id="btn-sync-pull">⇩ 拉取</button>
-                <button type="button" class="btn-secondary" id="btn-sync-export">💾 导出 JSON</button>
+                <form id="form-sync-push" autocomplete="off">
+                  <button type="submit" class="btn-primary" id="btn-sync-push">⇧ 推送</button>
+                </form>
+                <form id="form-sync-pull" autocomplete="off">
+                  <button type="submit" class="btn-secondary" id="btn-sync-pull">⇩ 拉取</button>
+                </form>
+                <form id="form-sync-export" autocomplete="off">
+                  <button type="submit" class="btn-secondary" id="btn-sync-export">💾 导出 JSON</button>
+                </form>
               </div>
             </div>
           </div>
@@ -572,9 +612,9 @@
 
       <div class="dialog-actions">
         <button type="button" class="btn-secondary" id="btn-reset-all">清空数据</button>
-        <button value="ok" class="btn-primary" data-close>完成设置</button>
+        <button type="button" class="btn-primary" data-close>完成设置</button>
       </div>
-    </form>
+    </div>
   </dialog>
 
   <!-- 导入 弹窗 -->
@@ -824,9 +864,9 @@
         <button type="button" class="close-btn" data-close title="关闭">&times;</button>
       </div>
       <div class="dialog-body">
-        <label>名称 <input name="name" required placeholder="如：OpenAI / 我的 Kimi" /></label>
-        <label>Base URL <input name="baseUrl" required placeholder="https://api.openai.com/v1" /></label>
-        <label>API Key <input name="apiKey" type="password" placeholder="sk-..." /></label>
+        <label>名称 <input name="name" required placeholder="如：OpenAI / 我的 Kimi" autocomplete="organization" /></label>
+        <label>Base URL <input name="baseUrl" type="url" required placeholder="https://api.openai.com/v1" autocomplete="url" /></label>
+        <label>API Key <input name="apiKey" type="password" placeholder="sk-..." autocomplete="current-password" /></label>
         <label>默认模型（可留空，稍后在面板切换）
           <div class="input-with-btn">
             <input name="defaultModel" list="provider-models-dl" placeholder="如：gpt-4o-mini" autocomplete="off" />

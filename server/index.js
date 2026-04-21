@@ -6,7 +6,7 @@
  * DELETE /api/media/file/... — 删除（需鉴权）
  *
  * 本地用 Node 同时托管前端：node index.js --static（或 SERVE_STATIC=1）
- * 默认端口 8080；静态根目录为仓库根，可用 STATIC_ROOT 覆盖。
+ * 默认端口 18080；静态根目录为仓库根，可用 STATIC_ROOT 覆盖。
  */
 import express from "express";
 import fs from "fs";
@@ -40,7 +40,7 @@ const __dirname = path.dirname(__filename);
 const argv = process.argv.slice(2);
 if (argv.includes("--static") || argv.includes("-s")) {
   process.env.SERVE_STATIC = "1";
-  if (!process.env.PORT) process.env.PORT = "8080";
+  if (!process.env.PORT) process.env.PORT = "18080";
 }
 
 const app = express();

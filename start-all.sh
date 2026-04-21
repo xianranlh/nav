@@ -19,7 +19,7 @@ if [[ ! -d "$ROOT/server/node_modules" ]]; then
   npm install --prefix server
 fi
 
-echo "启动开发服务：http://127.0.0.1:8080  （Ctrl+C 停止）"
+echo "启动开发服务：http://127.0.0.1:18080  （Ctrl+C 停止）"
 echo "DATA_DIR=$DATA_DIR"
 
 exec npm run dev

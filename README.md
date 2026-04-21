@@ -210,10 +210,10 @@ cd sakura-nav
 docker compose up -d
 
 # 访问
-curl http://localhost:8080      # 或浏览器打开
+curl http://localhost:18080      # 或浏览器打开
 ```
 
-默认监听 `8080` 端口，要改端口只需编辑 `docker-compose.yml` 里的 `"8080:80"`。
+默认监听 `18080` 端口，要改端口只需编辑 `docker-compose.yml` 里的 `"18080:80"`（或通过环境变量 `HOST_PORT` 覆盖）。
 
 常用指令：
 
@@ -231,7 +231,7 @@ docker build -t sakura-nav:latest .
 docker run -d \
   --name sakura-nav \
   --restart unless-stopped \
-  -p 8080:80 \
+  -p 18080:80 \
   sakura-nav:latest
 ```
 

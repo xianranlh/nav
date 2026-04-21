@@ -1327,6 +1327,8 @@
     const setV = (id, v) => { const el = $(id); if (el) el.value = v; };
     const setC = (id, v) => { const el = $(id); if (el) el.checked = !!v; };
 
+    let authVerified = false;
+
     ["#auth-cur-user", "#auth-cur-pass", "#auth-new-user", "#auth-new-pass", "#auth-new-pass2"].forEach((id) => {
       const el = $(id);
       if (el) el.value = "";
@@ -1379,9 +1381,29 @@
     if (settingsBound) return;
     settingsBound = true;
 
-    $("#btn-auth-save")?.addEventListener("click", async () => {
+    $("#form-settings-auth-verify")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
       const msg = $("#auth-change-msg");
       if (msg) { msg.textContent = ""; msg.classList.remove("ok"); }
+      const cu = $("#auth-cur-user")?.value;
+      const cp = $("#auth-cur-pass")?.value;
+      const r = await Auth.login(String(cu || "").trim(), String(cp || ""), true);
+      if (!r.ok) {
+        if (msg) { msg.textContent = r.reason || "保存失败"; msg.style.color = ""; }
+        return;
+      }
+      authVerified = true;
+      if (msg) { msg.textContent = "验证成功，请填写新用户名与新密码"; msg.classList.add("ok"); msg.style.color = ""; }
+    });
+
+    $("#form-settings-auth-update")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = $("#auth-change-msg");
+      if (msg) { msg.textContent = ""; msg.classList.remove("ok"); }
+      if (!authVerified) {
+        if (msg) msg.textContent = "请先验证当前账号";
+        return;
+      }
       const r = await Auth.changeCredentials(
         $("#auth-cur-user")?.value,
         $("#auth-cur-pass")?.value,
@@ -2318,6 +2340,10 @@
       if (d) d.close();
     }
   });
+
+  // 设置弹窗里某些区块使用独立 form（用于消除浏览器 DOM 警告）。
+  // 其中账号 form 会在 bindSettings() 里接管 submit；这里只兜底其它 form 的 submit 默认行为。
+  // 同步区块已拆分为多个单动作 form；无需全局兜底 submit。
 
   // ===================== 键盘快捷键 =====================
   document.addEventListener("keydown", (e) => {
@@ -3921,20 +3947,23 @@
       el.className = "hint settings-sync-status " + (type || "").trim();
     }
 
+    function setV(id, v) { const el = $(id); if (el) el.value = v ?? ""; }
+    function setC(id, v) { const el = $(id); if (el) el.checked = !!v; }
+    function getV(id) { const el = $(id); return el ? el.value : ""; }
+    function getC(id) { const el = $(id); return el ? !!el.checked : false; }
+
     function fillForm() {
-      const setVal = (sel, v) => { const el = $(sel); if (el) el.value = v ?? ""; };
-      const setChk = (sel, v) => { const el = $(sel); if (el) el.checked = !!v; };
-      setVal("#sync-backend", Sync.data.backend);
-      setVal("#sync-webdav-url", Sync.data.webdav.url);
-      setVal("#sync-webdav-user", Sync.data.webdav.user);
-      setVal("#sync-webdav-pass", Sync.data.webdav.pass);
-      setVal("#sync-webdav-path", Sync.data.webdav.path);
-      setVal("#sync-gist-token", Sync.data.gist.token);
-      setVal("#sync-gist-id", Sync.data.gist.gistId);
-      setVal("#sync-gist-file", Sync.data.gist.fileName || "sakura-nav.json");
-      setChk("#set-sync-auto", Sync.data.auto);
-      setChk("#set-sync-include-keys", Sync.data.includeAiKeys);
-      setChk("#set-sync-include-auth", Sync.data.includeAuthCred);
+      setV("#sync-backend", Sync.data.backend);
+      setV("#sync-webdav-url", Sync.data.webdav.url);
+      setV("#sync-webdav-user", Sync.data.webdav.user);
+      setV("#sync-webdav-pass", Sync.data.webdav.pass);
+      setV("#sync-webdav-path", Sync.data.webdav.path);
+      setV("#sync-gist-token", Sync.data.gist.token);
+      setV("#sync-gist-id", Sync.data.gist.gistId);
+      setV("#sync-gist-file", Sync.data.gist.fileName || "sakura-nav.json");
+      setC("#set-sync-auto", Sync.data.auto);
+      setC("#set-sync-include-keys", Sync.data.includeAiKeys);
+      setC("#set-sync-include-auth", Sync.data.includeAuthCred);
       toggleBackend();
       const msg = [];
       if (Sync.data.lastPushed) msg.push("上次上传：" + new Date(Sync.data.lastPushed).toLocaleString("zh-CN"));
@@ -3955,25 +3984,31 @@
       panel.hidden = !show;
     }
     function toggleBackend() {
-      const b = $("#sync-backend")?.value || "off";
-      const w = $("#sync-webdav-conf"); if (w) w.hidden = b !== "webdav";
-      const g = $("#sync-gist-conf"); if (g) g.hidden = b !== "gist";
+      const b = getV("#sync-backend");
+      const w = $("#sync-webdav-conf");
+      const g = $("#sync-gist-conf");
+      if (w) w.hidden = b !== "webdav";
+      if (g) g.hidden = b !== "gist";
     }
-    function readForm() {
-      const v = (sel) => $(sel)?.value;
-      const trim = (sel) => (v(sel) ?? "").trim();
-      const chk = (sel) => !!$(sel)?.checked;
-      if ($("#sync-backend")) Sync.data.backend = v("#sync-backend");
-      if ($("#sync-webdav-url")) Sync.data.webdav.url = trim("#sync-webdav-url");
-      if ($("#sync-webdav-user")) Sync.data.webdav.user = trim("#sync-webdav-user");
-      if ($("#sync-webdav-pass")) Sync.data.webdav.pass = v("#sync-webdav-pass") ?? "";
-      if ($("#sync-webdav-path")) Sync.data.webdav.path = trim("#sync-webdav-path") || "sakura-nav.json";
-      if ($("#sync-gist-token")) Sync.data.gist.token = trim("#sync-gist-token");
-      if ($("#sync-gist-id")) Sync.data.gist.gistId = trim("#sync-gist-id");
-      if ($("#sync-gist-file")) Sync.data.gist.fileName = trim("#sync-gist-file") || "sakura-nav.json";
-      if ($("#set-sync-auto")) Sync.data.auto = chk("#set-sync-auto");
-      if ($("#set-sync-include-keys")) Sync.data.includeAiKeys = chk("#set-sync-include-keys");
-      if ($("#set-sync-include-auth")) Sync.data.includeAuthCred = chk("#set-sync-include-auth");
+    function readFormWebdav() {
+      Sync.data.backend = getV("#sync-backend");
+      Sync.data.webdav.url = getV("#sync-webdav-url").trim();
+      Sync.data.webdav.user = getV("#sync-webdav-user").trim();
+      Sync.data.webdav.pass = getV("#sync-webdav-pass");
+      Sync.data.webdav.path = getV("#sync-webdav-path").trim() || "sakura-nav.json";
+      Sync.save();
+    }
+    function readFormGist() {
+      Sync.data.backend = getV("#sync-backend");
+      Sync.data.gist.token = getV("#sync-gist-token").trim();
+      Sync.data.gist.gistId = getV("#sync-gist-id").trim();
+      Sync.data.gist.fileName = getV("#sync-gist-file").trim() || "sakura-nav.json";
+      Sync.save();
+    }
+    function readFormOptions() {
+      Sync.data.auto = getC("#set-sync-auto");
+      Sync.data.includeAiKeys = getC("#set-sync-include-keys");
+      Sync.data.includeAuthCred = getC("#set-sync-include-auth");
       Sync.save();
     }
 
@@ -3981,15 +4016,32 @@
       if (inited) return;
       inited = true;
       fillForm();
-      $("#sync-backend").addEventListener("change", () => { readForm(); toggleBackend(); });
-      [
-        "#sync-webdav-url", "#sync-webdav-user", "#sync-webdav-pass", "#sync-webdav-path",
-        "#sync-gist-token", "#sync-gist-id", "#sync-gist-file",
-        "#set-sync-auto", "#set-sync-include-keys", "#set-sync-include-auth",
-      ].forEach((s) => $(s)?.addEventListener("change", readForm));
+      $("#sync-backend")?.addEventListener("change", toggleBackend);
 
-      $("#btn-sync-push").addEventListener("click", async () => {
-        readForm();
+      $("#form-sync-webdav")?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        readFormWebdav();
+        setStatus("已保存 WebDAV 配置", "success");
+        toggleBackend();
+      });
+      $("#form-sync-gist")?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        readFormGist();
+        setStatus("已保存 Gist 配置", "success");
+        toggleBackend();
+      });
+      $("#form-sync-options")?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        readFormOptions();
+        setStatus("已保存备份选项", "success");
+      });
+
+      $("#form-sync-push")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        // 推送前确保配置已写入（按当前选择的后端）
+        if (getV("#sync-backend") === "webdav") readFormWebdav();
+        else if (getV("#sync-backend") === "gist") readFormGist();
+        readFormOptions();
         const p = window.NavProgress ? NavProgress.open("上传到云端（" + Sync.data.backend + "）") : null;
         p?.indeterminate(true);
         p?.setLabel("正在上传到云端…");
@@ -4005,9 +4057,12 @@
           toast("上传失败");
         }
       });
-      $("#btn-sync-pull").addEventListener("click", async () => {
+      $("#form-sync-pull")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
         if (!confirm("从云端下载并覆盖本地数据？")) return;
-        readForm();
+        if (getV("#sync-backend") === "webdav") readFormWebdav();
+        else if (getV("#sync-backend") === "gist") readFormGist();
+        readFormOptions();
         const p = window.NavProgress ? NavProgress.open("从云端拉取（" + Sync.data.backend + "）") : null;
         p?.indeterminate(true);
         p?.setLabel("正在从云端下载…");
@@ -4023,7 +4078,8 @@
           p?.fail("下载失败：" + e.message);
         }
       });
-      $("#btn-sync-export").addEventListener("click", () => {
+      $("#form-sync-export")?.addEventListener("submit", (e) => {
+        e.preventDefault();
         const run = window.NavProgress ? NavProgress.run : (_t, fn) => fn({ step() {}, done() {} });
         run("导出本地备份 JSON", async (p) => {
           p.step(0.25, "收集数据…");
@@ -4036,24 +4092,6 @@
           URL.revokeObjectURL(a.href);
           p.done("已生成备份文件");
         });
-      });
-      $("#sync-import-file").addEventListener("change", async (e) => {
-        const f = e.target.files?.[0];
-        if (!f) return;
-        if (!confirm("从文件还原会覆盖本地所有数据，继续？")) { e.target.value = ""; return; }
-        const p = window.NavProgress ? NavProgress.open("从备份还原") : null;
-        try {
-          p?.step(0.2, `读取 ${f.name} (${(f.size / 1024).toFixed(1)} KB)…`);
-          await SyncUtils.importFromFile(f);
-          p?.step(0.95, "应用到本地…");
-          p?.done("已还原，正在刷新…");
-          toast("已还原，正在刷新...");
-          setTimeout(() => location.reload(), 800);
-        } catch (err) {
-          p?.fail("还原失败：" + err.message);
-          toast("还原失败：" + err.message);
-        }
-        e.target.value = "";
       });
 
       $("#btn-sync-remote-push")?.addEventListener("click", async () => {
