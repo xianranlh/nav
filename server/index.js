@@ -30,6 +30,8 @@ import {
   getDbPath,
   getDataDir,
   snapshotDatabaseTo,
+  getAiSettings,
+  setAiSettings,
 } from "./database.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -161,6 +163,32 @@ app.get("/api/storage-stats", auth, (_req, res) => {
       },
       disk: { bgFiles, musicFiles, lrcFiles, mediaBytes },
     });
+  } catch (e) {
+    return res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+/** AI 设置独立存储（不走 bundle；避免浏览器 localStorage 持久化） */
+app.get("/api/ai-settings", auth, (_req, res) => {
+  ensureDir();
+  try {
+    const data = getAiSettings();
+    if (!data) return res.json({ empty: true });
+    return res.json(data);
+  } catch (e) {
+    return res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+app.put("/api/ai-settings", auth, (req, res) => {
+  ensureDir();
+  try {
+    const body = req.body;
+    if (!body || typeof body !== "object") {
+      return res.status(400).json({ error: "请求体须为 JSON 对象" });
+    }
+    setAiSettings(body);
+    return res.json({ ok: true, savedAt: Date.now() });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }

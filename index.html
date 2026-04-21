@@ -769,34 +769,44 @@
       <div class="dialog-body">
         <details class="sec" open>
           <summary>🔌 API 供应商</summary>
-          <div id="ai-providers-list" class="ai-providers-list"></div>
-          <div class="dialog-actions" style="justify-content: flex-start; padding: 0; border: none; background: transparent; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="mini-btn" id="ai-add-provider">+ 添加供应商</button>
-            <button type="button" class="mini-btn" id="ai-add-preset-openai">OpenAI 预设</button>
-            <button type="button" class="mini-btn" id="ai-add-preset-deepseek">DeepSeek 预设</button>
-            <button type="button" class="mini-btn" id="ai-add-preset-kimi">Kimi 预设</button>
-            <button type="button" class="mini-btn" id="ai-add-preset-ollama">Ollama 本地</button>
+          <div class="sec-body">
+            <div id="ai-providers-list" class="ai-providers-list"></div>
+            <div class="sec-btn-row">
+              <button type="button" class="mini-btn" id="ai-add-provider">+ 添加供应商</button>
+              <button type="button" class="mini-btn" id="ai-add-preset-openai">OpenAI 预设</button>
+              <button type="button" class="mini-btn" id="ai-add-preset-deepseek">DeepSeek 预设</button>
+              <button type="button" class="mini-btn" id="ai-add-preset-kimi">Kimi 预设</button>
+              <button type="button" class="mini-btn" id="ai-add-preset-ollama">Ollama 本地</button>
+            </div>
           </div>
         </details>
 
         <details class="sec">
           <summary>🎭 角色 / 人设定义</summary>
-          <div id="ai-personas-list" class="ai-personas-list"></div>
-          <button type="button" class="mini-btn" id="ai-add-persona">+ 添加自定义角色</button>
+          <div class="sec-body">
+            <div id="ai-personas-list" class="ai-personas-list"></div>
+            <div class="sec-btn-row">
+              <button type="button" class="mini-btn" id="ai-add-persona">+ 添加自定义角色</button>
+            </div>
+          </div>
         </details>
 
         <details class="sec">
           <summary>🪪 个人签名 / 附加上下文</summary>
-          <p class="hint" style="margin-bottom:8px">此信息将自动附加在每次对话的系统提示词（System Prompt）末尾。</p>
-          <textarea id="ai-signature" rows="4" placeholder="例：我是前端开发、偏好使用中文等..."></textarea>
+          <div class="sec-body">
+            <p class="hint">此信息将自动附加在每次对话的系统提示词（System Prompt）末尾。</p>
+            <textarea id="ai-signature" rows="4" placeholder="例：我是前端开发、偏好使用中文等..."></textarea>
+          </div>
         </details>
 
         <details class="sec">
           <summary>⚡ 交互行为控制</summary>
-          <label class="row row-tight">
-            <input type="checkbox" id="ai-auto-apply" />
-            <span>检测到 JSON 指令块时自动执行（无需手动点击）</span>
-          </label>
+          <div class="sec-body">
+            <label class="row row-tight">
+              <input type="checkbox" id="ai-auto-apply" />
+              <span>检测到 JSON 指令块时自动执行（无需手动点击）</span>
+            </label>
+          </div>
         </details>
       </div>
 
@@ -807,20 +817,25 @@
   </dialog>
 
   <!-- ===== 供应商编辑子弹窗 ===== -->
-  <dialog id="dialog-provider" class="glass-dialog">
+  <dialog id="dialog-provider" class="glass-dialog ai-subdialog">
     <form method="dialog" id="form-provider">
-      <h3 id="provider-title">添加 AI 供应商</h3>
-      <label>名称 <input name="name" required placeholder="如：OpenAI / 我的 Kimi" /></label>
-      <label>Base URL <input name="baseUrl" required placeholder="https://api.openai.com/v1" /></label>
-      <label>API Key <input name="apiKey" type="password" placeholder="sk-..." /></label>
-      <label>默认模型（可留空，稍后在面板切换）
-        <div class="input-with-btn">
-          <input name="defaultModel" list="provider-models-dl" placeholder="如：gpt-4o-mini" autocomplete="off" />
-          <button type="button" class="btn-secondary btn-inline" id="provider-fetch-models" title="用当前 Base URL + API Key 拉取模型列表">↻ 获取模型</button>
-        </div>
-        <datalist id="provider-models-dl"></datalist>
-        <p class="hint" id="provider-fetch-msg" style="font-size:11px;margin:4px 0 0;min-height:1em"></p>
-      </label>
+      <div class="dialog-header">
+        <h3 id="provider-title">🔌 添加 AI 供应商</h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <label>名称 <input name="name" required placeholder="如：OpenAI / 我的 Kimi" /></label>
+        <label>Base URL <input name="baseUrl" required placeholder="https://api.openai.com/v1" /></label>
+        <label>API Key <input name="apiKey" type="password" placeholder="sk-..." /></label>
+        <label>默认模型（可留空，稍后在面板切换）
+          <div class="input-with-btn">
+            <input name="defaultModel" list="provider-models-dl" placeholder="如：gpt-4o-mini" autocomplete="off" />
+            <button type="button" class="btn-secondary btn-inline" id="provider-fetch-models" title="用当前 Base URL + API Key 拉取模型列表">↻ 获取模型</button>
+          </div>
+          <datalist id="provider-models-dl"></datalist>
+          <p class="hint" id="provider-fetch-msg"></p>
+        </label>
+      </div>
       <div class="dialog-actions">
         <button type="button" class="btn-secondary" data-close>取消</button>
         <button value="ok" type="submit" class="btn-primary">保存</button>
@@ -829,13 +844,18 @@
   </dialog>
 
   <!-- ===== Persona 编辑子弹窗 ===== -->
-  <dialog id="dialog-persona" class="glass-dialog">
+  <dialog id="dialog-persona" class="glass-dialog ai-subdialog">
     <form method="dialog" id="form-persona">
-      <h3 id="persona-title">添加角色</h3>
-      <label>名称（显示用） <input name="name" required /></label>
-      <label>System Prompt（可以很长）
-        <textarea name="prompt" rows="8" required placeholder="描述 AI 该扮演的角色..."></textarea>
-      </label>
+      <div class="dialog-header">
+        <h3 id="persona-title">🎭 添加角色</h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <label>名称（显示用） <input name="name" required placeholder="给角色起个名字" /></label>
+        <label>System Prompt（可以很长）
+          <textarea name="prompt" rows="8" required placeholder="描述 AI 该扮演的角色..."></textarea>
+        </label>
+      </div>
       <div class="dialog-actions">
         <button type="button" class="btn-secondary" data-close>取消</button>
         <button value="ok" type="submit" class="btn-primary">保存</button>

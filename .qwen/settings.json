@@ -23,7 +23,14 @@
       "Bash(user *)",
       "Bash(identityfile *)",
       "Bash(identitiesonly *)",
-      "Bash(eof)"
+      "Bash(eof)",
+      "Bash(ss *)",
+      "Bash(pkill *)",
+      "Bash(lsof *)",
+      "Bash(xargs *)",
+      "Bash(curl *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)"
     ]
   },
   "$version": 3

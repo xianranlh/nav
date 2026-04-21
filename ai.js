@@ -64,6 +64,7 @@
     "只在用户明确要求修改时才输出指令块。一次对话可以多次输出；用户会看到并手动确认。";
 
   // ===================== 数据 =====================
+  // AI 设置优先存服务端 SQLite（/api/ai-settings），不可用时回落到 localStorage
   const AIStore = {
     data: {
       providers: [],        // [{ id, name, baseUrl, apiKey, defaultModel, models: [] }]
@@ -75,8 +76,11 @@
       autoApply: false,     // 收到指令块时自动执行（默认需确认）
     },
     messages: [],           // [{ role, content, ts, attachments?: [{type,name,url/data}] }]
+    serverMode: false,
+    _pushTimer: null,
 
-    load() {
+    // 从 localStorage 同步读取作为立即可用的降级值；再异步尝试从服务端覆盖
+    async load() {
       try {
         const raw = localStorage.getItem(AI_KEY);
         if (raw) Object.assign(this.data, JSON.parse(raw));
@@ -88,8 +92,57 @@
       if (!Array.isArray(this.data.personas) || !this.data.personas.length) {
         this.data.personas = DEFAULT_PERSONAS.slice();
       }
+      await this._hydrateFromServer();
     },
-    save() { localStorage.setItem(AI_KEY, JSON.stringify(this.data)); },
+
+    async _hydrateFromServer() {
+      try {
+        const r = await fetch("/api/ai-settings", { credentials: "same-origin" });
+        const ct = (r.headers.get("content-type") || "").toLowerCase();
+        if (!ct.includes("json")) return; // 纯静态部署
+        const j = await r.json();
+        if (!r.ok) return;
+        this.serverMode = true;
+        if (j && j.empty === true) {
+          // 服务端为空：把当前（本地遗留）数据推上去做一次性迁移
+          this._pushNow();
+        } else if (j && typeof j === "object") {
+          Object.assign(this.data, j);
+          if (!Array.isArray(this.data.personas) || !this.data.personas.length) {
+            this.data.personas = DEFAULT_PERSONAS.slice();
+          }
+        }
+        // 进入服务端模式后，清掉浏览器 localStorage 的冗余副本
+        try { localStorage.removeItem(AI_KEY); } catch (_) {}
+      } catch (_) {}
+    },
+
+    save() {
+      if (this.serverMode) {
+        this._schedulePush();
+      } else {
+        try { localStorage.setItem(AI_KEY, JSON.stringify(this.data)); } catch (_) {}
+      }
+    },
+
+    _schedulePush() {
+      clearTimeout(this._pushTimer);
+      this._pushTimer = setTimeout(() => this._pushNow(), 500);
+    },
+
+    async _pushNow() {
+      clearTimeout(this._pushTimer);
+      this._pushTimer = null;
+      try {
+        await fetch("/api/ai-settings", {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(this.data),
+        });
+      } catch (_) {}
+    },
+
     saveMessages() { localStorage.setItem(CHAT_KEY, JSON.stringify(this.messages.slice(-200))); },
 
     currentProvider() { return this.data.providers.find((p) => p.id === this.data.currentProviderId); },

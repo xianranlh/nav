@@ -2414,7 +2414,7 @@
     booted = true;
     document.body.classList.remove("pre-auth");
     Store.load();
-    AI.AIStore.load();
+    await AI.AIStore.load();
     Blog.load();
     Cal.load();
     if (window.Sync) Sync.load();
@@ -2962,7 +2962,7 @@
 
   function openProviderDialog(existing, preset) {
     const f = $("#form-provider");
-    $("#provider-title").textContent = existing ? "编辑 AI 供应商" : "添加 AI 供应商";
+    $("#provider-title").textContent = existing ? "🔌 编辑 AI 供应商" : "🔌 添加 AI 供应商";
     f.reset();
     const msg = $("#provider-fetch-msg");
     if (msg) { msg.textContent = ""; msg.classList.remove("err", "ok"); }
@@ -3079,7 +3079,7 @@
 
   function openPersonaDialog(existing) {
     const f = $("#form-persona");
-    $("#persona-title").textContent = existing ? "编辑角色" : "添加角色";
+    $("#persona-title").textContent = existing ? "🎭 编辑角色" : "🎭 添加角色";
     f.reset();
     if (existing) { f.name.value = existing.name; f.prompt.value = existing.prompt; f.dataset.editId = existing.id; }
     else f.dataset.editId = "";
@@ -3922,18 +3922,19 @@
     }
 
     function fillForm() {
-      $("#sync-backend").value = Sync.data.backend;
-      $("#sync-webdav-url").value = Sync.data.webdav.url;
-      $("#sync-webdav-user").value = Sync.data.webdav.user;
-      $("#sync-webdav-pass").value = Sync.data.webdav.pass;
-      $("#sync-webdav-path").value = Sync.data.webdav.path;
-      $("#sync-gist-token").value = Sync.data.gist.token;
-      $("#sync-gist-id").value = Sync.data.gist.gistId;
-      $("#sync-gist-file").value = Sync.data.gist.fileName || "sakura-nav.json";
-      $("#set-sync-auto").checked = !!Sync.data.auto;
-      $("#set-sync-include-keys").checked = !!Sync.data.includeAiKeys;
-      const incAuth = $("#set-sync-include-auth");
-      if (incAuth) incAuth.checked = !!Sync.data.includeAuthCred;
+      const setVal = (sel, v) => { const el = $(sel); if (el) el.value = v ?? ""; };
+      const setChk = (sel, v) => { const el = $(sel); if (el) el.checked = !!v; };
+      setVal("#sync-backend", Sync.data.backend);
+      setVal("#sync-webdav-url", Sync.data.webdav.url);
+      setVal("#sync-webdav-user", Sync.data.webdav.user);
+      setVal("#sync-webdav-pass", Sync.data.webdav.pass);
+      setVal("#sync-webdav-path", Sync.data.webdav.path);
+      setVal("#sync-gist-token", Sync.data.gist.token);
+      setVal("#sync-gist-id", Sync.data.gist.gistId);
+      setVal("#sync-gist-file", Sync.data.gist.fileName || "sakura-nav.json");
+      setChk("#set-sync-auto", Sync.data.auto);
+      setChk("#set-sync-include-keys", Sync.data.includeAiKeys);
+      setChk("#set-sync-include-auth", Sync.data.includeAuthCred);
       toggleBackend();
       const msg = [];
       if (Sync.data.lastPushed) msg.push("上次上传：" + new Date(Sync.data.lastPushed).toLocaleString("zh-CN"));
@@ -3954,23 +3955,25 @@
       panel.hidden = !show;
     }
     function toggleBackend() {
-      const b = $("#sync-backend").value;
-      $("#sync-webdav-conf").hidden = b !== "webdav";
-      $("#sync-gist-conf").hidden = b !== "gist";
+      const b = $("#sync-backend")?.value || "off";
+      const w = $("#sync-webdav-conf"); if (w) w.hidden = b !== "webdav";
+      const g = $("#sync-gist-conf"); if (g) g.hidden = b !== "gist";
     }
     function readForm() {
-      Sync.data.backend = $("#sync-backend").value;
-      Sync.data.webdav.url = $("#sync-webdav-url").value.trim();
-      Sync.data.webdav.user = $("#sync-webdav-user").value.trim();
-      Sync.data.webdav.pass = $("#sync-webdav-pass").value;
-      Sync.data.webdav.path = $("#sync-webdav-path").value.trim() || "sakura-nav.json";
-      Sync.data.gist.token = $("#sync-gist-token").value.trim();
-      Sync.data.gist.gistId = $("#sync-gist-id").value.trim();
-      Sync.data.gist.fileName = $("#sync-gist-file").value.trim() || "sakura-nav.json";
-      Sync.data.auto = $("#set-sync-auto").checked;
-      Sync.data.includeAiKeys = $("#set-sync-include-keys").checked;
-      const incAuth = $("#set-sync-include-auth");
-      if (incAuth) Sync.data.includeAuthCred = incAuth.checked;
+      const v = (sel) => $(sel)?.value;
+      const trim = (sel) => (v(sel) ?? "").trim();
+      const chk = (sel) => !!$(sel)?.checked;
+      if ($("#sync-backend")) Sync.data.backend = v("#sync-backend");
+      if ($("#sync-webdav-url")) Sync.data.webdav.url = trim("#sync-webdav-url");
+      if ($("#sync-webdav-user")) Sync.data.webdav.user = trim("#sync-webdav-user");
+      if ($("#sync-webdav-pass")) Sync.data.webdav.pass = v("#sync-webdav-pass") ?? "";
+      if ($("#sync-webdav-path")) Sync.data.webdav.path = trim("#sync-webdav-path") || "sakura-nav.json";
+      if ($("#sync-gist-token")) Sync.data.gist.token = trim("#sync-gist-token");
+      if ($("#sync-gist-id")) Sync.data.gist.gistId = trim("#sync-gist-id");
+      if ($("#sync-gist-file")) Sync.data.gist.fileName = trim("#sync-gist-file") || "sakura-nav.json";
+      if ($("#set-sync-auto")) Sync.data.auto = chk("#set-sync-auto");
+      if ($("#set-sync-include-keys")) Sync.data.includeAiKeys = chk("#set-sync-include-keys");
+      if ($("#set-sync-include-auth")) Sync.data.includeAuthCred = chk("#set-sync-include-auth");
       Sync.save();
     }
 

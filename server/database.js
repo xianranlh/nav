@@ -34,10 +34,32 @@ export function openDatabase(dataDir) {
       bytes INTEGER,
       created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS ai_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      payload TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   migrateFromLegacyJson(dataDir);
+  migrateAiSettingsFromBundle();
   return db;
+}
+
+// 首次启用独立 ai_settings 表时，把旧 bundle.payload.ai 迁移过来
+function migrateAiSettingsFromBundle() {
+  const row = db.prepare("SELECT 1 AS ok FROM ai_settings WHERE id = 1").get();
+  if (row) return;
+  const bundle = getBundle();
+  if (!bundle || typeof bundle !== "object" || !bundle.ai) return;
+  try {
+    const raw = JSON.stringify(bundle.ai);
+    db.prepare(
+      "INSERT INTO ai_settings (id, payload, updated_at) VALUES (1, ?, ?)"
+    ).run(raw, Date.now());
+  } catch (e) {
+    console.warn("[sakura-data] 迁移 ai 失败:", e.message || e);
+  }
 }
 
 function migrateFromLegacyJson(dataDir) {
@@ -134,6 +156,25 @@ export function deleteKey(key) {
   delete bundle[key];
   setBundle(bundle);
   return true;
+}
+
+/** 独立存储的 AI 设置（不走 app_data bundle，避免数据放在浏览器 localStorage） */
+export function getAiSettings() {
+  if (!db) return null;
+  const row = db.prepare("SELECT payload FROM ai_settings WHERE id = 1").get();
+  if (!row) return null;
+  try {
+    return JSON.parse(row.payload);
+  } catch (_) {
+    return null;
+  }
+}
+
+export function setAiSettings(obj) {
+  const raw = JSON.stringify(obj || {});
+  db.prepare(
+    "INSERT OR REPLACE INTO ai_settings (id, payload, updated_at) VALUES (1, ?, ?)"
+  ).run(raw, Date.now());
 }
 
 /** 关闭当前 DB（导入前需要） */

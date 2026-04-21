@@ -1848,22 +1848,173 @@ body.pre-auth #upcoming-card { display: none !important; }
 .ai-tip.err { color: #e04e75; }
 
 /* ===================== AI 设置 ===================== */
-.ai-dialog { 
-  max-width: 600px; 
+.ai-dialog {
+  max-width: 600px;
 }
 
 .ai-dialog .dialog-body {
-  padding: 16px 22px 24px;
+  padding: 20px 24px 24px;
   gap: 14px;
+  min-height: 0;
+  max-height: calc(90vh - 140px);
+  overscroll-behavior: contain;
 }
 
+/* 展开某一节不再挤压其他节；由 dialog-body 自己产生滚动条 */
+.ai-dialog .dialog-body > details.sec {
+  flex-shrink: 0;
+}
+
+/* 让 summary 本身有统一内边距 */
 .ai-dialog .sec > summary {
   white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 10px;
   line-height: 1;
+  padding: 16px 20px;
+}
+
+/* 展开后 summary 与正文之间多留一条分隔空白 */
+.ai-dialog .sec[open] > summary {
+  padding-bottom: 10px;
+}
+
+/* 所有正文放进 .sec-body，由外层统一提供四周内边距，
+   内部 button/textarea 不再作为直接子元素被生效的 padding 撑大 */
+.ai-dialog .sec > .sec-body {
+  padding: 4px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 按钮行：不再与边缘相贴；按钮保持小尺寸 */
+.ai-dialog .sec-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-dialog .sec > .sec-body .hint {
+  margin: 0 0 16px 2px;
+  font-size: 12px;
+}
+
+/* ===================== AI 子弹窗（供应商 / 角色） ===================== */
+.ai-subdialog {
+  max-width: 520px;
+}
+
+.ai-subdialog .dialog-header h3 {
+  font-size: 1.05rem;
+}
+
+.ai-subdialog .dialog-body {
+  padding: 22px 26px 8px;
+  gap: 16px;
+  min-height: 0;
+  max-height: calc(90vh - 140px);
+}
+
+.ai-subdialog .dialog-body > label {
+  gap: 8px;
+  font-weight: 500;
+  color: var(--text-soft);
+}
+
+.ai-subdialog .dialog-body > label > input,
+.ai-subdialog .dialog-body > label > textarea {
+  width: 100%;
+}
+
+.ai-subdialog .dialog-body textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 200px;
   padding: 16px 18px;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  letter-spacing: 0.2px;
+  color: var(--text);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg,
+      rgba(var(--accent-rgb), 0.05),
+      rgba(var(--accent-rgb), 0.02) 40%,
+      rgba(255, 255, 255, 0.55));
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  outline: none;
+  resize: vertical;
+  caret-color: var(--accent);
+  backdrop-filter: blur(6px) saturate(1.1);
+  -webkit-backdrop-filter: blur(6px) saturate(1.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(var(--accent-rgb), 0.06);
+  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--accent-rgb), 0.35) transparent;
+}
+
+.ai-subdialog .dialog-body textarea::-webkit-scrollbar { width: 6px; }
+.ai-subdialog .dialog-body textarea::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.3);
+  border-radius: 10px;
+}
+.ai-subdialog .dialog-body textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.5);
+}
+
+.ai-subdialog .dialog-body textarea::placeholder {
+  color: var(--text-faint);
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.ai-subdialog .dialog-body textarea:hover {
+  border-color: rgba(var(--accent-rgb), 0.4);
+}
+
+.ai-subdialog .dialog-body textarea:focus {
+  border-color: var(--accent);
+  background: #fff;
+  box-shadow:
+    0 0 0 4px var(--accent-soft),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 4px 14px rgba(var(--accent-rgb), 0.15);
+}
+
+[data-theme="dark"] .ai-subdialog .dialog-body textarea {
+  background:
+    linear-gradient(180deg,
+      rgba(var(--accent-rgb), 0.1),
+      rgba(var(--accent-rgb), 0.04) 40%,
+      rgba(255, 255, 255, 0.04));
+  border-color: rgba(var(--accent-rgb), 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .ai-subdialog .dialog-body textarea:focus {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 4px var(--accent-soft),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 14px rgba(var(--accent-rgb), 0.25);
+}
+
+.ai-subdialog .dialog-body .hint {
+  font-size: 11.5px;
+  margin: 4px 0 0;
+  min-height: 1em;
+  padding-left: 2px;
+}
+
+.ai-subdialog .dialog-actions {
+  padding: 14px 26px 20px;
 }
 
 .ai-providers-list, .ai-personas-list {

@@ -59,8 +59,16 @@ server {
         proxy_read_timeout 300s;
     }
 
-    # 静态资源长缓存（带 hash 或版本的文件更好，当前项目无 hash，所以用 1d）
-    location ~* \.(?:css|js|png|jpg|jpeg|gif|ico|svg|webp|woff2?)$ {
+    # 项目未给 JS/CSS 加内容 hash；用 no-cache + ETag 让浏览器每次条件请求（304），
+    # 避免新版本部署后客户端仍读旧 JS 直到 1 天过期。图片/字体走 1d 长缓存。
+    location ~* \.(?:js|css)$ {
+        expires off;
+        add_header Cache-Control "no-cache" always;
+        etag on;
+        access_log off;
+        try_files $uri =404;
+    }
+    location ~* \.(?:png|jpg|jpeg|gif|ico|svg|webp|woff2?)$ {
         expires 1d;
         access_log off;
         try_files $uri =404;

@@ -4,7 +4,7 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.13.1";
+const VERSION = "v1.14.0";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
 
@@ -82,9 +82,11 @@ self.addEventListener("fetch", (event) => {
   const dynamicHosts = ["api.open-meteo.com", "ipapi.co", "ip-api.com", "api.github.com", "duckduckgo.com", "suggestion.baidu.com"];
   if (dynamicHosts.includes(url.hostname)) return;
 
-  // 核心资源：SWR
+  // 核心资源（HTML/CSS/JS）：network-first
+  // 之前用 stale-while-revalidate，部署新版本后客户端会继续读旧缓存直到再次刷新；
+  // 改成先走网络，离线才回落到缓存，保证修复能尽快到达用户。
   if (isCoreRequest(url)) {
-    event.respondWith(staleWhileRevalidate(req, CORE_CACHE));
+    event.respondWith(networkFirst(req, CORE_CACHE));
     return;
   }
 
