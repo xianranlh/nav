@@ -10,3 +10,6 @@ Thumbs.db
 .dockerignore
 # Docker 本地数据目录（SQLite + 媒体）
 data/
+
+# Git worktrees (local)
+.worktrees/
