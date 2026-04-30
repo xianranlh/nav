@@ -2,6 +2,7 @@
   "name": "sakura-nav",
   "private": true,
   "scripts": {
+    "test": "node --test tests/*.test.js",
     "start": "node server/index.js",
     "dev": "node server/index.js --static",
     "install:server": "npm install --prefix server",

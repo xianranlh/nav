@@ -31,4 +31,33 @@ try {
   "css cache-control: $($r3.Headers['Cache-Control'])" | Out-File -Append up.log -Encoding utf8
 } catch { "css ERR: $($_.Exception.Message)" | Out-File -Append up.log -Encoding utf8 }
 docker rm -f sakura-nav-test 2>&1 | Out-File -Append up.log -Encoding utf8
+
+# === Theme & layout source checks ===
+$themeFiles = @('themes/sakura.css','themes/q-anime.css','themes/dark-minimal.css','themes/paper.css')
+foreach ($f in $themeFiles) {
+  if (-not (Test-Path $f)) { "(!) missing $f" | Out-File -Append up.log -Encoding utf8 }
+}
+if (-not (Select-String -Path 'homepage-theme.js' -Pattern 'q-anime' -Quiet)) {
+  '(!) q-anime not registered in homepage-theme.js' | Out-File -Append up.log -Encoding utf8
+}
+if (-not (Select-String -Path 'homepage-layout.js' -Pattern 'collectStarredLinks' -Quiet)) {
+  '(!) collectStarredLinks missing in homepage-layout.js' | Out-File -Append up.log -Encoding utf8
+}
+if (-not (Select-String -Path 'sakura.js' -Pattern 'candy-stars' -Quiet)) {
+  '(!) candy-stars mode not found in sakura.js' | Out-File -Append up.log -Encoding utf8
+}
+if (-not (Select-String -Path 'sakura.js' -Pattern '"none"' -Quiet)) {
+  '(!) none mode not found in sakura.js' | Out-File -Append up.log -Encoding utf8
+}
+if (-not (Select-String -Path 'app.js' -Pattern 'UIStarred' -Quiet)) {
+  '(!) UIStarred missing' | Out-File -Append up.log -Encoding utf8
+}
+if (-not (Select-String -Path 'app.js' -Pattern 'renderGroupTabs' -Quiet)) {
+  '(!) renderGroupTabs missing' | Out-File -Append up.log -Encoding utf8
+}
+if (-not (Select-String -Path 'styles.css' -Pattern '\[data-density="tight"\]' -Quiet)) {
+  '(!) tight density rule missing' | Out-File -Append up.log -Encoding utf8
+}
+'theme & layout source check done' | Out-File -Append up.log -Encoding utf8
+
 'END' | Out-File -Append up.log -Encoding utf8

@@ -1,0 +1,43 @@
+/* 暗夜极简 · 静默无装饰 · 高对比。 */
+html[data-visual-theme="dark-minimal"] {
+  --accent: #8da4c0;
+  --accent-2: #b8c8dc;
+  --accent-soft: rgba(141, 164, 192, 0.16);
+  --accent-rgb: 141, 164, 192;
+
+  --text: #f0f3f8;
+  --text-soft: #b8c0cc;
+  --text-faint: #7a8290;
+
+  --glass-alpha: 0.18;
+  --glass-bg: rgba(20, 22, 28, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  --blur: 6px;
+
+  --card-bg: rgba(28, 30, 36, 0.6);
+  --card-hover: rgba(38, 40, 48, 0.78);
+
+  --radius-lg: 8px;
+  --radius-md: 8px;
+  --radius-sm: 6px;
+
+  --bg-gradient:
+    radial-gradient(1200px 700px at 50% 0%, #1a1d24 0%, transparent 60%),
+    linear-gradient(180deg, #0e1014 0%, #0a0c10 100%);
+
+  font-family: "Inter", "PingFang SC", system-ui, sans-serif;
+  letter-spacing: 0.005em;
+}
+
+html[data-visual-theme="dark-minimal"] .card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  box-shadow: none;
+  transition: border-color .2s, background .2s;
+}
+
+html[data-visual-theme="dark-minimal"] .card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}

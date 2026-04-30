@@ -1,0 +1,61 @@
+/* Q 版二次元 · 柔和星空版。
+ * 三色低饱和：雾紫 + 樱乳粉 + 月光蓝。
+ */
+html[data-visual-theme="q-anime"] {
+  --accent: #c4a8e8;
+  --accent-2: #ffc4d6;
+  --accent-soft: #efe4f8;
+  --accent-rgb: 196, 168, 232;
+
+  --text: #4a3a5e;
+  --text-soft: #7a6a8e;
+  --text-faint: #a394b8;
+
+  --glass-shadow: 0 6px 22px rgba(196, 168, 232, 0.18);
+  --card-bg: rgba(255, 250, 253, 0.7);
+  --card-hover: rgba(255, 250, 253, 0.9);
+  --card-border: rgba(196, 168, 232, 0.35);
+
+  --radius-lg: 28px;
+  --radius-md: 22px;
+  --radius-sm: 14px;
+
+  --bg-gradient:
+    radial-gradient(1100px 680px at 18% 12%, #efe4f8 0%, transparent 58%),
+    radial-gradient(900px 620px at 86% 84%, #d8e6ff 0%, transparent 55%),
+    linear-gradient(160deg, #fdf8ff 0%, #f6efff 45%, #eef4ff 100%);
+
+  font-family: "M PLUS Rounded 1c", "PingFang SC", system-ui, sans-serif;
+  letter-spacing: 0.015em;
+}
+
+html[data-visual-theme="q-anime"][data-theme="dark"] {
+  --text: #ece4f5;
+  --text-soft: #c8b8d8;
+  --text-faint: #9888a8;
+  --card-bg: rgba(48, 40, 64, 0.55);
+  --card-hover: rgba(60, 52, 80, 0.78);
+  --card-border: rgba(196, 168, 232, 0.25);
+  --bg-gradient:
+    radial-gradient(1100px 680px at 18% 12%, #2c1f44 0%, transparent 58%),
+    radial-gradient(900px 620px at 86% 84%, #1a2440 0%, transparent 55%),
+    linear-gradient(160deg, #14102a 0%, #1f1735 50%, #0f1428 100%);
+}
+
+html[data-visual-theme="q-anime"] .card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 4px 16px rgba(196, 168, 232, 0.12);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+
+html[data-visual-theme="q-anime"] .card:hover {
+  transform: translateY(-4px) scale(1.015);
+  box-shadow: 0 10px 28px rgba(196, 168, 232, 0.28);
+}
+
+html[data-visual-theme="q-anime"] .chip,
+html[data-visual-theme="q-anime"] .btn-primary,
+html[data-visual-theme="q-anime"] .btn-secondary {
+  border-radius: 999px;
+}

@@ -1,0 +1,56 @@
+/* 复古纸质 · 米黄底 + 衬线字 + 纸感阴影。 */
+html[data-visual-theme="paper"] {
+  --accent: #b07c4f;
+  --accent-2: #d6b88f;
+  --accent-soft: #f3e6d2;
+  --accent-rgb: 176, 124, 79;
+
+  --text: #3a2e22;
+  --text-soft: #6a5a44;
+  --text-faint: #a08e74;
+
+  --glass-bg: rgba(252, 244, 226, 0.78);
+  --glass-border: rgba(176, 124, 79, 0.22);
+  --glass-shadow: 0 4px 14px rgba(80, 50, 20, 0.12);
+
+  --card-bg: rgba(252, 244, 226, 0.86);
+  --card-hover: rgba(252, 244, 226, 1);
+  --card-border: rgba(176, 124, 79, 0.28);
+
+  --radius-lg: 6px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+
+  --bg-gradient:
+    radial-gradient(1100px 680px at 18% 12%, #f5e8c7 0%, transparent 60%),
+    radial-gradient(900px 620px at 86% 84%, #ead7b3 0%, transparent 55%),
+    linear-gradient(160deg, #faf2dc 0%, #f0e2c0 50%, #e8d3a8 100%);
+
+  font-family: "Source Han Serif", "Georgia", "PingFang SC", serif;
+  letter-spacing: 0.01em;
+}
+
+html[data-visual-theme="paper"][data-theme="dark"] {
+  --text: #f0e8d4;
+  --text-soft: #c8b89a;
+  --text-faint: #98886a;
+  --glass-bg: rgba(40, 32, 22, 0.78);
+  --glass-border: rgba(176, 124, 79, 0.32);
+  --card-bg: rgba(40, 32, 22, 0.85);
+  --card-hover: rgba(50, 40, 28, 0.95);
+  --bg-gradient:
+    radial-gradient(1100px 680px at 18% 12%, #2c241a 0%, transparent 60%),
+    linear-gradient(160deg, #1c1610 0%, #2a2218 100%);
+}
+
+html[data-visual-theme="paper"] .card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--card-border);
+  box-shadow: 1px 1px 0 rgba(176, 124, 79, 0.15), 0 4px 12px rgba(80, 50, 20, 0.1);
+  transition: transform .2s, box-shadow .2s;
+}
+
+html[data-visual-theme="paper"] .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 2px 2px 0 rgba(176, 124, 79, 0.2), 0 8px 18px rgba(80, 50, 20, 0.15);
+}

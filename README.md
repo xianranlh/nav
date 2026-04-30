@@ -1,9 +1,9 @@
 # 樱 · 个人导航 (Sakura Nav)
 
-一个个人浏览器起始页，主打 **毛玻璃质感 + 碎樱花飘舞** 的视觉氛围。
-支持两种运行方式：
-- **🐳 Docker 部署**（推荐）：自带 Node + SQLite 服务端，**数据存在服务器**，多浏览器 / 多机器访问同一地址看到的就是同一份数据
-- **🌐 纯静态**：双击 `index.html` 也能跑，数据走浏览器 `localStorage` / IndexedDB（仅本机可见）
+一个个人浏览器起始页，主打 **毛玻璃质感 + 可切换主题粒子** 的视觉氛围。
+当前要求服务端存储：
+- **🐳 Docker / Node 部署**（推荐）：自带 Node + SQLite 服务端，**业务数据存在服务器**，多浏览器 / 多机器访问同一地址看到的就是同一份数据
+- **🌐 纯静态打开**：仅用于查看静态资源；没有同源 `/api/data` 时应用会停止进入主界面，避免把业务数据写入浏览器
 
 ![preview](https://dummyimage.com/900x500/ffd6e6/ffffff&text=Sakura+Nav)
 
@@ -12,10 +12,10 @@
 ## ✨ 功能
 
 ### 视觉 & 氛围
-- 🌸 **碎樱花 Canvas 动画背景**：数量 / 速度可调，页面隐藏自动暂停，自动尊重 `prefers-reduced-motion`。
+- 🌸 **Canvas 动画背景**：樱花、星光、梧桐叶、Q 版糖果星星与无粒子模式；数量 / 速度可调，页面隐藏自动暂停，自动尊重 `prefers-reduced-motion`。
 - 🧊 **玻璃材质面板**：模糊 / 透明度 / 饱和度全部可调；输入框/时钟/按钮做了柔化处理。
 - 🖼 **背景图系统**：
-  - **🎞 本地上传**（图片 / GIF / MP4 / WebM，走 IndexedDB，刷新后不丢）
+  - **🎞 服务端上传**（图片 / GIF / MP4 / WebM，文件落到服务器 media 目录）
   - **单张图片/视频 URL**（`.mp4 / .webm / .mov / .ogv` 自动按视频循环播放）
   - **多图轮播**（自定义间隔）
   - **Bing 每日壁纸** / **随机壁纸 API**
@@ -23,8 +23,9 @@
   - 内置"二次元 / 风景 / Bing"预设 URL
   - 切换时采用双层 fade 过渡，不会突兀
 - 🎨 **完全自定义外观**：
+  - **四套首页主题**：樱粉、Q 版二次元、暗夜极简、复古纸质
   - **主色调**调色板（整站强调色会同步变化）
-  - **字号**（小/中/大）、**圆角**（方正/适中/圆润）、**卡片密度**（紧凑/常规/宽松）
+  - **字号**（小/中/大）、**圆角**（方正/适中/圆润）、**卡片密度**（紧凑/常规/宽松/超紧凑图标墙）
   - 亮色 / 暗色 / 跟随系统
 
 ### 组件 & 交互
@@ -67,7 +68,7 @@
 - ✅ **完成 / ↶ 还原 / ⊘ 跳过本次**：重复任务每次发生都可独立处理，不影响其他次
 - 🎨 任务六色标签，与玻璃面板主题一致
 - 🔢 头部 **📅 按钮** 显示今天未完成任务数徽章（红点角标）
-- 💾 数据存储在 `localStorage["sakura_nav_calendar_v1"]`
+- 💾 数据通过同源 `/api/data` 写入服务端 SQLite
 
 ### ⚡ 快捷区（新！）
 - 🔎 **搜索下拉联想**：输入关键字自动弹出
@@ -80,7 +81,7 @@
 
 ### 🎵 音乐播放器（新！）
 - 📥 **导入本地音频**：mp3 / m4a / flac / wav / ogg / aac / opus，支持多选与**拖拽**导入
-- 💾 文件本体存 **IndexedDB**（不占 localStorage），刷新/重启不丢
+- 💾 文件本体上传到服务端 `media/music`，刷新 / 换浏览器不丢
 - 🎤 **LRC 歌词**：为任意曲目附加 `.lrc` 文件；或将同名 `.lrc` 与音频一起拖入自动匹配；逐行高亮 + 居中滚动
 - 📊 **频谱可视化**：Web Audio `AnalyserNode` → canvas 柔和光带，跟随节奏起伏
 - 🔁 播放/暂停 / 上一首/下一首 / 随机 / 单曲循环 / 列表循环
@@ -180,7 +181,7 @@
    - 用户名：`xianran`
    - 密码：`lh116688257`
    - 勾选"保持登录"后 **7 天内免登录**；否则仅当前会话有效。
-4. 点击右上角 **⚙ 设置** 调整樱花数量、模糊度、主题、卡片密度、背景图等。
+4. 点击右上角 **⚙ 设置** 调整粒子数量、模糊度、首页主题、卡片密度、Hero 显示模式、背景图等。
 5. 点击 **导入书签** → 选择从浏览器导出的 `bookmarks.html` → 预览无误后"确认导入"。
 6. 顶栏最右 **⎋** 图标可退出登录。
 
@@ -297,8 +298,8 @@ nav/
 ├── weather.js      # 天气（Open-Meteo + IP/浏览器定位）
 ├── suggest.js      # 搜索下拉联想（本地 + DuckDuckGo + 百度 JSONP）
 ├── exporter.js     # 博客 RSS + 静态站 + 无依赖 ZIP 打包器
-├── idb.js          # 统一 IndexedDB 助手（背景 / 音乐 store 的读写）
-├── music.js        # 音乐播放器（IndexedDB + LRC + Web Audio 频谱）
+├── idb.js          # 浏览器遗留 IndexedDB 迁移 / 清理助手
+├── music.js        # 音乐播放器（服务端媒体 + LRC + Web Audio 频谱）
 ├── app.js          # 主应用（数据、渲染、设置、背景、一言、过滤、拖拽、AI/Blog/Cal/Weather/Sync/Music/Voice/Suggest/Recent UI 粘合）
 ├── manifest.json   # PWA 元数据（可安装为桌面应用）
 ├── sw.js           # Service Worker（离线缓存）
@@ -309,37 +310,28 @@ nav/
 
 ## 🧭 数据存储
 
-项目有两种运行模式，数据落点不同：
+项目现在采用 **服务端必需** 的存储策略：业务数据必须写入同源 `/api/data` 背后的 SQLite；没有服务端 API 时，前端会阻止业务键写入浏览器并停在错误页。
 
-### 🐳 服务端模式（推荐：Docker / 同源部署，**多端共享**）
+### 🐳 服务端模式（推荐：Docker / Node 同源部署，**多端共享**）
 
-只要访问的页面同源能命中 `/api/data`（见 `docker-compose.yml` + `nginx.conf.template`），前端会 **自动切换为"服务端模式"**：所有业务数据都存到服务端 SQLite，不再进浏览器 `localStorage`。这意味着不同浏览器、不同机器访问同一个部署地址，看到的是同一份数据。
+只要访问的页面同源能命中 `/api/data`（见 `docker-compose.yml` + `nginx.conf.template`），前端会启用服务端模式：所有业务数据都存到服务端 SQLite，不再进浏览器 `localStorage`。这意味着不同浏览器、不同机器访问同一个部署地址，看到的是同一份数据。
 
 - 业务数据库：`<DATA_DIR>/sakura.db`（默认 `./data/sakura-nav/sakura.db`，宿主可见）
   - 表 `app_data`：整包 JSON（导航 / 设置 / 博客 / 日历 / AI 配置 / 聊天记录 / 天气 / 音乐元数据 / 同步配置）
   - 表 `media_files`：已上传媒体元数据
 - 媒体文件：`<DATA_DIR>/media/bg/*`、`<DATA_DIR>/media/music/*`（背景图 / 音乐走服务端，刷新/换浏览器均可见）
 - 鉴权：可选。未配置 `SAKURA_API_KEY` 时 `/api` 对同容器内 nginx 放行（容器内 Node 仅监听 `127.0.0.1`，不直接对外）；配置了 `SAKURA_API_KEY` 后 nginx 会自动注入 `Authorization: Bearer`，浏览器不携带密钥
+- 浏览器遗留迁移：服务端空库首次启动时，会把旧 `sakura_*` 业务键读入内存并上传到 SQLite；上传成功后会清掉这些浏览器遗留键
 
-**仍保留在浏览器本地（不会同步）：**
-- `sakura_nav_token_v1`：登录会话 token（每台机器单独登录，符合安全预期）
-- `sakura_nav_auth_cred_v1`：账号密码的 SHA-256 哈希（可选，默认使用内置账号）
+**仍保留在浏览器本机的只有登录态：**
+- `sakura_nav_token_v1`：登录会话 token（每台机器单独登录，不作为业务数据同步）
+- `sakura_nav_auth_cred_v1` 不再作为浏览器本地数据保存；服务端模式下它会随 bundle 进入 SQLite
 
 > 设置面板底部有 **"清空所有数据"** / **"存储一览"**：在服务端模式下会显示 SQLite 库体积与媒体目录占用。
 
-### 🌐 纯静态模式（双击 `index.html` 打开）
+### 🌐 无服务端 API 时
 
-页面无 `/api/data` 时自动回退，所有数据写入浏览器本地：
-- 导航数据：`localStorage["sakura_nav_v1"]`
-- 用户设置：`localStorage["sakura_nav_settings_v1"]`
-- AI 配置 / 会话：`localStorage["sakura_nav_ai_v1"]` / `["sakura_nav_chat_v1"]`
-- 博客文章：`localStorage["sakura_nav_blog_v1"]`
-- 日历任务：`localStorage["sakura_nav_calendar_v1"]`
-- 同步配置：`localStorage["sakura_nav_sync_v1"]`
-- 天气缓存：`localStorage["sakura_nav_weather_v1"]`
-- 背景 / 音乐大文件：IndexedDB（`sakura-nav-bg` / `sakura-nav-music`）
-
-此模式下跨浏览器 / 跨机器不共享，需通过"设置 → 同步"走 WebDAV / Gist 或手动备份 JSON。
+页面无 `/api/data`、鉴权失败或 API 不可达时，应用会显示"服务端存储不可用"，不会进入主应用，也不会把导航、设置、日历、博客、AI、天气、同步配置、音乐元数据写入浏览器 `localStorage`。背景/音乐文件上传也不会写入 IndexedDB。
 
 ---
 
@@ -372,11 +364,11 @@ nav/
 - [x] **AI TTS 朗读回复（speechSynthesis 中英自动选音）**
 - [x] **天气 × 任务智能联动（雨雪/高温/低温提示 + 通知文案注入）**
 - [x] **多城市天气（中国城市搜索 + 主城市切换 + 并行拉取）**
-- [x] **本地音乐播放器（IndexedDB + LRC 同步歌词 + 频谱可视化）**
-- [x] **本地上传背景（支持图片 / GIF / 视频，走 IndexedDB）**
+- [x] **服务端音乐播放器（媒体上传 + LRC 同步歌词 + 频谱可视化）**
+- [x] **服务端上传背景（支持图片 / GIF / 视频，走 media 目录）**
+- [x] **多主题首页：樱粉 / Q 版二次元 / 暗夜极简 / 复古纸质**
 - [ ] 从浏览器地址栏拖拽即添加
 - [ ] 智能命中排序（按 `clickCount` 自动置顶热门）
-- [ ] 多主题皮肤（非粉色可选）
 - [ ] 聚合仪表盘（天气 + 今日任务 + 一言 + 最近博客）
 
 欢迎继续告诉我你想要的，持续迭代 🌸

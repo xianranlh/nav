@@ -1,10 +1,10 @@
 /* 樱 · 个人导航 Service Worker
  * 策略：
- *   - 静态资源（本域 HTML/CSS/JS/JSON）：stale-while-revalidate（先回缓存，后台更新）
+ *   - 静态资源（本域 HTML/CSS/JS/JSON）：network-first（先走网络，离线回缓存）
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.14.0";
+const VERSION = "v1.16.4";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
 
@@ -12,6 +12,12 @@ const CORE_FILES = [
   "./",
   "./index.html",
   "./styles.css",
+  "./themes/sakura.css",
+  "./themes/q-anime.css",
+  "./themes/dark-minimal.css",
+  "./themes/paper.css",
+  "./homepage-theme.js",
+  "./homepage-layout.js",
   "./sakura.js",
   "./bookmarks.js",
   "./auth.js",
@@ -25,9 +31,10 @@ const CORE_FILES = [
   "./idb.js",
   "./music.js",
   "./storage-inspector.js",
-  "./app.js",
+  `./app.js?v=${VERSION}`,
   "./manifest.json",
 ];
+const CORE_PATHS = CORE_FILES.map((file) => new URL(file, location.href).pathname);
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
@@ -52,7 +59,7 @@ self.addEventListener("message", (e) => {
 
 function isCoreRequest(url) {
   return url.origin === location.origin &&
-         (CORE_FILES.some((f) => url.pathname.endsWith(f.replace("./", "/"))) ||
+         (CORE_PATHS.some((path) => url.pathname === path || url.pathname.endsWith(path)) ||
           url.pathname === "/" || url.pathname === "/index.html");
 }
 
@@ -83,7 +90,7 @@ self.addEventListener("fetch", (event) => {
   if (dynamicHosts.includes(url.hostname)) return;
 
   // 核心资源（HTML/CSS/JS）：network-first
-  // 之前用 stale-while-revalidate，部署新版本后客户端会继续读旧缓存直到再次刷新；
+  // 旧缓存策略会让客户端继续读旧资源直到再次刷新；
   // 改成先走网络，离线才回落到缓存，保证修复能尽快到达用户。
   if (isCoreRequest(url)) {
     event.respondWith(networkFirst(req, CORE_CACHE));
@@ -99,18 +106,6 @@ self.addEventListener("fetch", (event) => {
   // 其它：network-first
   event.respondWith(networkFirst(req, RUNTIME_CACHE));
 });
-
-async function staleWhileRevalidate(req, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(req);
-  const fetching = fetch(req).then((res) => {
-    if (res && res.ok) {
-      try { cache.put(req, res.clone()); } catch (_) {}
-    }
-    return res;
-  }).catch(() => null);
-  return cached || (await fetching) || new Response("", { status: 504 });
-}
 
 async function cacheFirst(req, cacheName) {
   const cache = await caches.open(cacheName);

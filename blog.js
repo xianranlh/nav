@@ -1,5 +1,5 @@
 /* 樱 · 博客模块
- * 数据：localStorage["sakura_nav_blog_v1"]
+ * 数据：经 sakura-remote 写入服务端 SQLite
  * 功能：帖子增删改查、Markdown、标签筛选、后台管理、草稿/发布、导入导出
  */
 (function () {

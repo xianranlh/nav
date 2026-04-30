@@ -19,6 +19,7 @@
  *   }
  *
  * 向后兼容：老数据若含 lat/lon/city 而无 cities，自动迁移到 autoCity。
+ * 持久化：经 sakura-remote 写入服务端 SQLite。
  */
 (function () {
   "use strict";

@@ -1,9 +1,9 @@
 /* 樱 · 音乐播放器
- *  - 导入本地音频文件（mp3 / m4a / flac / wav / ogg）到 IndexedDB
+ *  - 导入本地音频文件（mp3 / m4a / flac / wav / ogg）到服务端 media/music
  *  - 播放列表、随机、单曲/列表循环、进度/音量
  *  - LRC 歌词解析 + 同步滚动 + 逐行高亮
  *  - Web Audio API 频谱可视化（AnalyserNode -> canvas 柔和光带）
- *  - 数据：元信息存 localStorage，文件本体存 IndexedDB（避免 5MB 限制）
+ *  - 数据：元信息经 sakura-remote 进入 SQLite，旧 IndexedDB 曲目仅用于迁移/兼容
  */
 (function () {
   "use strict";
@@ -16,6 +16,14 @@
   const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
+  function serverStorageRequired() {
+    const remote = window.SakuraRemote;
+    return !!(
+      remote &&
+      typeof remote.isRequired === "function" &&
+      remote.isRequired()
+    );
+  }
 
   // ===================== IndexedDB =====================
   // 共享实现见 idb.js 中的 window.NavIDB.music
@@ -295,8 +303,15 @@
                 continue;
               }
             } catch (e) {
-              toast("服务端上传失败，改存本地：" + (e.message || e), 3500);
+              if (serverStorageRequired()) {
+                toast("服务端音乐上传失败，未写入浏览器：" + (e.message || e), 3500);
+                continue;
+              }
+              toast("服务端上传失败：" + (e.message || e), 3500);
             }
+          } else if (serverStorageRequired()) {
+            toast("服务端存储未就绪，音乐文件未写入浏览器", 3500);
+            continue;
           }
           const id = uid();
           try { await IDB.put(id, f); } catch (e) { toast("保存失败：" + (e.message || e)); continue; }
@@ -409,6 +424,10 @@
         audio.removeAttribute("crossorigin");
         audio.src = raw;
       } else {
+        if (serverStorageRequired()) {
+          toast("本地音乐文件已禁用，请迁移或重新上传到服务端", 3200);
+          return;
+        }
         let blob;
         try { blob = await IDB.get(t.id); } catch (_) {}
         if (!blob) { toast("本地文件已丢失，将从列表移除"); await this.removeTrack(t.id); return; }

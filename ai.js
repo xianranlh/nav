@@ -64,7 +64,7 @@
     "只在用户明确要求修改时才输出指令块。一次对话可以多次输出；用户会看到并手动确认。";
 
   // ===================== 数据 =====================
-  // AI 设置优先存服务端 SQLite（/api/ai-settings），不可用时回落到 localStorage
+  // AI 设置优先存服务端 SQLite（/api/ai-settings）；业务写入由 sakura-remote 禁止落到浏览器
   const AIStore = {
     data: {
       providers: [],        // [{ id, name, baseUrl, apiKey, defaultModel, models: [] }]
@@ -79,7 +79,7 @@
     serverMode: false,
     _pushTimer: null,
 
-    // 从 localStorage 同步读取作为立即可用的降级值；再异步尝试从服务端覆盖
+    // 从 sakura-remote 的 localStorage shim 同步读取；再异步尝试从独立 AI 设置表覆盖
     async load() {
       try {
         const raw = localStorage.getItem(AI_KEY);

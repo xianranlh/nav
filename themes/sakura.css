@@ -1,0 +1,12 @@
+/* 樱粉 · 默认主题。
+ * 大部分默认变量仍在 styles.css 中，这里只放主题专属覆盖，避免默认主题逻辑散落。
+ */
+html[data-visual-theme="sakura"] .card,
+html:not([data-visual-theme]) .card {
+  transition: transform .2s, box-shadow .2s;
+}
+
+html[data-visual-theme="sakura"] .card:hover,
+html:not([data-visual-theme]) .card:hover {
+  transform: translateY(-2px);
+}

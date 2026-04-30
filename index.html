@@ -9,6 +9,10 @@
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="themes/sakura.css" />
+  <link rel="stylesheet" href="themes/q-anime.css" />
+  <link rel="stylesheet" href="themes/dark-minimal.css" />
+  <link rel="stylesheet" href="themes/paper.css" />
 </head>
 <body class="pre-auth">
   <div id="bg-layer-a" class="bg-layer" aria-hidden="true"></div>
@@ -92,7 +96,7 @@
       </div>
       <div class="toolbar-right">
         <button class="icon-btn" id="btn-calendar" title="日历">
-          📅<span class="icon-badge" id="cal-badge" hidden></span>
+          <span class="calendar-icon">📅</span><span class="icon-badge" id="cal-badge" hidden></span>
         </button>
         <button class="icon-btn" id="btn-blog" title="博客">📝</button>
         <button class="icon-btn" id="btn-theme" title="切换主题">🌓</button>
@@ -103,6 +107,14 @@
 
     <!-- 顶部双栏：最近使用 + 天气 -->
     <section class="top-row" id="top-row">
+      <!-- 星标置顶 卡片 -->
+      <section id="starred-card" class="recent-card glass" hidden>
+        <header class="recent-head">
+          <h3>⭐ 星标置顶</h3>
+        </header>
+        <div class="recent-grid" id="starred-grid"></div>
+      </section>
+
       <!-- 最近使用 卡片 -->
       <section id="recent-card" class="recent-card glass" hidden>
         <header class="recent-head">
@@ -136,13 +148,14 @@
     <!-- 即将到来的任务 卡片 -->
     <section id="upcoming-card" class="upcoming-card glass" hidden>
       <header class="upcoming-head">
-        <h3>📅 即将到来</h3>
+        <h3><span class="calendar-logo">📅</span> 即将到来</h3>
         <button class="mini-btn" id="upcoming-expand">打开日历</button>
       </header>
       <ul id="upcoming-list" class="upcoming-list"></ul>
     </section>
 
     <!-- 分组 & 卡片 -->
+    <nav id="group-tabs" class="group-tabs glass" hidden role="tablist"></nav>
     <section id="groups-container" class="groups"></section>
 
     <footer class="footer">
@@ -161,9 +174,19 @@
       <div class="dialog-body">
         <label>名称 <input name="name" required maxlength="60" placeholder="网站名称" /></label>
         <label>网址 <input name="url" type="url" required placeholder="https://..." /></label>
-        <label>所属分组
-          <select name="groupId" id="link-group-select"></select>
-        </label>
+        <div class="link-group-field">
+          <label for="link-group-select">所属分组</label>
+          <div class="input-with-btn">
+            <select name="groupId" id="link-group-select"></select>
+            <button type="button" class="btn-secondary btn-inline" id="link-new-group-toggle">+ 新建</button>
+          </div>
+          <div class="inline-group-create" id="link-inline-group" hidden>
+            <input type="text" id="link-inline-group-name" maxlength="30" placeholder="新分组名称" />
+            <input type="color" id="link-inline-group-color" value="#f6a5c0" title="分组颜色" />
+            <button type="button" class="btn-primary btn-inline" id="link-inline-group-save">创建并选中</button>
+            <button type="button" class="btn-secondary btn-inline" id="link-inline-group-cancel">取消</button>
+          </div>
+        </div>
         <label>
           <span>图标设置 <small class="hint-inline">留空自动抓取站点 favicon</small></span>
           <div class="icon-picker" id="icon-picker">
@@ -332,9 +355,10 @@
           </label>
           <label class="row">视觉风格
             <select id="set-visual-theme">
-              <option value="sakura">樱 · 樱花</option>
-              <option value="starlight">星光</option>
-              <option value="sycamore">梧桐叶</option>
+              <option value="sakura">樱粉</option>
+              <option value="q-anime">Q 版二次元</option>
+              <option value="dark-minimal">暗夜极简</option>
+              <option value="paper">复古纸质</option>
             </select>
           </label>
           <label class="row">品牌主色
@@ -360,6 +384,7 @@
               <option value="compact">紧凑</option>
               <option value="normal" selected>常规</option>
               <option value="cozy">宽松</option>
+              <option value="tight">超紧凑（图标墙）</option>
             </select>
           </label>
           <label class="row">玻璃模糊度
@@ -460,6 +485,13 @@
         <!-- 组件 -->
         <details class="sec">
           <summary>🧩 桌面组件</summary>
+          <label class="row">Hero 区显示
+            <select id="set-hero-mode">
+              <option value="expanded">展开</option>
+              <option value="compact">紧凑</option>
+              <option value="hidden">隐藏</option>
+            </select>
+          </label>
           <label class="row"><input type="checkbox" id="set-show-clock" /> 显示时钟</label>
           <label class="row"><input type="checkbox" id="set-show-hitokoto" /> 显示"一言"</label>
           <label class="row">一言分类
@@ -480,6 +512,7 @@
           </label>
           <label class="row"><input type="checkbox" id="set-new-tab" /> 链接在新标签打开</label>
           <label class="row"><input type="checkbox" id="set-show-filter" /> 显示卡片过滤框</label>
+          <label class="row"><input type="checkbox" id="set-show-starred" /> 首页显示"星标置顶"卡</label>
           <label class="row"><input type="checkbox" id="set-show-recent" /> 首页显示"最近使用"卡</label>
           <label class="row"><input type="checkbox" id="set-show-upcoming" /> 首页显示"即将到来"日历卡</label>
           <label class="row"><input type="checkbox" id="set-cal-notify" /> 到点桌面通知（需授权）</label>
@@ -488,32 +521,26 @@
         <!-- 天气 -->
         <details class="sec">
           <summary>☁ 天气与多城市</summary>
-          <div class="settings-stack">
-            <div class="settings-subcard">
-              <h4 class="settings-subcard-title">显示与联动</h4>
-              <div class="settings-toggle-col">
-                <label class="row row-tight"><input type="checkbox" id="set-show-weather" /> 首页显示天气卡片</label>
-                <label class="row row-tight"><input type="checkbox" id="set-weather-auto" /> 启用「自动定位」卡</label>
-                <label class="row row-tight"><input type="checkbox" id="set-weather-on-cal" /> 日历月视图显示天气图标</label>
-              </div>
-            </div>
+          <h4 class="settings-section-title">显示与联动</h4>
+          <div class="settings-toggle-col">
+            <label class="row row-tight"><input type="checkbox" id="set-show-weather" /> 首页显示天气卡片</label>
+            <label class="row row-tight"><input type="checkbox" id="set-weather-auto" /> 启用「自动定位」卡</label>
+            <label class="row row-tight"><input type="checkbox" id="set-weather-on-cal" /> 日历月视图显示天气图标</label>
+          </div>
 
-            <div class="settings-subcard">
-              <h4 class="settings-subcard-title">城市列表</h4>
-              <p class="settings-subhint">点击城市设为主城市；点 × 删除。</p>
-              <div class="city-search-wrap">
-                <label class="settings-field-label">
-                  添加城市
-                  <input type="text" id="weather-city-search" placeholder="输入城市名称..." autocomplete="off" />
-                </label>
-                <div class="city-search-results" id="weather-city-results" hidden></div>
-              </div>
-              <div class="city-chip-list" id="weather-city-list"></div>
-              <div class="settings-btn-row">
-                <button type="button" class="btn-secondary" id="btn-weather-locate">📍 浏览器精确定位</button>
-                <button type="button" class="btn-primary" id="btn-weather-refresh">↻ 刷新数据</button>
-              </div>
-            </div>
+          <h4 class="settings-section-title">城市列表</h4>
+          <p class="settings-section-hint">点击城市设为主城市；点 × 删除。</p>
+          <div class="city-search-wrap">
+            <label class="settings-field-label">
+              添加城市
+              <input type="text" id="weather-city-search" placeholder="输入城市名称..." autocomplete="off" />
+            </label>
+            <div class="city-search-results" id="weather-city-results" hidden></div>
+          </div>
+          <div class="city-chip-list" id="weather-city-list"></div>
+          <div class="settings-btn-row">
+            <button type="button" class="btn-secondary" id="btn-weather-locate">📍 浏览器精确定位</button>
+            <button type="button" class="btn-primary" id="btn-weather-refresh">↻ 刷新数据</button>
           </div>
         </details>
 
@@ -533,80 +560,74 @@
         <!-- 同步 -->
         <details class="sec">
           <summary>🔁 同步与迁移</summary>
-          <div class="settings-stack">
-            <div id="sync-local-server-panel" class="settings-subcard settings-subcard-accent" hidden>
-              <h4 class="settings-subcard-title">🖥 服务端数据同步</h4>
-              <p class="settings-subhint">编辑后通常自动保存；更换设备前建议手动上传一次。</p>
-              <div class="settings-btn-row settings-btn-row--equal">
-                <button type="button" class="btn-primary" id="btn-sync-remote-push">⇧ 立即上传</button>
-                <button type="button" class="btn-secondary" id="btn-sync-remote-pull">⇩ 从云端覆盖</button>
-              </div>
-            </div>
-
-            <div class="settings-subcard">
-              <h4 class="settings-subcard-title">☁ 第三方云端同步</h4>
-              <label class="row row-block">
-                <span class="settings-field-name">同步后端</span>
-                <select id="sync-backend" class="settings-select-wide">
-                  <option value="off">关闭</option>
-                  <option value="webdav">WebDAV</option>
-                  <option value="gist">GitHub Gist</option>
-                </select>
-              </label>
-
-              <form id="form-sync-webdav" class="sync-backend-fields" autocomplete="on">
-                <div id="sync-webdav-conf">
-                  <label class="row row-block">URL <input type="url" id="sync-webdav-url" /></label>
-                  <div class="settings-inline-pair">
-                    <label class="row row-block">用户 <input type="text" id="sync-webdav-user" autocomplete="username" /></label>
-                    <label class="row row-block">密码 <input type="password" id="sync-webdav-pass" autocomplete="current-password" /></label>
-                  </div>
-                  <label class="row row-block">路径 <input type="text" id="sync-webdav-path" placeholder="sakura-nav.json" /></label>
-                  <div class="settings-btn-row">
-                    <button type="submit" class="btn-primary" id="btn-sync-save-webdav">保存 WebDAV 配置</button>
-                  </div>
-                </div>
-              </form>
-
-              <form id="form-sync-gist" class="sync-backend-fields" autocomplete="on">
-                <div id="sync-gist-conf" hidden>
-                  <label class="row row-block">Token <input type="password" id="sync-gist-token" placeholder="ghp_..." autocomplete="off" /></label>
-                  <label class="row row-block">Gist ID <input type="text" id="sync-gist-id" placeholder="如：a1b2c3d4e5..." autocomplete="off" /></label>
-                  <label class="row row-block">文件名 <input type="text" id="sync-gist-file" placeholder="sakura-nav.json" autocomplete="off" /></label>
-                  <div class="settings-btn-row">
-                    <button type="submit" class="btn-primary" id="btn-sync-save-gist">保存 Gist 配置</button>
-                  </div>
-                </div>
-              </form>
-            </div>
-
-            <div class="settings-subcard">
-              <h4 class="settings-subcard-title">备份选项</h4>
-              <form id="form-sync-options" autocomplete="on">
-                <div class="settings-toggle-col">
-                  <label class="row row-tight"><input type="checkbox" id="set-sync-auto" /> 自动同步变更</label>
-                  <label class="row row-tight"><input type="checkbox" id="set-sync-include-keys" /> 包含 API Key</label>
-                  <label class="row row-tight"><input type="checkbox" id="set-sync-include-auth" /> 包含账号凭据</label>
-                </div>
-                <div class="settings-btn-row" style="margin-top:12px">
-                  <button type="submit" class="btn-primary" id="btn-sync-save-options">保存备份选项</button>
-                </div>
-              </form>
-
-              <div class="settings-btn-grid" style="margin-top:12px">
-                <form id="form-sync-push" autocomplete="off">
-                  <button type="submit" class="btn-primary" id="btn-sync-push">⇧ 推送</button>
-                </form>
-                <form id="form-sync-pull" autocomplete="off">
-                  <button type="submit" class="btn-secondary" id="btn-sync-pull">⇩ 拉取</button>
-                </form>
-                <form id="form-sync-export" autocomplete="off">
-                  <button type="submit" class="btn-secondary" id="btn-sync-export">💾 导出 JSON</button>
-                </form>
-              </div>
+          <div id="sync-local-server-panel" hidden>
+            <h4 class="settings-section-title">🖥 服务端数据同步</h4>
+            <p class="settings-section-hint">编辑后通常自动保存；更换设备前建议手动上传一次。</p>
+            <div class="settings-btn-row settings-btn-row--equal">
+              <button type="button" class="btn-primary" id="btn-sync-remote-push">⇧ 立即上传</button>
+              <button type="button" class="btn-secondary" id="btn-sync-remote-pull">⇩ 从云端覆盖</button>
             </div>
           </div>
-          <p class="hint settings-sync-status" id="sync-status" style="margin-top:10px"></p>
+
+          <h4 class="settings-section-title">☁ 第三方云端同步</h4>
+          <label class="row row-block">
+            <span class="settings-field-name">同步后端</span>
+            <select id="sync-backend" class="settings-select-wide">
+              <option value="off">关闭</option>
+              <option value="webdav">WebDAV</option>
+              <option value="gist">GitHub Gist</option>
+            </select>
+          </label>
+
+          <form id="form-sync-webdav" autocomplete="on">
+            <div id="sync-webdav-conf">
+              <label class="row row-block">URL <input type="url" id="sync-webdav-url" /></label>
+              <div class="settings-inline-pair">
+                <label class="row row-block">用户 <input type="text" id="sync-webdav-user" autocomplete="username" /></label>
+                <label class="row row-block">密码 <input type="password" id="sync-webdav-pass" autocomplete="current-password" /></label>
+              </div>
+              <label class="row row-block">路径 <input type="text" id="sync-webdav-path" placeholder="sakura-nav.json" /></label>
+              <div class="settings-btn-row">
+                <button type="submit" class="btn-primary" id="btn-sync-save-webdav">保存 WebDAV 配置</button>
+              </div>
+            </div>
+          </form>
+
+          <form id="form-sync-gist" autocomplete="on">
+            <div id="sync-gist-conf" hidden>
+              <label class="row row-block">Token <input type="password" id="sync-gist-token" placeholder="ghp_..." autocomplete="off" /></label>
+              <label class="row row-block">Gist ID <input type="text" id="sync-gist-id" placeholder="如：a1b2c3d4e5..." autocomplete="off" /></label>
+              <label class="row row-block">文件名 <input type="text" id="sync-gist-file" placeholder="sakura-nav.json" autocomplete="off" /></label>
+              <div class="settings-btn-row">
+                <button type="submit" class="btn-primary" id="btn-sync-save-gist">保存 Gist 配置</button>
+              </div>
+            </div>
+          </form>
+
+          <h4 class="settings-section-title">备份选项</h4>
+          <form id="form-sync-options" autocomplete="on">
+            <div class="settings-toggle-col">
+              <label class="row row-tight"><input type="checkbox" id="set-sync-auto" /> 自动同步变更</label>
+              <label class="row row-tight"><input type="checkbox" id="set-sync-include-keys" /> 包含 API Key</label>
+              <label class="row row-tight"><input type="checkbox" id="set-sync-include-auth" /> 包含账号凭据</label>
+            </div>
+            <div class="settings-btn-row">
+              <button type="submit" class="btn-primary" id="btn-sync-save-options">保存备份选项</button>
+            </div>
+          </form>
+
+          <div class="settings-btn-row">
+            <form id="form-sync-push" autocomplete="off">
+              <button type="submit" class="btn-primary" id="btn-sync-push">⇧ 推送</button>
+            </form>
+            <form id="form-sync-pull" autocomplete="off">
+              <button type="submit" class="btn-secondary" id="btn-sync-pull">⇩ 拉取</button>
+            </form>
+            <form id="form-sync-export" autocomplete="off">
+              <button type="submit" class="btn-secondary" id="btn-sync-export">💾 导出 JSON</button>
+            </form>
+          </div>
+          <p class="hint settings-sync-status" id="sync-status"></p>
         </details>
       </div>
 
@@ -791,7 +812,7 @@
           <input type="file" id="ai-attach-input" multiple accept="image/*,text/*,.json,.html,.md,.csv,.txt" hidden />
         </label>
         <button class="ai-attach-btn voice-btn" id="ai-voice" type="button" title="语音输入（Web Speech API）" aria-label="语音输入">🎙</button>
-        <textarea id="ai-input" rows="1" placeholder="和 AI 说点什么...（Enter 发送，Shift+Enter 换行）"></textarea>
+        <textarea id="ai-input" rows="1" placeholder="输入消息..." aria-label="输入 AI 对话内容。Enter 发送，Shift+Enter 换行" title="Enter 发送，Shift+Enter 换行"></textarea>
         <button id="ai-send" class="btn-primary" title="发送">➤</button>
         <button id="ai-stop" class="btn-secondary" title="停止" hidden>■</button>
       </div>
@@ -1105,6 +1126,8 @@
     </form>
   </dialog>
 
+  <script src="homepage-theme.js"></script>
+  <script src="homepage-layout.js"></script>
   <script src="sakura.js"></script>
   <script src="progress.js"></script>
   <script src="bookmarks.js"></script>
@@ -1118,9 +1141,9 @@
   <script src="weather.js"></script>
   <script src="suggest.js"></script>
   <script src="exporter.js"></script>
-    <script src="idb.js"></script>
-    <script src="music.js"></script>
-    <script src="storage-inspector.js"></script>
-    <script src="app.js"></script>
+  <script src="idb.js"></script>
+  <script src="music.js"></script>
+  <script src="storage-inspector.js"></script>
+  <script src="app.js?v=v1.16.4"></script>
 </body>
 </html>

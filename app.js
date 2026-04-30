@@ -1,5 +1,5 @@
 /* 个人导航主应用
- * - 数据模型：localStorage 持久化
+ * - 数据模型：通过 sakura-remote 写入服务端 SQLite（代码仍复用 localStorage API 作为 shim 接口）
  * - 功能：分组/卡片 CRUD、拖拽排序、搜索、书签导入、主题、设置
  */
 (function () {
@@ -23,6 +23,9 @@
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+  const Theme = window.HomepageTheme;
+  const Layout = window.HomepageLayout;
+  if (!Theme || !Layout) throw new Error("Homepage modules are not loaded");
 
   function toast(msg, ms = 2000) {
     const t = $("#toast");
@@ -34,6 +37,40 @@
       t.classList.remove("show");
       setTimeout(() => (t.hidden = true), 300);
     }, ms);
+  }
+
+  function serverStorageRequired() {
+    const remote = window.SakuraRemote;
+    return !!(
+      remote &&
+      typeof remote.isRequired === "function" &&
+      remote.isRequired()
+    );
+  }
+
+  function serverStorageUnavailable() {
+    const remote = window.SakuraRemote;
+    return !!(
+      serverStorageRequired() &&
+      (!remote || typeof remote.isRemote !== "function" || !remote.isRemote())
+    );
+  }
+
+  function showStorageUnavailable(reason) {
+    const remote = window.SakuraRemote;
+    const text = reason || (remote && remote.reason && remote.reason()) || "请使用 Node/Docker 服务端模式启动项目。";
+    document.body.classList.add("pre-auth");
+    if (!loginOverlay) return;
+    loginOverlay.hidden = false;
+    loginOverlay.innerHTML = `
+      <section class="glass login-card storage-required-card" role="alert">
+        <div class="login-logo">💾</div>
+        <h2>服务端存储不可用</h2>
+        <p class="login-sub">当前项目已切换为服务端存储模式，业务数据不会再写入浏览器。</p>
+        <p class="login-msg">${escapeHtml(text)}</p>
+        <button type="button" class="btn-primary login-btn" id="storage-recheck">重新检测</button>
+      </section>`;
+    $("#storage-recheck")?.addEventListener("click", () => location.reload());
   }
 
   function safeHost(url) {
@@ -48,12 +85,7 @@
     return ch.toUpperCase();
   }
 
-  /** 视觉氛围预设（渐变由 CSS [data-visual-theme] 覆盖；主色用于切换主题时默认与「重置」） */
-  const VISUAL_THEMES = {
-    sakura: { id: "sakura", label: "樱 · 樱花", accent: "#ff8fab", fab: "🌸", aiLogo: "🌸" },
-    starlight: { id: "starlight", label: "星光", accent: "#8b9fff", fab: "✨", aiLogo: "✨" },
-    sycamore: { id: "sycamore", label: "梧桐叶", accent: "#c4a06e", fab: "🍂", aiLogo: "🍂" },
-  };
+  const VISUAL_THEMES = Theme.VISUAL_THEMES;
 
   // ===================== 数据层 =====================
   const Store = {
@@ -80,7 +112,7 @@
       bgInterval: 60,              // 秒
       bgOverlay: 0,
       bgBlur: 0,
-      // 本地上传背景：IndexedDB 存文件；服务端模式可存 storage:'server' + remoteUrl
+      // 上传背景：服务端模式存 storage:'server' + remoteUrl；旧 IndexedDB 数据仅用于迁移/兼容
       bgUpload: null,              // { kind, name, size, mime, storage?, remoteUrl? }
       // 组件
       showClock: true,
@@ -91,10 +123,12 @@
       showWeather: true,
       weatherOnCal: true,
       showRecent: true,
+      showStarred: true,
+      heroMode: "compact",         // expanded | compact | hidden
       newTab: true,
       // 折叠分组
       collapsedGroups: {},
-      /** 视觉氛围：sakura | starlight | sycamore（影响渐变、粒子、AI 角标等） */
+      /** 视觉氛围：由 homepage-theme.js 注册（影响渐变、粒子、AI 角标等） */
       visualTheme: "sakura",
     },
 
@@ -143,15 +177,15 @@
       if (!this.settings.collapsedGroups) {
         this.settings.collapsedGroups = {};
       }
-      if (!this.settings.visualTheme || !VISUAL_THEMES[this.settings.visualTheme]) {
-        this.settings.visualTheme = "sakura";
+      if (!this.settings.visualTheme || !Theme.hasVisualTheme(this.settings.visualTheme)) {
+        this.settings.visualTheme = Theme.DEFAULT_VISUAL_THEME_ID;
       }
     },
 
     save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state)); },
     /**
      * saveSettings 默认立即写；在密集 input 事件（滑块）里用 saveSettings(true)
-     * 会用 rAF + 200ms 防抖折叠写入，降低 localStorage 压力。
+     * 会用 200ms 防抖折叠写入，降低服务端同步压力。
      */
     _saveSettingsNow() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings)); },
     _saveTimer: null,
@@ -263,6 +297,35 @@
     for (const g of Store.state.groups) groupsContainer.appendChild(renderGroup(g));
     // 重新应用过滤
     try { Filter.apply(); } catch (_) {}
+    renderGroupTabs();
+    if (typeof UIStarred !== "undefined") UIStarred.refresh();
+  }
+
+  function renderGroupTabs() {
+    const tabs = $("#group-tabs");
+    if (!tabs) return;
+    const groups = Store.state.groups || [];
+    if (!Layout.shouldShowGroupTabs(groups)) {
+      tabs.hidden = true;
+      tabs.innerHTML = "";
+      return;
+    }
+    tabs.hidden = false;
+    tabs.innerHTML = "";
+    for (const item of Layout.buildGroupTabItems(groups)) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "group-tab";
+      b.dataset.groupId = item.id;
+      b.textContent = item.label;
+      b.addEventListener("click", () => {
+        const target = document.querySelector(`section.group[data-gid="${CSS.escape(item.id)}"]`);
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        $$(".group-tab", tabs).forEach((t) => t.classList.remove("is-active"));
+        b.classList.add("is-active");
+      });
+      tabs.appendChild(b);
+    }
   }
 
   function renderGroup(g) {
@@ -719,13 +782,17 @@
         finally { clearBtn.disabled = false; }
         return;
       }
-      // 纯静态兜底：图片走 dataURL（限制大小），视频不允许
+      if (serverStorageRequired()) {
+        toast("服务端背景上传不可用，未写入浏览器", 3500);
+        return;
+      }
+      // 无服务端存储策略时的旧兼容路径：图片走 dataURL（限制大小），视频不允许
       if (f.type.startsWith("video/")) {
         toast("视频背景需启用服务端模式（Docker 部署）", 3500);
         return;
       }
       if (f.size > 2 * 1024 * 1024) {
-        toast("纯静态模式下图片 > 2MB 无法本地保存；请使用 URL 或启用服务端", 3800);
+        toast("图片 > 2MB 无法本地保存；请使用 URL 或启用服务端", 3800);
         return;
       }
       try {
@@ -830,16 +897,56 @@
     }
   }
 
-  function openLinkDialog(link, groupId) {
-    $("#link-title").textContent = link ? "编辑网址" : "添加网址";
+  function renderLinkGroupOptions(selectedId) {
     const sel = $("#link-group-select");
+    if (!sel) return;
     sel.innerHTML = Store.state.groups
       .map((g) => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join("");
+    sel.value = selectedId || Store.state.groups[0]?.id || "";
+  }
+
+  function setInlineGroupCreateVisible(visible) {
+    const box = $("#link-inline-group");
+    if (!box) return;
+    box.hidden = !visible;
+    if (visible) {
+      $("#link-inline-group-name").value = "";
+      $("#link-inline-group-color").value = "#f6a5c0";
+      setTimeout(() => $("#link-inline-group-name")?.focus(), 30);
+    }
+  }
+
+  function createInlineLinkGroup() {
+    const nameInput = $("#link-inline-group-name");
+    const colorInput = $("#link-inline-group-color");
+    const name = nameInput?.value.trim();
+    if (!name) {
+      toast("请输入新分组名称");
+      nameInput?.focus();
+      return null;
+    }
+    const group = Layout.createGroupDraft({
+      name,
+      color: colorInput?.value || "#f6a5c0",
+      idFactory: uid,
+    });
+    Store.state.groups.push(group);
+    Store.save();
+    render();
+    renderLinkGroupOptions(group.id);
+    setInlineGroupCreateVisible(false);
+    toast(`已创建分组：${group.name}`);
+    return group;
+  }
+
+  function openLinkDialog(link, groupId) {
+    $("#link-title").textContent = link ? "编辑网址" : "添加网址";
     formLink.name.value = link ? link.name : "";
     formLink.url.value = link ? link.url : "";
     formLink.icon.value = link ? (link.icon || "") : "";
     formLink.desc.value = link ? (link.desc || "") : "";
-    sel.value = groupId || (link && Store.findLink(link.id)?.group.id) || Store.state.groups[0]?.id;
+    renderLinkGroupOptions(groupId || (link && Store.findLink(link.id)?.group.id) || Store.state.groups[0]?.id);
+    setInlineGroupCreateVisible(!Store.state.groups.length);
     formLink.dataset.editId = link ? link.id : "";
     formLink.dataset.prevBgUrl = link && link.bg && link.bg.url ? link.bg.url : "";
     updateIconPreview(formLink.icon.value);
@@ -872,6 +979,22 @@
     formLink.icon.value = "";
     updateIconPreview("");
   });
+  $("#link-new-group-toggle")?.addEventListener("click", () => {
+    const box = $("#link-inline-group");
+    setInlineGroupCreateVisible(box?.hidden !== false);
+  });
+  $("#link-inline-group-save")?.addEventListener("click", () => {
+    createInlineLinkGroup();
+  });
+  $("#link-inline-group-cancel")?.addEventListener("click", () => {
+    setInlineGroupCreateVisible(false);
+  });
+  $("#link-inline-group-name")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      createInlineLinkGroup();
+    }
+  });
 
   formLink.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -881,7 +1004,11 @@
 
     const editId = formLink.dataset.editId;
     const dstGroup = Store.findGroup(data.groupId);
-    if (!dstGroup) { dlgLink.close(); return; }
+    if (!dstGroup) {
+      toast("请先新建分组");
+      setInlineGroupCreateVisible(true);
+      return;
+    }
 
     const bg = linkBgEditor ? linkBgEditor.getValue() : null;
     const prevBgUrl = formLink.dataset.prevBgUrl || "";
@@ -1279,20 +1406,15 @@
   }
 
   function particleModeFromVisualTheme(vid) {
-    if (vid === "starlight") return "starlight";
-    if (vid === "sycamore") return "sycamore";
-    return "sakura";
+    return Theme.particleModeFromVisualTheme(vid);
   }
 
   function applyVisualTheme() {
-    const id = Store.settings.visualTheme || "sakura";
-    const meta = VISUAL_THEMES[id] || VISUAL_THEMES.sakura;
-    document.documentElement.dataset.visualTheme = id;
-    const fab = $(".ai-fab-icon");
-    if (fab) fab.textContent = meta.fab;
-    $$(".ai-logo, .ai-empty-logo").forEach((el) => { el.textContent = meta.aiLogo; });
-    const loginLogo = $(".login-logo");
-    if (loginLogo) loginLogo.textContent = meta.aiLogo;
+    Theme.applyVisualThemeDom(document, Store.settings.visualTheme);
+  }
+
+  function applyHeroMode() {
+    Theme.applyHeroModeDom(document, Store.settings.heroMode);
   }
 
   function syncSakuraParticles() {
@@ -1300,10 +1422,12 @@
     const s = Store.settings;
     Sakura.set({
       particleMode: particleModeFromVisualTheme(s.visualTheme),
-      count: s.sakuraCount,
+      count: Theme.particleCountForViewport(s.sakuraCount, window.matchMedia.bind(window)),
       speed: s.sakuraSpeed,
     });
   }
+
+  window.addEventListener("resize", syncSakuraParticles);
 
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
@@ -1343,6 +1467,7 @@
     setV("#set-fontsize", s.fontSize);
     setV("#set-radius", s.radius);
     setV("#set-density", s.density);
+    setV("#set-hero-mode", s.heroMode || "compact");
     setV("#set-blur", s.blur);
     setV("#set-glass-alpha", s.glassAlpha);
     setV("#set-glass-sat", s.glassSat);
@@ -1362,6 +1487,7 @@
     setC("#set-show-filter", s.showFilter);
     setC("#set-new-tab", s.newTab);
     setC("#set-show-recent", s.showRecent);
+    setC("#set-show-starred", s.showStarred);
     setC("#set-show-upcoming", s.showUpcoming);
     setC("#set-cal-notify", Cal.data.settings.notify);
     // 天气
@@ -1423,15 +1549,23 @@
     // --- 外观 ---
     $("#set-theme").addEventListener("change", (e) => { s.theme = e.target.value; Store.saveSettings(); applyTheme(); });
     $("#set-visual-theme").addEventListener("change", (e) => {
-      s.visualTheme = e.target.value || "sakura";
-      const m = VISUAL_THEMES[s.visualTheme] || VISUAL_THEMES.sakura;
-      s.accent = m.accent;
-      const el = $("#set-accent");
-      if (el) el.value = m.accent;
+      const id = e.target.value;
+      if (!id || id === Store.settings.visualTheme) return;
+      const meta = Theme.getVisualTheme(id);
+      if (!meta) return;
+      const previousVisualTheme = Store.settings.visualTheme;
+      Store.settings.visualTheme = meta.id;
+      if (Theme.shouldSyncAccent(Store.settings.accent, previousVisualTheme)) {
+        Store.settings.accent = meta.accent;
+        const accentInput = $("#set-accent");
+        if (accentInput) accentInput.value = meta.accent;
+      }
       Store.saveSettings();
-      applyStyle();
       applyVisualTheme();
+      applyHeroMode();
+      applyStyle();
       syncSakuraParticles();
+      document.dispatchEvent(new CustomEvent("theme:changed", { detail: { id: meta.id } }));
     });
     $("#set-accent").addEventListener("input", (e) => { s.accent = e.target.value; Store.saveSettings(); applyStyle(); });
     $("#set-accent-reset").addEventListener("click", () => {
@@ -1445,6 +1579,11 @@
     $("#set-fontsize").addEventListener("change", (e) => { s.fontSize = e.target.value; Store.saveSettings(); applyStyle(); });
     $("#set-radius").addEventListener("change", (e) => { s.radius = e.target.value; Store.saveSettings(); applyStyle(); });
     $("#set-density").addEventListener("change", (e) => { s.density = e.target.value; Store.saveSettings(); applyStyle(); });
+    $("#set-hero-mode").addEventListener("change", (e) => {
+      s.heroMode = e.target.value;
+      Store.saveSettings();
+      applyHeroMode();
+    });
     $("#set-blur").addEventListener("input", (e) => { s.blur = +e.target.value; Store.saveSettings(true); applyStyle(); updateLabels(); });
     $("#set-glass-alpha").addEventListener("input", (e) => { s.glassAlpha = +e.target.value; Store.saveSettings(true); applyStyle(); updateLabels(); });
     $("#set-glass-sat").addEventListener("input", (e) => { s.glassSat = +e.target.value; Store.saveSettings(true); applyStyle(); updateLabels(); });
@@ -1576,6 +1715,11 @@
       s.showRecent = e.target.checked;
       Store.saveSettings();
       if (typeof UIRecent !== "undefined") UIRecent.refresh();
+    });
+    $("#set-show-starred").addEventListener("change", (e) => {
+      s.showStarred = e.target.checked;
+      Store.saveSettings();
+      if (typeof UIStarred !== "undefined") UIStarred.refresh();
     });
     $("#set-show-upcoming").addEventListener("change", (e) => {
       s.showUpcoming = e.target.checked;
@@ -1817,7 +1961,7 @@
         } else {
           thumbHtml = `<div class="thumb" style="background-image:url(${JSON.stringify(u)})"></div>`;
         }
-      } else {
+      } else if (!serverStorageRequired()) {
         const blob = await BgIDB.get("bg-upload");
         if (blob) {
           const url = URL.createObjectURL(blob);
@@ -1832,7 +1976,7 @@
     } catch (_) {}
     drop.classList.add("has-file");
     const badge = info.kind === "video" ? "🎬 视频" : "🖼 图片";
-    const srcHint = info.storage === "server" ? "服务端" : "本地";
+    const srcHint = info.storage === "server" ? "服务端" : "本地（已禁用）";
     current.innerHTML = `
       ${thumbHtml}
       <div class="info">
@@ -1842,9 +1986,8 @@
     if (meta) meta.textContent = `${srcHint} · ${info.mime || ""}`;
   }
 
-  // ===================== IndexedDB：大文件背景本体 =====================
-  // localStorage 容量太小（~5MB），视频/高清图必须走 IndexedDB
-  // 实际实现在 idb.js，这里只是本地别名，防止老调用路径出错
+  // ===================== IndexedDB：浏览器遗留背景本体 =====================
+  // 服务端模式不再写入 IndexedDB；这里只保留旧数据读取、迁移和兼容路径
   const BgIDB = (window.NavIDB && window.NavIDB.bg) || {
     put: async () => { throw new Error("IndexedDB 不可用"); },
     get: async () => null,
@@ -1916,6 +2059,12 @@
               this.clearVideo();
               this.swap(abs);
             }
+            return;
+          }
+          if (serverStorageRequired()) {
+            toast("本地背景文件已禁用，请重新上传到服务端", 3000);
+            this.clearLayers();
+            this.clearVideo();
             return;
           }
           const blob = await BgIDB.get("bg-upload");
@@ -2085,9 +2234,16 @@
             return true;
           }
         } catch (e) {
-          console.warn("服务端背景上传失败，尝试本地", e);
-          toast("服务端上传失败，已改存本浏览器：" + (e?.message || e), 4000);
+          console.warn("服务端背景上传失败", e);
+          if (serverStorageRequired()) {
+            toast("服务端背景上传失败，未写入浏览器：" + (e?.message || e), 4000);
+            return false;
+          }
+          toast("服务端上传失败：" + (e?.message || e), 4000);
         }
+      } else if (serverStorageRequired()) {
+        toast("服务端存储未就绪，背景文件未写入浏览器", 3500);
+        return false;
       }
 
       try {
@@ -2436,6 +2592,10 @@
   // ===================== 初始化 =====================
   let booted = false;
   async function bootApp() {
+    if (serverStorageUnavailable()) {
+      showStorageUnavailable();
+      return;
+    }
     if (booted) return;
     booted = true;
     document.body.classList.remove("pre-auth");
@@ -2463,11 +2623,12 @@
     schedulePrefetchLinkIcons();
 
     Sakura.init({
-      count: Store.settings.sakuraCount,
+      count: Theme.particleCountForViewport(Store.settings.sakuraCount, window.matchMedia.bind(window)),
       speed: Store.settings.sakuraSpeed,
       particleMode: particleModeFromVisualTheme(Store.settings.visualTheme),
     });
     applyVisualTheme();
+    applyHeroMode();
 
     // 注册 service worker（仅 http/https 环境）
     if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
@@ -2485,6 +2646,7 @@
     if (typeof UIVoice !== "undefined") UIVoice.init();
     if (typeof UISuggest !== "undefined") UISuggest.init();
     if (typeof UIRecent !== "undefined") UIRecent.init();
+    if (typeof UIStarred !== "undefined") UIStarred.init();
     if (typeof UIBlogExport !== "undefined") UIBlogExport.init();
 
     // 自动同步：劫持 save
@@ -2543,7 +2705,15 @@
     let attachments = [];
     let abortCtrl = null;
 
-    function open() { panel.hidden = false; fab.classList.remove("has-new"); setTimeout(() => input.focus(), 100); refreshPersonaOptions(); refreshModelOptions(); renderMessages(); }
+    function open() {
+      panel.hidden = false;
+      fab.classList.remove("has-new");
+      autoResize();
+      setTimeout(() => input.focus(), 100);
+      refreshPersonaOptions();
+      refreshModelOptions();
+      renderMessages();
+    }
     function close() { panel.hidden = true; }
 
     function refreshPersonaOptions() {
@@ -2656,7 +2826,12 @@
       }
     });
     input.addEventListener("input", autoResize);
-    function autoResize() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 140) + "px"; }
+    function autoResize() {
+      input.style.height = "auto";
+      const nextHeight = Math.min(input.scrollHeight, 140);
+      input.style.height = nextHeight + "px";
+      input.style.overflowY = input.scrollHeight > 140 ? "auto" : "hidden";
+    }
 
     sendBtn.addEventListener("click", send);
     stopBtn.addEventListener("click", () => { abortCtrl?.abort(); });
@@ -4359,6 +4534,42 @@
     return { init, refresh };
   })();
 
+  // ===================== 星标置顶 UI =====================
+  const UIStarred = (() => {
+    const card = $("#starred-card");
+    const grid = $("#starred-grid");
+
+    function refresh() {
+      if (!card || !grid) return;
+      if (!Store.settings.showStarred) {
+        card.hidden = true;
+        return;
+      }
+      const list = Layout.collectStarredLinks(Store.state.groups, 20);
+      if (!list.length) {
+        card.hidden = true;
+        return;
+      }
+      card.hidden = false;
+      grid.innerHTML = list.map((l) => {
+        const letter = (l.name || l.url || "?").trim().charAt(0).toUpperCase();
+        const icon = l.icon
+          ? `<img src="${escapeHtml(l.icon)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />`
+          : `<span class="recent-fb">${escapeHtml(letter)}</span>`;
+        return `<a class="recent-item" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" data-id="${l.id}" title="${escapeHtml(l.name)} · ${escapeHtml(l.groupName || "")}">
+          ${icon}
+          <span class="recent-name">${escapeHtml(l.name || l.url)}</span>
+        </a>`;
+      }).join("");
+    }
+
+    function init() {
+      refresh();
+    }
+
+    return { init, refresh };
+  })();
+
   // ===================== 博客导出 UI =====================
   const UIBlogExport = (() => {
     function init() {
@@ -4445,24 +4656,38 @@
   // 入口：先鉴权，通过才加载主应用
   (async function entry() {
     if (window.SakuraRemote && SakuraRemote.ready) await SakuraRemote.ready;
+    if (serverStorageUnavailable()) {
+      applyTheme();
+      applyStyle();
+      Sakura.init({
+        count: Theme.particleCountForViewport(Store.settings.sakuraCount, window.matchMedia.bind(window)),
+        speed: Store.settings.sakuraSpeed,
+        particleMode: particleModeFromVisualTheme(Store.settings.visualTheme),
+      });
+      applyVisualTheme();
+      applyHeroMode();
+      showStorageUnavailable();
+      return;
+    }
     // 即使未登录，也提前加载设置并渲染背景/主题/樱花，让登录页更统一
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
       if (raw) Object.assign(Store.settings, JSON.parse(raw));
     } catch (_) {}
-    if (!Store.settings.visualTheme || !VISUAL_THEMES[Store.settings.visualTheme]) {
-      Store.settings.visualTheme = "sakura";
+    if (!Store.settings.visualTheme || !Theme.hasVisualTheme(Store.settings.visualTheme)) {
+      Store.settings.visualTheme = Theme.DEFAULT_VISUAL_THEME_ID;
     }
 
     applyTheme();
     applyStyle();
     Bg.init();
     Sakura.init({
-      count: Store.settings.sakuraCount,
+      count: Theme.particleCountForViewport(Store.settings.sakuraCount, window.matchMedia.bind(window)),
       speed: Store.settings.sakuraSpeed,
       particleMode: particleModeFromVisualTheme(Store.settings.visualTheme),
     });
     applyVisualTheme();
+    applyHeroMode();
 
     if (await Auth.isAuthed()) {
       await bootApp();

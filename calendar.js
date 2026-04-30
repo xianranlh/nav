@@ -7,7 +7,7 @@
  *  - 下一次发生时间、指定范围内所有发生时间
  *  - 提醒（提前 N 分钟，浏览器 Notification）
  *  - 格式化倒计时
- * 数据：localStorage["sakura_nav_calendar_v1"]
+ * 数据：经 sakura-remote 写入服务端 SQLite
  */
 (function () {
   "use strict";

@@ -91,6 +91,25 @@
     a.click();
   }
 
+  function getBrowserLocalItem(key) {
+    try {
+      if (window.SakuraRemote && typeof SakuraRemote._getBrowserLocalItem === "function") {
+        return SakuraRemote._getBrowserLocalItem(key);
+      }
+      return localStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function removeBrowserLocalItem(key) {
+    if (window.SakuraRemote && typeof SakuraRemote._removeBrowserLocalItem === "function") {
+      SakuraRemote._removeBrowserLocalItem(key);
+      return;
+    }
+    localStorage.removeItem(key);
+  }
+
   async function downloadKeyAsFile(key) {
     try {
       const r = await fetch("/api/data/key/" + encodeURIComponent(key), { credentials: "same-origin" });
@@ -132,7 +151,7 @@
       sakura_nav_auth_cred_v1: "将清除自定义账号信息，确定？",
     }[key] || "确定清除此项？";
     if (!confirm(msg)) return;
-    try { localStorage.removeItem(key); } catch (e) { toast("清除失败：" + e.message, 3000); return; }
+    try { removeBrowserLocalItem(key); } catch (e) { toast("清除失败：" + e.message, 3000); return; }
     if (key === "sakura_nav_token_v1") {
       try { sessionStorage.removeItem("sakura_nav_token_v1"); } catch (_) {}
       if (window.Auth && typeof Auth.logout === "function") Auth.logout();
@@ -364,13 +383,13 @@
   function buildLegacyHtml() {
     let html = '<h4 class="storage-subh">🌐 浏览器本地遗留（localStorage / IndexedDB）</h4>';
     const anyLocal = LEGACY_KEYS.some((r) => {
-      try { return !!localStorage.getItem(r.key); } catch (_) { return false; }
+      try { return !!getBrowserLocalItem(r.key); } catch (_) { return false; }
     });
     html += '<table class="storage-table"><tbody>';
     let totalBytes = 0;
     for (const row of LEGACY_KEYS) {
       let raw = null;
-      try { raw = localStorage.getItem(row.key); } catch (_) {}
+      try { raw = getBrowserLocalItem(row.key); } catch (_) {}
       if (!raw) continue;
       const bytes = new Blob([raw]).size;
       totalBytes += bytes;
@@ -419,7 +438,7 @@
         remoteHint.textContent = "当前已启用服务端存储（/api/data）。数据写入 SQLite，媒体文件存在服务器 media/ 目录。下方操作直接作用于服务端。";
       } else {
         remoteHint.hidden = false;
-        remoteHint.textContent = "当前未启用服务端存储（纯静态 / API 不可用）。所有数据仅在浏览器 localStorage / IndexedDB 中。";
+        remoteHint.textContent = "当前未启用服务端存储（API 不可用）。业务数据写入浏览器的路径已被阻止，请使用 Node/Docker 同源服务启动。";
       }
     }
 

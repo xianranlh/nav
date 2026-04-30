@@ -6,8 +6,8 @@
  *
  * 打包数据（sakura-nav@2）：导航、设置、博客、日历、AI、聊天、天气、音乐元数据、同步配置；
  * 可选：登录凭据哈希（仅本地 JSON 备份，勿上传不可信云端）
- * 说明：IndexedDB（仅纯静态模式下的本地上传）不在此 JSON；Docker 同源部署时背景/音乐可走服务端 media。
- * 数据：localStorage["sakura_nav_sync_v1"]
+ * 说明：浏览器遗留 IndexedDB 不在此 JSON；同源部署时背景/音乐走服务端 media。
+ * 数据：经 sakura-remote 写入服务端 SQLite
  */
 (function () {
   "use strict";
