@@ -1,0 +1,15 @@
+.git/
+.worktrees/
+node_modules/
+server/node_modules/
+data/
+dist/
+build/
+*.log
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.env
+README.md
+tests/

@@ -7,7 +7,6 @@ Thumbs.db
 *.swp
 *.swo
 .env
-.dockerignore
 # Docker 本地数据目录（SQLite + 媒体）
 data/
 

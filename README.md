@@ -51,9 +51,9 @@
 - 🖼 **Vision 图片输入**：上传 / 粘贴 / 拖拽图片给 AI 分析（自动转 base64）
 - 📄 **文本文件附件**：`.txt / .json / .md / .html / .csv` 自动随消息上传（含书签 HTML 让 AI 帮你分类）
 - 📐 **Markdown 渲染** + **内联预览**：AI 回复中的 `https://xxx.png/.mp4` 等链接自动渲染为可点击放大的图片 / 视频播放器 / 音频播放器
-- 🛠 **导航指令协议**：AI 可以输出 `nav-action` JSON 代码块请求添加/删除/重命名/移动 链接与分组 —— 用户点击 **"✅ 应用"** 后一次性生效，支持预览 & 忽略
+- 🛠 **导航指令协议**：AI 可以输出 `nav-action` JSON 代码块请求添加/删除/重命名/移动 链接与分组 —— 用户点击 **"✅ 应用"** 后一次性生效，支持预览 / 忽略 / 撤销本次操作
   - 示例：上传一份书签截图，AI 读图 → 输出一组 `add_link` 指令 → 点一下"应用"就自动分类到导航页
-- 💾 **会话持久化**：最近 200 条消息本地保存，刷新不丢
+- 💾 **会话持久化**：最近 200 条消息随服务端数据持久化，刷新不丢
 - 🌈 **建议气泡**：面板空态下一键发送常用指令
 
 ### 📅 日历 & 任务（新！）
@@ -156,7 +156,7 @@
 - 👁 **编辑器实时预览**
 - 🔑 **后台管理模式**：切换后显示"写文章"/"删除"/"草稿"，普通模式只显示已发布内容
 - 🤝 **AI 帮你写**：编辑器一键让 AI 帮写草稿
-- 💾 数据存储在 `localStorage["sakura_nav_blog_v1"]`
+- 💾 数据通过同源 `/api/data` 写入服务端 SQLite
 
 ### 数据 & 兼容
 - 📚 **批量导入浏览器书签**（`bookmarks.html` Netscape 格式，Chrome / Edge / Firefox 通用）
@@ -168,15 +168,40 @@
 - 📴 **PWA 离线可用**：已注册 Service Worker，核心资源 SWR 缓存，可"添加到桌面"。
 - ⌨️ **键盘快捷键**：
   - `/` 聚焦搜索 · `Ctrl/⌘ + K` 新建链接 · `E` 编辑模式 · `Esc` 关闭菜单
+  - `Ctrl/⌘ + Shift + P` 打开命令面板，快速跳转设置、日历、AI、音乐、分组与维护动作
   - `Alt + A` 打开 / 关闭 AI 助手 · `Alt + M` 打开 / 关闭音乐播放器（面板内 `空格` 播/停）
   - 空白处 **粘贴 URL** → 直接打开"添加"弹窗
+
+---
+
+## ✅ 结构化优化 1-10 状态
+
+清单 1-10 已全部完成，并已纳入测试与文档：
+
+1. `js/app.js` 继续拆分：新增 `app-modules` 边界说明，以及 AI、媒体、命令、数据版本、懒初始化、无障碍等纯逻辑模块。
+2. 媒体清理系统：服务端可扫描孤儿媒体，并在设置 → 数据管理中安全删除未引用文件。
+3. 浏览器冒烟增强：`npm run smoke:browser` 覆盖 `/api/data`、关键按钮、命令面板和新增静态模块。
+4. AI 操作差异与回滚：AI 指令卡展示变更预览，应用前创建快照，支持撤销本次操作。
+5. 命令面板：`Ctrl/⌘ + Shift + P` 可快速执行常用导航、设置和维护动作。
+6. 服务端数据版本ing：快照支持对比当前数据，并可按 `nav` / `settings` / `calendar` 等分类恢复。
+7. 插件生命周期接口：功能注册表新增 `register` / `start` / `stop` / `dispose` 生命周期。
+8. 性能与懒初始化：日历、天气、同步、建议、最近使用等非首屏模块通过 `lazy-init` 收敛初始化边界。
+9. 可访问性与键盘改进：新增 dialog 焦点管理、按钮标签审计工具和命令面板键盘入口。
+10. 文档拆分：架构、存储、部署、功能、测试拆到 `docs/`，README 保留入口与总览。
+
+详细持续清单见 [`docs/OPTIMIZATION-BACKLOG.md`](docs/OPTIMIZATION-BACKLOG.md)。
 
 ---
 
 ## 🚀 使用
 
 1. 下载本仓库文件夹。
-2. 双击 `index.html` 在浏览器中打开，或通过本地服务器托管（如 `python -m http.server`）。
+2. 使用 Docker 或 Node 服务端模式启动，确保页面同源可访问 `/api/data`：
+   ```bash
+   npm run install:server
+   npm run dev
+   ```
+   然后打开 `http://127.0.0.1:18080/`。纯静态文件只能查看资源，不能进入主应用。
 3. **登录**（默认账号）：
    - 用户名：`xianran`
    - 密码：`lh116688257`
@@ -185,9 +210,9 @@
 5. 点击 **导入书签** → 选择从浏览器导出的 `bookmarks.html` → 预览无误后"确认导入"。
 6. 顶栏最右 **⎋** 图标可退出登录。
 
-> 🔐 **关于登录的安全声明**：本项目纯前端，鉴权靠 `SHA-256(用户名::密码)` 哈希比对 + 本地 token；
-> 由于代码在浏览器可读，**这种登录只能阻止路人随手打开**，不等同于服务器鉴权。
-> **修改账号/密码**：登录后打开右上角 **⚙ 设置** → **账号与安全**，输入当前凭据与新用户名、新密码并保存；保存后会退出登录，需用新账号重新登录。凭据的 `SHA-256(用户名::密码)` 存在本机 `localStorage`（`sakura_nav_auth_cred_v1`），未自定义时仍使用内置默认账号。
+> 🔐 **关于登录的安全声明**：页面登录用于保护导航入口，登录态 token 只保留在当前浏览器；账号凭据哈希会随服务端业务数据进入 SQLite。
+> 如果部署到公网，请同时配置 `SAKURA_API_KEY`、HTTPS 和反向代理访问控制；页面登录不等同于完整的公网账户系统。
+> **修改账号/密码**：登录后打开右上角 **⚙ 设置** → **账号与安全**，输入当前凭据与新用户名、新密码并保存；保存后会退出登录，需用新账号重新登录。
 
 ### 从浏览器导出书签
 
@@ -214,7 +239,23 @@ docker compose up -d
 curl http://localhost:18080      # 或浏览器打开
 ```
 
-默认监听 `18080` 端口，要改端口只需编辑 `docker-compose.yml` 里的 `"18080:80"`（或通过环境变量 `HOST_PORT` 覆盖）。
+默认监听 `18080` 端口。推荐复制 `.env.example` 为 `.env` 后配置端口、数据目录和 API Key：
+
+```bash
+cp .env.example .env
+```
+
+常用变量：
+
+```dotenv
+HOST_PORT=18080
+SAKURA_DATA_HOST_DIR=./data
+SAKURA_DATA_DIR=/data/sakura-nav
+# SAKURA_API_KEY=your-secret-key
+```
+
+- `SAKURA_DATA_HOST_DIR`：宿主机上的数据目录，默认 `./data`，已被 `.gitignore` 忽略，不会随代码上传。
+- `SAKURA_DATA_DIR`：容器内应用写入目录，建议保持在 `/data` 下，例如 `/data/sakura-nav`，这样才会落到上面的宿主目录。
 
 常用指令：
 
@@ -246,7 +287,7 @@ volumes:
   - ./nginx.conf:/etc/nginx/conf.d/sakura-nav.conf:ro
 ```
 
-然后 `docker compose up -d`，改 `app.js` / `styles.css` 等直接保存就生效。
+然后 `docker compose up -d`，改 `js/app.js` / `css/styles.css` 等直接保存就生效。
 
 ### 方式四：自动 HTTPS（有域名时）
 
@@ -286,25 +327,44 @@ volumes:
 
 ```text
 nav/
-├── index.html      # 页面骨架
-├── styles.css      # 玻璃 / 樱花 / 背景层 / 布局
-├── sakura.js       # 樱花 Canvas 粒子系统
-├── bookmarks.js    # 书签解析 / favicon 多级回退
-├── auth.js         # 登录鉴权 / 7 天会话 token
-├── ai.js           # AI 助手（供应商 / 流式 / 指令解析 / Markdown 渲染）
-├── blog.js         # 博客系统（数据模型 + CRUD）
-├── calendar.js     # 日历 & 重复任务（规则引擎 / 倒计时 / 通知 / iCal / 统计）
-├── sync.js         # 多端同步（WebDAV + GitHub Gist + 本地备份）
-├── weather.js      # 天气（Open-Meteo + IP/浏览器定位）
-├── suggest.js      # 搜索下拉联想（本地 + DuckDuckGo + 百度 JSONP）
-├── exporter.js     # 博客 RSS + 静态站 + 无依赖 ZIP 打包器
-├── idb.js          # 浏览器遗留 IndexedDB 迁移 / 清理助手
-├── music.js        # 音乐播放器（服务端媒体 + LRC + Web Audio 频谱）
-├── app.js          # 主应用（数据、渲染、设置、背景、一言、过滤、拖拽、AI/Blog/Cal/Weather/Sync/Music/Voice/Suggest/Recent UI 粘合）
-├── manifest.json   # PWA 元数据（可安装为桌面应用）
-├── sw.js           # Service Worker（离线缓存）
+├── index.html          # 页面骨架与弹窗结构
+├── css/                # 样式资源
+│   ├── styles.css      # 全局布局 / 玻璃材质 / 首页组件
+│   ├── settings.css    # 设置弹窗 / 存储面板 / 同步配置样式
+│   ├── ai.css          # AI 浮动按钮 / 聊天面板
+│   ├── calendar.css    # 日历面板 / 任务视图
+│   ├── music.css       # 音乐播放器 / 歌词面板
+│   ├── weather.css     # 天气卡片 / 城市搜索
+│   ├── cards.css       # 首页导航卡片 / 分组
+│   └── themes/         # 视觉主题样式
+├── js/                 # 前端脚本模块
+│   ├── app.js          # 主应用粘合层
+│   ├── homepage-theme.js
+│   ├── homepage-layout.js
+│   ├── sakura.js       # Canvas 粒子系统
+│   ├── bookmarks.js    # 书签解析 / favicon 多级回退
+│   ├── auth.js         # 登录鉴权 / 7 天会话 token
+│   ├── ai.js           # AI 助手
+│   ├── ai-actions.js   # AI 指令预览 / 回滚
+│   ├── command-palette.js # 命令面板
+│   ├── media-cleanup.js # 媒体引用扫描 / 孤儿清理
+│   ├── data-versioning.js # 数据摘要 / 快照差异
+│   ├── lazy-init.js    # 非首屏模块懒初始化
+│   ├── a11y.js         # 焦点管理 / 可访问性审计
+│   ├── calendar.js     # 日历 & 重复任务
+│   ├── music.js        # 音乐播放器
+│   ├── static-assets.js # 静态资源清单
+│   ├── storage-adapter.js # 业务存储适配器
+│   └── ...             # 天气 / 同步 / 博客 / 导出 / 存储等模块
+├── server/             # Node + SQLite 数据 API
+├── tests/              # node:test 回归测试
+├── docs/               # 架构 / 存储 / 部署 / 功能 / 测试文档
+├── manifest.json       # PWA 元数据（可安装为桌面应用）
+├── sw.js               # Service Worker（离线缓存）
 └── README.md
 ```
+
+持续优化清单见 [`docs/OPTIMIZATION-BACKLOG.md`](docs/OPTIMIZATION-BACKLOG.md)。
 
 ---
 
@@ -316,7 +376,7 @@ nav/
 
 只要访问的页面同源能命中 `/api/data`（见 `docker-compose.yml` + `nginx.conf.template`），前端会启用服务端模式：所有业务数据都存到服务端 SQLite，不再进浏览器 `localStorage`。这意味着不同浏览器、不同机器访问同一个部署地址，看到的是同一份数据。
 
-- 业务数据库：`<DATA_DIR>/sakura.db`（默认 `./data/sakura-nav/sakura.db`，宿主可见）
+- 业务数据库：容器内 `<DATA_DIR>/sakura.db`，Docker 默认对应宿主机 `./data/sakura-nav/sakura.db`
   - 表 `app_data`：整包 JSON（导航 / 设置 / 博客 / 日历 / AI 配置 / 聊天记录 / 天气 / 音乐元数据 / 同步配置）
   - 表 `media_files`：已上传媒体元数据
 - 媒体文件：`<DATA_DIR>/media/bg/*`、`<DATA_DIR>/media/music/*`（背景图 / 音乐走服务端，刷新/换浏览器均可见）
@@ -328,6 +388,8 @@ nav/
 - `sakura_nav_auth_cred_v1` 不再作为浏览器本地数据保存；服务端模式下它会随 bundle 进入 SQLite
 
 > 设置面板底部有 **"清空所有数据"** / **"存储一览"**：在服务端模式下会显示 SQLite 库体积与媒体目录占用。
+> 服务端快照支持整包恢复、对比当前数据和按分类恢复；媒体清理会只删除当前 bundle 未引用的孤儿文件。
+> Docker Compose 中 `SAKURA_DATA_HOST_DIR` 与 `SAKURA_DATA_DIR` 都可配置；不要把宿主数据目录提交到 Git。
 
 ### 🌐 无服务端 API 时
 
@@ -337,7 +399,7 @@ nav/
 
 ## 🔒 隐私
 
-所有数据仅存在你本地浏览器，不会上传任何服务器。favicon 通过公开的 Google / DuckDuckGo / Yandex 图标服务获取（图片直连，无追踪参数）。
+业务数据写入你部署的服务端 SQLite 与媒体目录，不会再作为业务数据留在浏览器存储里；浏览器只保留当前设备的登录态 token。favicon 通过公开的 Google / DuckDuckGo / Yandex 图标服务获取（图片直连，无追踪参数）。
 
 ---
 
@@ -367,6 +429,7 @@ nav/
 - [x] **服务端音乐播放器（媒体上传 + LRC 同步歌词 + 频谱可视化）**
 - [x] **服务端上传背景（支持图片 / GIF / 视频，走 media 目录）**
 - [x] **多主题首页：樱粉 / Q 版二次元 / 暗夜极简 / 复古纸质**
+- [x] **第二轮结构化优化 1-10：模块边界、媒体清理、增强 smoke、AI 回滚、命令面板、快照分类恢复、插件生命周期、懒初始化、可访问性、文档拆分**
 - [ ] 从浏览器地址栏拖拽即添加
 - [ ] 智能命中排序（按 `clickCount` 自动置顶热门）
 - [ ] 聚合仪表盘（天气 + 今日任务 + 一言 + 最近博客）

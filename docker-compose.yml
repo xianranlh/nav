@@ -6,7 +6,7 @@
 # 访问：http://127.0.0.1:18080  （端口见 HOST_PORT）
 # 停止：docker compose down
 #
-# 可选：复制 .env.example 为 .env 后修改 HOST_PORT / SAKURA_API_KEY
+# 可选：复制 .env.example 为 .env 后修改 HOST_PORT / SAKURA_DATA_HOST_DIR / SAKURA_DATA_DIR / SAKURA_API_KEY
 
 name: sakura-nav
 
@@ -25,14 +25,14 @@ services:
     environment:
       TZ: Asia/Shanghai
       PORT: "3000"
-      # 数据落在挂载卷 /data 下的子目录，避免与其它项目共用一个扁平目录
-      DATA_DIR: /data/sakura-nav
+      # 容器内 SQLite + 媒体目录；建议保持在 /data 下，才能被下方 volume 持久化
+      DATA_DIR: ${SAKURA_DATA_DIR:-/data/sakura-nav}
       BIND_HOST: "127.0.0.1"
       SAKURA_API_KEY: ${SAKURA_API_KEY:-}
 
     volumes:
-      # 宿主 ./data → 容器 /data（SQLite 与上传媒体持久化）
-      - ./data:/data
+      # 宿主数据目录 → 容器 /data（SQLite 与上传媒体持久化）
+      - "${SAKURA_DATA_HOST_DIR:-./data}:/data"
 
     # === 开发热更新：取消下列 volumes 注释 ===
     # volumes:

@@ -1,14 +1,11 @@
 /* 个人导航主应用
- * - 数据模型：通过 sakura-remote 写入服务端 SQLite（代码仍复用 localStorage API 作为 shim 接口）
+ * - 数据模型：通过 storage-adapter 写入业务存储，服务端模式由 sakura-remote 持久化到 SQLite
  * - 功能：分组/卡片 CRUD、拖拽排序、搜索、书签导入、主题、设置
  */
 (function () {
   "use strict";
 
   // ===================== 常量 & 工具 =====================
-  const STORAGE_KEY = "sakura_nav_v1";
-  const SETTINGS_KEY = "sakura_nav_settings_v1";
-
   const SEARCH_ENGINES = [
     { id: "baidu", name: "百度", url: "https://www.baidu.com/s?wd=%s" },
     { id: "bing", name: "必应", url: "https://www.bing.com/search?q=%s" },
@@ -25,7 +22,31 @@
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const Theme = window.HomepageTheme;
   const Layout = window.HomepageLayout;
-  if (!Theme || !Layout) throw new Error("Homepage modules are not loaded");
+  const Render = window.SakuraRender;
+  const LinkUI = window.HomepageLinkUI;
+  const NavInsights = window.HomepageNavInsights;
+  const SmartSearch = window.HomepageSmartSearch;
+  const AIUI = window.HomepageAIUI;
+  const AIGallery = window.HomepageAIGallery;
+  const CalendarUI = window.HomepageCalendarUI;
+  const CalendarPlanner = window.HomepageCalendarPlanner;
+  const ThemeEditor = window.HomepageThemeEditor;
+  const FeatureRegistry = window.HomepageFeatureRegistry;
+  const AppModules = window.HomepageAppModules;
+  const MediaCleanup = window.HomepageMediaCleanup;
+  const AIActions = window.HomepageAIActions;
+  const CommandPalette = window.HomepageCommandPalette;
+  const DataVersioning = window.HomepageDataVersioning;
+  const LazyInit = window.HomepageLazyInit;
+  const A11y = window.HomepageA11y;
+  const SettingsUI = window.HomepageSettings;
+  const StorageAdapter = window.SakuraStorageAdapter?.adapter;
+  if (!Theme || !Layout || !Render || !LinkUI || !NavInsights || !SmartSearch || !AIUI || !AIGallery || !CalendarUI || !CalendarPlanner || !ThemeEditor || !FeatureRegistry || !AppModules || !MediaCleanup || !AIActions || !CommandPalette || !DataVersioning || !LazyInit || !A11y || !SettingsUI || !StorageAdapter) {
+    throw new Error("Homepage modules are not loaded");
+  }
+  const lazyInit = LazyInit.createLazyInitializer();
+  const appModuleRegistry = AppModules.createAppModuleRegistry();
+  const pluginLifecycle = FeatureRegistry.createPluginLifecycle();
 
   function toast(msg, ms = 2000) {
     const t = $("#toast");
@@ -75,6 +96,14 @@
 
   function safeHost(url) {
     try { return new URL(url).hostname; } catch (_) { return ""; }
+  }
+
+  function safeUrlAttribute(value) {
+    return Render.safeUrlAttribute(value);
+  }
+
+  function safeCssColor(value, fallback) {
+    return Render.safeCssColor(value, fallback);
   }
 
   function initialLetter(name, url) {
@@ -135,13 +164,9 @@
     load() {
       // 1. 加载数据
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          // 确保解析结果是对象且不是 null
-          if (parsed && typeof parsed === "object") {
-            this.state = parsed;
-          }
+        const parsed = StorageAdapter.readAppState();
+        if (parsed) {
+          this.state = parsed;
         }
       } catch (e) {
         console.warn("load data failed", e);
@@ -149,12 +174,9 @@
 
       // 2. 加载设置
       try {
-        const raw = localStorage.getItem(SETTINGS_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === "object") {
-            Object.assign(this.settings, parsed);
-          }
+        const parsed = StorageAdapter.readSettings();
+        if (parsed) {
+          Object.assign(this.settings, parsed);
         }
       } catch (e) {
         console.warn("load settings failed", e);
@@ -182,12 +204,12 @@
       }
     },
 
-    save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state)); },
+    save() { StorageAdapter.writeAppState(this.state); },
     /**
      * saveSettings 默认立即写；在密集 input 事件（滑块）里用 saveSettings(true)
      * 会用 200ms 防抖折叠写入，降低服务端同步压力。
      */
-    _saveSettingsNow() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings)); },
+    _saveSettingsNow() { StorageAdapter.writeSettings(this.settings); },
     _saveTimer: null,
     saveSettings(throttled = false) {
       if (!throttled) { this._saveSettingsNow(); return; }
@@ -332,7 +354,7 @@
     const el = document.createElement("section");
     el.className = "glass group" + (Store.settings.collapsedGroups?.[g.id] ? " collapsed" : "");
     el.dataset.gid = g.id;
-    el.style.setProperty("--group-color", g.color || "#ff8fab");
+    el.style.setProperty("--group-color", safeCssColor(g.color));
 
     el.innerHTML = `
       <div class="group-head">
@@ -436,7 +458,9 @@
     a.rel = "noopener noreferrer";
     a.dataset.lid = link.id;
     a.dataset.gid = group.id;
-    a.title = (link.desc ? link.desc + "\n" : "") + link.url;
+    const healthLabel = NavInsights.healthLabel(link);
+    const healthClass = NavInsights.healthClass(link);
+    a.title = (link.desc ? link.desc + "\n" : "") + link.url + (link.health ? "\n" + healthLabel : "");
     a.draggable = true;
 
     const iconSlot = document.createElement("div");
@@ -480,6 +504,11 @@
     });
     a.appendChild(pin);
     if (link.pinned) a.classList.add("pinned");
+
+    const health = document.createElement("span");
+    health.className = "health-badge " + healthClass;
+    health.title = healthLabel;
+    a.appendChild(health);
 
     // 点击打点
     a.addEventListener("click", () => {
@@ -605,7 +634,7 @@
   }
 
   function escapeHtml(s) {
-    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    return Render.escapeHtml(s);
   }
 
   // ===================== 拖拽排序 =====================
@@ -890,8 +919,9 @@
   function updateIconPreview(value) {
     const prev = $("#icon-picker-preview");
     if (!prev) return;
-    if (value) {
-      prev.innerHTML = `<img src="${escapeHtml(value)}" alt="图标预览" referrerpolicy="no-referrer" />`;
+    const safeValue = safeUrlAttribute(value);
+    if (safeValue) {
+      prev.innerHTML = `<img src="${escapeHtml(safeValue)}" alt="图标预览" referrerpolicy="no-referrer" />`;
     } else {
       prev.innerHTML = `<span class="icon-picker-placeholder">未设置</span>`;
     }
@@ -900,9 +930,8 @@
   function renderLinkGroupOptions(selectedId) {
     const sel = $("#link-group-select");
     if (!sel) return;
-    sel.innerHTML = Store.state.groups
-      .map((g) => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join("");
-    sel.value = selectedId || Store.state.groups[0]?.id || "";
+    sel.innerHTML = LinkUI.buildGroupOptionsHtml(Store.state.groups);
+    sel.value = LinkUI.resolveSelectedGroupId(Store.state.groups, selectedId);
   }
 
   function setInlineGroupCreateVisible(visible) {
@@ -925,7 +954,7 @@
       nameInput?.focus();
       return null;
     }
-    const group = Layout.createGroupDraft({
+    const group = LinkUI.createInlineGroupDraft({
       name,
       color: colorInput?.value || "#f6a5c0",
       idFactory: uid,
@@ -945,6 +974,7 @@
     formLink.url.value = link ? link.url : "";
     formLink.icon.value = link ? (link.icon || "") : "";
     formLink.desc.value = link ? (link.desc || "") : "";
+    if (formLink.tags) formLink.tags.value = link ? (link.tags || []).join(", ") : "";
     renderLinkGroupOptions(groupId || (link && Store.findLink(link.id)?.group.id) || Store.state.groups[0]?.id);
     setInlineGroupCreateVisible(!Store.state.groups.length);
     formLink.dataset.editId = link ? link.id : "";
@@ -1000,7 +1030,7 @@
     e.preventDefault();
     const data = Object.fromEntries(new FormData(formLink));
     if (!data.url) return;
-    if (!/^https?:\/\//i.test(data.url)) data.url = "https://" + data.url;
+    data.url = LinkUI.normalizeUrl(data.url);
 
     const editId = formLink.dataset.editId;
     const dstGroup = Store.findGroup(data.groupId);
@@ -1018,10 +1048,7 @@
         // 从原组移除，加入新组（可能相同）
         found.group.links = found.group.links.filter((x) => x.id !== editId);
         Object.assign(found.link, {
-          name: data.name || safeHost(data.url),
-          url: data.url,
-          icon: data.icon || "",
-          desc: data.desc || "",
+          ...LinkUI.linkPayloadFromFormData(data, safeHost(data.url)),
           bg: bg || null,
         });
         dstGroup.links.push(found.link);
@@ -1029,10 +1056,7 @@
     } else {
       dstGroup.links.push({
         id: uid(),
-        name: data.name || safeHost(data.url),
-        url: data.url,
-        icon: data.icon || "",
-        desc: data.desc || "",
+        ...LinkUI.linkPayloadFromFormData(data, safeHost(data.url)),
         bg: bg || null,
       });
     }
@@ -1336,16 +1360,14 @@
     },
     apply() {
       if (!this.input) return;
-      const q = this.input.value.trim().toLowerCase();
+      const q = this.input.value.trim();
       this.clearBtn.hidden = q.length === 0;
 
       const cards = $$(".card:not(.card-add)");
       cards.forEach((c) => {
         if (!q) { c.classList.remove("filtered-out"); return; }
-        const name = (c.querySelector(".name")?.textContent || "").toLowerCase();
-        const url = (c.href || "").toLowerCase();
-        const hit = name.includes(q) || url.includes(q);
-        c.classList.toggle("filtered-out", !hit);
+        const hit = Store.findLink(c.dataset.lid);
+        c.classList.toggle("filtered-out", !hit || !SmartSearch.matchesLink(hit.link, hit.group, q));
       });
 
       // 空分组隐藏
@@ -1406,10 +1428,26 @@
   }
 
   function particleModeFromVisualTheme(vid) {
+    if (vid === "custom" && Store.settings.customVisualTheme) {
+      return Store.settings.customVisualTheme.particleMode || "sakura";
+    }
     return Theme.particleModeFromVisualTheme(vid);
   }
 
   function applyVisualTheme() {
+    if (Store.settings.visualTheme === "custom" && Store.settings.customVisualTheme) {
+      document.documentElement.dataset.visualTheme = "custom";
+      document.querySelectorAll(".ai-fab-icon, .ai-logo, .ai-empty-logo, .login-logo").forEach((el) => {
+        el.textContent = "🌸";
+      });
+      document.querySelectorAll(".music-fab-icon, .music-logo").forEach((el) => {
+        el.textContent = "🎵";
+      });
+      document.querySelectorAll(".calendar-icon, .calendar-logo").forEach((el) => {
+        el.textContent = "📅";
+      });
+      return;
+    }
     Theme.applyVisualThemeDom(document, Store.settings.visualTheme);
   }
 
@@ -1445,6 +1483,62 @@
 
   // 避免重复绑定事件
   let settingsBound = false;
+
+  function renderFeatureModules() {
+    const mount = $("#feature-modules-list");
+    if (!mount) return;
+    const registry = FeatureRegistry.createFeatureRegistry({
+      disabled: Store.settings.disabledModules || [],
+    });
+    const boundaryHtml = AppModules.renderModuleBoundarySummary(appModuleRegistry.list());
+    const pluginHtml = FeatureRegistry.renderModuleList(pluginLifecycle.list());
+    mount.innerHTML = FeatureRegistry.renderModuleList(registry.list()) + boundaryHtml + pluginHtml;
+  }
+
+  async function refreshSnapshots() {
+    const list = $("#snapshot-list");
+    if (!list) return;
+    list.innerHTML = `<div class="hint">正在读取快照…</div>`;
+    try {
+      const r = await fetch("/api/snapshots", { credentials: "same-origin" });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "读取失败");
+      const snapshots = data.snapshots || [];
+      if (!snapshots.length) {
+        list.innerHTML = `<div class="hint">暂无快照。创建快照后可在这里恢复。</div>`;
+        return;
+      }
+      list.innerHTML = snapshots.map((snapshot) => {
+        const date = new Date(snapshot.createdAt).toLocaleString("zh-CN");
+        const size = `${Math.max(1, Math.round((snapshot.bytes || 0) / 1024))} KB`;
+        return `<div class="snapshot-item" data-id="${escapeHtml(snapshot.id)}">
+          <div>
+            <strong>${escapeHtml(snapshot.label)}</strong>
+            <small>${escapeHtml(date)} · ${escapeHtml(size)} · ${escapeHtml(String(snapshot.checksum || "").slice(0, 10))}</small>
+            <div class="snapshot-compare" hidden></div>
+          </div>
+          <div class="snapshot-actions">
+            <button type="button" class="mini-btn" data-snapshot-compare>对比</button>
+            <select data-snapshot-category title="选择要恢复的分类">
+              <option value="nav">导航</option>
+              <option value="settings">设置</option>
+              <option value="calendar">日历</option>
+              <option value="music">音乐</option>
+              <option value="weather">天气</option>
+              <option value="blog">博客</option>
+              <option value="sync">同步</option>
+              <option value="ai">AI</option>
+              <option value="chat">会话</option>
+            </select>
+            <button type="button" class="mini-btn" data-snapshot-restore-category>恢复分类</button>
+            <button type="button" class="mini-btn" data-snapshot-restore>恢复全部</button>
+          </div>
+        </div>`;
+      }).join("");
+    } catch (e) {
+      list.innerHTML = `<div class="hint">快照不可用：${escapeHtml(e.message || e)}</div>`;
+    }
+  }
 
   function bindSettings() {
     const s = Store.settings;
@@ -1497,7 +1591,17 @@
       setC("#set-weather-auto", Weather.data.auto);
       renderCityChipList();
     }
+    setV("#custom-theme-label", s.customVisualTheme?.label || "我的主题");
+    setV("#custom-theme-particles", s.customVisualTheme?.particleMode || particleModeFromVisualTheme(s.visualTheme));
+    const summary = $("#custom-theme-summary");
+    if (summary) summary.innerHTML = ThemeEditor.renderThemeSummary({
+      label: $("#custom-theme-label")?.value || s.customVisualTheme?.label,
+      accent: s.accent,
+      particleMode: $("#custom-theme-particles")?.value || particleModeFromVisualTheme(s.visualTheme),
+    });
     if (typeof UISync !== "undefined") UISync.fillForm();
+    renderFeatureModules();
+    refreshSnapshots();
     updateLabels();
     updateBgPanels();
     if (typeof StorageInspector !== "undefined" && StorageInspector.refresh) {
@@ -1549,25 +1653,54 @@
     // --- 外观 ---
     $("#set-theme").addEventListener("change", (e) => { s.theme = e.target.value; Store.saveSettings(); applyTheme(); });
     $("#set-visual-theme").addEventListener("change", (e) => {
-      const id = e.target.value;
-      if (!id || id === Store.settings.visualTheme) return;
-      const meta = Theme.getVisualTheme(id);
-      if (!meta) return;
-      const previousVisualTheme = Store.settings.visualTheme;
-      Store.settings.visualTheme = meta.id;
-      if (Theme.shouldSyncAccent(Store.settings.accent, previousVisualTheme)) {
-        Store.settings.accent = meta.accent;
+      if (e.target.value === "custom") {
+        ThemeEditor.applyCustomThemeSettings(Store.settings, {
+          label: $("#custom-theme-label")?.value,
+          accent: Store.settings.accent,
+          particleMode: $("#custom-theme-particles")?.value,
+        });
+        Store.saveSettings();
+        applyVisualTheme();
+        applyStyle();
+        syncSakuraParticles();
+        return;
+      }
+      const next = SettingsUI.resolveVisualThemeChange({
+        id: e.target.value,
+        currentThemeId: Store.settings.visualTheme,
+        currentAccent: Store.settings.accent,
+        themeApi: Theme,
+      });
+      if (!next) return;
+      Store.settings.visualTheme = next.visualTheme;
+      if (next.accentChanged) {
+        Store.settings.accent = next.accent;
         const accentInput = $("#set-accent");
-        if (accentInput) accentInput.value = meta.accent;
+        if (accentInput) accentInput.value = next.accent;
       }
       Store.saveSettings();
       applyVisualTheme();
       applyHeroMode();
       applyStyle();
       syncSakuraParticles();
-      document.dispatchEvent(new CustomEvent("theme:changed", { detail: { id: meta.id } }));
+      document.dispatchEvent(new CustomEvent("theme:changed", { detail: { id: next.visualTheme } }));
     });
     $("#set-accent").addEventListener("input", (e) => { s.accent = e.target.value; Store.saveSettings(); applyStyle(); });
+    $("#custom-theme-apply")?.addEventListener("click", () => {
+      ThemeEditor.applyCustomThemeSettings(Store.settings, {
+        label: $("#custom-theme-label")?.value,
+        accent: $("#set-accent")?.value || Store.settings.accent,
+        particleMode: $("#custom-theme-particles")?.value,
+      });
+      $("#set-visual-theme").value = "custom";
+      Store.saveSettings();
+      applyVisualTheme();
+      applyStyle();
+      syncSakuraParticles();
+      const summary = $("#custom-theme-summary");
+      if (summary) summary.innerHTML = ThemeEditor.renderThemeSummary(Store.settings.customVisualTheme);
+      toast("已保存自定义主题");
+    });
     $("#set-accent-reset").addEventListener("click", () => {
       const m = VISUAL_THEMES[s.visualTheme] || VISUAL_THEMES.sakura;
       s.accent = m.accent;
@@ -1615,7 +1748,7 @@
       if (s.bgMode === "single") Bg.apply();
     });
     $("#set-bg-list").addEventListener("change", (e) => {
-      s.bgList = e.target.value.split("\n").map((x) => x.trim()).filter(Boolean);
+      s.bgList = BackgroundUI.parseUrlList(e.target.value);
       Store.saveSettings();
       if (s.bgMode === "rotate") Bg.apply();
     });
@@ -1871,8 +2004,7 @@
     // --- 重置 ---
     $("#btn-reset-all").addEventListener("click", () => {
       if (!confirm("确定清空所有数据与设置？此操作不可撤销。")) return;
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(SETTINGS_KEY);
+      StorageAdapter.clearBusinessData();
       location.reload();
     });
 
@@ -1890,6 +2022,87 @@
       if (!f) return;
       if (typeof StorageInspector !== "undefined" && StorageInspector.importZip) {
         await StorageInspector.importZip(f);
+      }
+    });
+    $("#btn-snapshot-refresh")?.addEventListener("click", refreshSnapshots);
+    $("#btn-snapshot-create")?.addEventListener("click", async () => {
+      try {
+        const r = await fetch("/api/snapshots", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label: "手动快照 " + new Date().toLocaleString("zh-CN") }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "创建失败");
+        toast("快照已创建");
+        refreshSnapshots();
+      } catch (e) {
+        toast("创建快照失败：" + (e.message || e), 3500);
+      }
+    });
+    $("#snapshot-list")?.addEventListener("click", async (e) => {
+      const compareBtn = e.target.closest("[data-snapshot-compare]");
+      const categoryBtn = e.target.closest("[data-snapshot-restore-category]");
+      const btn = e.target.closest("[data-snapshot-restore]");
+      if (!compareBtn && !categoryBtn && !btn) return;
+      const actionBtn = compareBtn || categoryBtn || btn;
+      const item = actionBtn.closest(".snapshot-item");
+      const id = item?.dataset.id;
+      if (!id) return;
+      if (compareBtn) {
+        const box = item.querySelector(".snapshot-compare");
+        try {
+          const r = await fetch(`/api/snapshots/${encodeURIComponent(id)}/compare`, {
+            credentials: "same-origin",
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || "对比失败");
+          const diff = data.diff || DataVersioning.diffBundleSummary(data.current, data.snapshotSummary);
+          const changed = Object.values(diff.categories || {}).filter((cat) => cat.changed).slice(0, 8);
+          box.hidden = false;
+          box.innerHTML = changed.length
+            ? changed.map((cat) => `<span>${escapeHtml(cat.key)} ${cat.delta.items >= 0 ? "+" : ""}${cat.delta.items} 项 / ${cat.delta.bytes >= 0 ? "+" : ""}${cat.delta.bytes} B</span>`).join("")
+            : `<span>当前与快照内容一致</span>`;
+        } catch (err) {
+          if (box) {
+            box.hidden = false;
+            box.textContent = "对比失败：" + (err.message || err);
+          }
+        }
+        return;
+      }
+      if (categoryBtn) {
+        const category = item.querySelector("[data-snapshot-category]")?.value || "nav";
+        if (!confirm(`确定只恢复「${category}」分类？该分类当前数据会被覆盖。`)) return;
+        try {
+          const r = await fetch(`/api/snapshots/${encodeURIComponent(id)}/restore-category`, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category }),
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || "恢复失败");
+          toast("分类已恢复，正在刷新…");
+          setTimeout(() => location.reload(), 600);
+        } catch (err) {
+          toast("恢复分类失败：" + (err.message || err), 3500);
+        }
+        return;
+      }
+      if (!id || !confirm("确定恢复该快照？当前数据会被覆盖并刷新页面。")) return;
+      try {
+        const r = await fetch(`/api/snapshots/${encodeURIComponent(id)}/restore`, {
+          method: "POST",
+          credentials: "same-origin",
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "恢复失败");
+        toast("快照已恢复，正在刷新…");
+        setTimeout(() => location.reload(), 600);
+      } catch (err) {
+        toast("恢复快照失败：" + (err.message || err), 3500);
       }
     });
   }
@@ -1981,7 +2194,7 @@
       ${thumbHtml}
       <div class="info">
         <div class="name"><span class="badge">${badge}</span>${escapeHtml(info.name || "")}</div>
-        <div class="meta">${fmtSize(info.size)} · 点击可重新上传</div>
+        <div class="meta">${BackgroundUI.formatFileSize(info.size)} · 点击可重新上传</div>
       </div>`;
     if (meta) meta.textContent = `${srcHint} · ${info.mime || ""}`;
   }
@@ -1993,16 +2206,6 @@
     get: async () => null,
     del: async () => {},
   };
-
-  const VIDEO_EXT_RE = /\.(mp4|webm|mov|ogv|m4v)(\?|#|$)/i;
-  const isVideoUrl = (u) => typeof u === "string" && VIDEO_EXT_RE.test(u);
-  function fmtSize(bytes) {
-    if (!bytes && bytes !== 0) return "";
-    const k = 1024;
-    if (bytes < k) return bytes + " B";
-    if (bytes < k * k) return (bytes / k).toFixed(1) + " KB";
-    return (bytes / k / k).toFixed(1) + " MB";
-  }
 
   // ===================== 背景系统 =====================
   const Bg = {
@@ -2051,7 +2254,7 @@
             const abs = raw.startsWith("/") ? (location.origin + raw) : raw;
             if (token !== this._applyToken) return;
             this._revokeBlobUrl();
-            const isVid = meta.kind === "video" || (meta.mime || "").startsWith("video/") || isVideoUrl(raw);
+            const isVid = meta.kind === "video" || (meta.mime || "").startsWith("video/") || BackgroundUI.isVideoUrl(raw);
             if (isVid) {
               this.clearLayers();
               this.showVideo(abs);
@@ -2093,7 +2296,7 @@
 
       if (s.bgMode === "single") {
         if (!s.bgSingle) { this.clearLayers(); this.clearVideo(); return; }
-        if (isVideoUrl(s.bgSingle)) {
+        if (BackgroundUI.isVideoUrl(s.bgSingle)) {
           this.clearLayers();
           this.showVideo(s.bgSingle);
         } else {
@@ -2113,15 +2316,15 @@
       }
       if (s.bgMode === "bing") {
         // 使用无需 CORS 的 302 重定向图片
-        this.swap(bingUrl());
+        this.swap(BackgroundUI.buildBingUrl());
         // Bing 壁纸每日更新；这里每 6 小时刷新
-        this.schedule(() => { this.swap(bingUrl()); }, 6 * 3600);
+        this.schedule(() => { this.swap(BackgroundUI.buildBingUrl()); }, 6 * 3600);
         return;
       }
       if (s.bgMode === "random") {
-        const url = s.bgRandomUrl || "https://t.alcy.cc/ycy/";
-        this.swap(cacheBust(url));
-        this.schedule(() => { this.swap(cacheBust(url)); });
+        const url = s.bgRandomUrl || BackgroundUI.DEFAULT_RANDOM_BG;
+        this.swap(BackgroundUI.cacheBust(url));
+        this.schedule(() => { this.swap(BackgroundUI.cacheBust(url)); });
         return;
       }
     },
@@ -2200,19 +2403,19 @@
     next() {
       const s = Store.settings;
       if (s.bgMode === "rotate") this.nextInList((s.bgList || []).filter(Boolean));
-      else if (s.bgMode === "bing") this.swap(bingUrl());
-      else if (s.bgMode === "random") this.swap(cacheBust(s.bgRandomUrl || "https://t.alcy.cc/ycy/"));
+      else if (s.bgMode === "bing") this.swap(BackgroundUI.buildBingUrl());
+      else if (s.bgMode === "random") this.swap(BackgroundUI.cacheBust(s.bgRandomUrl || BackgroundUI.DEFAULT_RANDOM_BG));
     },
 
     // 用户上传新文件
     async setUploadFile(file) {
       if (!file) return;
-      const MAX_MB = 60;
+      const MAX_MB = BackgroundUI.MAX_UPLOAD_MB;
       if (file.size > MAX_MB * 1024 * 1024) {
-        toast(`文件过大（${fmtSize(file.size)}），上限 ${MAX_MB}MB`, 3200);
+        toast(`文件过大（${BackgroundUI.formatFileSize(file.size)}），上限 ${MAX_MB}MB`, 3200);
         return false;
       }
-      const kind = (file.type || "").startsWith("video/") ? "video" : "image";
+      const kind = BackgroundUI.uploadKindFromFile(file);
       const s = Store.settings;
 
       if (window.SakuraMedia && SakuraMedia.enabled && SakuraMedia.uploadBg) {
@@ -2278,21 +2481,6 @@
       this.apply();
     },
   };
-
-  function bingUrl() {
-    // 多个备选：这些接口返回图片（302/直接图像）
-    const picks = [
-      "https://api.dujin.org/bing/1920.php",
-      "https://bing.img.run/1920x1080.php",
-    ];
-    return cacheBust(picks[Math.floor(Math.random() * picks.length)]);
-  }
-
-  function cacheBust(url) {
-    if (!url) return url;
-    const sep = url.includes("?") ? "&" : "?";
-    return url + sep + "_=" + Date.now();
-  }
 
   function applyBg() { Bg.apply(); }
 
@@ -2489,6 +2677,49 @@
     input.click();
   });
 
+  async function runLinkHealthCheck() {
+    const payload = NavInsights.buildLinkCheckPayload(Store.state.groups, 50);
+    if (!payload.urls.length) {
+      toast("没有可检查的 http/https 链接");
+      return;
+    }
+    const btn = $("#btn-link-check");
+    if (btn) btn.disabled = true;
+    const run = window.NavProgress ? NavProgress.run : (_t, fn) => fn({ step() {}, done() {}, fail() {} });
+    await run("检查链接健康", async (p) => {
+      try {
+        p.step(0.2, `准备检查 ${payload.urls.length} 个链接…`);
+        const r = await fetch("/api/link-check", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "检查失败");
+        const byUrl = new Map((data.results || []).map((item) => [item.url, item]));
+        Store.state.groups.forEach((group) => {
+          group.links.forEach((link) => {
+            const result = byUrl.get(link.url);
+            if (result) NavInsights.applyLinkHealth(link, result);
+          });
+        });
+        Store.save();
+        render();
+        const dead = (data.results || []).filter((item) => !item.ok).length;
+        p.done(`已检查 ${data.results.length} 个链接，异常 ${dead} 个`);
+        toast(`链接检查完成：异常 ${dead} 个`);
+      } catch (e) {
+        p.fail("链接检查失败：" + (e.message || e));
+        toast("链接检查失败：" + (e.message || e), 3500);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+  }
+
+  $("#btn-link-check")?.addEventListener("click", runLinkHealthCheck);
+
   // dialog 关闭按钮
   document.addEventListener("click", (e) => {
     if (e.target.matches("[data-close]")) {
@@ -2496,19 +2727,121 @@
       if (d) d.close();
     }
   });
+  $$("dialog").forEach((dialog) => A11y.enhanceDialog(dialog));
 
   // 设置弹窗里某些区块使用独立 form（用于消除浏览器 DOM 警告）。
   // 其中账号 form 会在 bindSettings() 里接管 submit；这里只兜底其它 form 的 submit 默认行为。
   // 同步区块已拆分为多个单动作 form；无需全局兜底 submit。
 
+  // ===================== 命令面板 =====================
+  let commandPaletteEl = null;
+  let commandPaletteQuery = "";
+  let commandPaletteItems = [];
+
+  function commandPaletteCommands() {
+    return CommandPalette.buildCommands({
+      groups: Store.state.groups || [],
+      settings: Store.settings,
+    });
+  }
+
+  function runCommand(command) {
+    if (!command) return;
+    closeCommandPalette();
+    if (command.id === "focus-search") {
+      $("#search-input")?.focus();
+    } else if (command.id === "add-link") {
+      openLinkDialog(null);
+    } else if (command.id === "add-group") {
+      openGroupDialog(null);
+    } else if (command.id === "open-settings") {
+      bindSettings();
+      dlgSettings.showModal();
+    } else if (command.id === "toggle-theme") {
+      $("#btn-theme")?.click();
+    } else if (command.id === "open-calendar") {
+      $("#btn-calendar")?.click();
+    } else if (command.id === "open-ai") {
+      $("#ai-fab")?.click();
+    } else if (command.id === "open-music") {
+      if (window.MusicUI && MusicUI.toggle) MusicUI.toggle();
+      else $("#music-fab")?.click();
+    } else if (command.id === "check-links") {
+      runLinkHealthCheck();
+    } else if (command.id === "storage-refresh") {
+      bindSettings();
+      dlgSettings.showModal();
+      if (window.StorageInspector && StorageInspector.refresh) StorageInspector.refresh();
+    } else if (command.id === "refresh-weather" && typeof UIWeather !== "undefined") {
+      UIWeather.refresh(true);
+    } else if (command.id.startsWith("group:")) {
+      const target = document.querySelector(`section.group[data-gid="${CSS.escape(command.targetId || command.id.slice(6))}"]`);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function renderCommandPalette() {
+    commandPaletteItems = CommandPalette.filterCommands(commandPaletteCommands(), commandPaletteQuery).slice(0, 12);
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = CommandPalette.renderCommandPalette(commandPaletteItems, commandPaletteQuery);
+    const next = wrapper.firstElementChild;
+    if (commandPaletteEl) commandPaletteEl.replaceWith(next);
+    else document.body.appendChild(next);
+    commandPaletteEl = next;
+    const input = commandPaletteEl.querySelector(".command-palette-input");
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+
+  function openCommandPalette() {
+    commandPaletteQuery = "";
+    renderCommandPalette();
+  }
+
+  function closeCommandPalette() {
+    if (commandPaletteEl) commandPaletteEl.remove();
+    commandPaletteEl = null;
+    commandPaletteItems = [];
+  }
+
+  document.addEventListener("input", (e) => {
+    if (!commandPaletteEl || !e.target.matches(".command-palette-input")) return;
+    commandPaletteQuery = e.target.value;
+    renderCommandPalette();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!commandPaletteEl) return;
+    const item = e.target.closest(".command-palette-item");
+    if (item) {
+      runCommand(commandPaletteItems.find((command) => command.id === item.dataset.commandId));
+      return;
+    }
+    if (e.target === commandPaletteEl) closeCommandPalette();
+  });
+
   // ===================== 键盘快捷键 =====================
   document.addEventListener("keydown", (e) => {
+    if (commandPaletteEl) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeCommandPalette();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        runCommand(commandPaletteItems[0]);
+      }
+      return;
+    }
+
     const tag = document.activeElement?.tagName;
     const inInput = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
 
     if (e.key === "/" && !inInput) {
       e.preventDefault();
       $("#search-input").focus();
+    } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "p") {
+      e.preventDefault();
+      openCommandPalette();
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
       openLinkDialog(null);
@@ -2635,19 +2968,19 @@
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
 
-    UICal.init();
-    if (typeof UIWeather !== "undefined") UIWeather.init();
-    if (typeof UISync !== "undefined") UISync.init();
+    lazyInit.runOnce("calendar", () => UICal.init());
+    if (typeof UIWeather !== "undefined") lazyInit.runOnce("weather", () => UIWeather.init());
+    if (typeof UISync !== "undefined") lazyInit.runOnce("sync", () => UISync.init());
     if (window.SakuraRemote && SakuraRemote.ready) {
       SakuraRemote.ready.then(() => {
         if (typeof UISync !== "undefined" && UISync.refreshRemotePanel) UISync.refreshRemotePanel();
       }).catch(() => {});
     }
-    if (typeof UIVoice !== "undefined") UIVoice.init();
-    if (typeof UISuggest !== "undefined") UISuggest.init();
-    if (typeof UIRecent !== "undefined") UIRecent.init();
-    if (typeof UIStarred !== "undefined") UIStarred.init();
-    if (typeof UIBlogExport !== "undefined") UIBlogExport.init();
+    if (typeof UIVoice !== "undefined") lazyInit.runOnce("voice", () => UIVoice.init());
+    if (typeof UISuggest !== "undefined") lazyInit.runOnce("suggest", () => UISuggest.init());
+    if (typeof UIRecent !== "undefined") lazyInit.runOnce("recent", () => UIRecent.init());
+    if (typeof UIStarred !== "undefined") lazyInit.runOnce("starred", () => UIStarred.init());
+    if (typeof UIBlogExport !== "undefined") lazyInit.runOnce("blog-export", () => UIBlogExport.init());
 
     // 自动同步：劫持 save
     if (window.SyncUtils) {
@@ -2696,11 +3029,14 @@
     const input = $("#ai-input");
     const sendBtn = $("#ai-send");
     const stopBtn = $("#ai-stop");
+    const webSearchBtn = $("#ai-web-search");
     const tipEl = $("#ai-tip");
     const attachInput = $("#ai-attach-input");
     const attachPreview = $("#ai-attach-preview");
     const modelSel = $("#ai-model-select");
     const personaSel = $("#ai-persona-select");
+    const galleryPanel = $("#ai-gallery-panel");
+    const galleryList = $("#ai-gallery-list");
 
     let attachments = [];
     let abortCtrl = null;
@@ -2712,23 +3048,21 @@
       setTimeout(() => input.focus(), 100);
       refreshPersonaOptions();
       refreshModelOptions();
+      updateWebSearchButton();
       renderMessages();
+      if (!galleryPanel.hidden) renderAIGallery();
     }
     function close() { panel.hidden = true; }
 
     function refreshPersonaOptions() {
-      personaSel.innerHTML = AI.AIStore.data.personas.map((p) =>
-        `<option value="${p.id}" ${p.id === AI.AIStore.data.currentPersonaId ? "selected" : ""}>${escapeHtml(p.name)}</option>`
-      ).join("");
+      personaSel.innerHTML = AIUI.renderPersonaOptions(AI.AIStore.data.personas, AI.AIStore.data.currentPersonaId);
     }
 
     function refreshModelOptions() {
       const p = AI.AIStore.currentProvider();
       if (!p) { modelSel.innerHTML = `<option value="">请先添加供应商</option>`; return; }
-      const models = (p.models && p.models.length ? p.models : [p.defaultModel || "default"]).filter(Boolean);
-      modelSel.innerHTML = models.map((m) =>
-        `<option value="${escapeHtml(m)}" ${m === AI.AIStore.data.currentModel ? "selected" : ""}>${escapeHtml(m)}</option>`
-      ).join("");
+      const models = AIUI.modelChoices(p);
+      modelSel.innerHTML = AIUI.renderModelOptions(models, AI.AIStore.data.currentModel);
       if (!AI.AIStore.data.currentModel) AI.AIStore.data.currentModel = models[0];
     }
 
@@ -2739,6 +3073,18 @@
     modelSel.addEventListener("change", () => {
       AI.AIStore.data.currentModel = modelSel.value;
       AI.AIStore.save();
+    });
+    function updateWebSearchButton() {
+      const enabled = !!AI.AIStore.data.webSearchEnabled;
+      webSearchBtn.classList.toggle("active", enabled);
+      webSearchBtn.setAttribute("aria-pressed", String(enabled));
+      webSearchBtn.title = enabled ? "联网搜索已开启" : "联网搜索";
+    }
+    webSearchBtn.addEventListener("click", () => {
+      AI.AIStore.data.webSearchEnabled = !AI.AIStore.data.webSearchEnabled;
+      AI.AIStore.save();
+      updateWebSearchButton();
+      toast(AI.AIStore.data.webSearchEnabled ? "已开启联网搜索" : "已关闭联网搜索");
     });
 
     $("#ai-refresh-models").addEventListener("click", async () => {
@@ -2782,6 +3128,50 @@
         if (wasOpen) open();
       });
     });
+    let galleryItems = [];
+    function renderAIGallery() {
+      galleryItems = AIGallery.collectGalleryImages(AI.AIStore.messages);
+      galleryList.innerHTML = AIGallery.renderGallery(galleryItems);
+    }
+    function captureAiActionSnapshot() {
+      const target = { nav: Store.state };
+      if (window.Cal && Cal.data) target.calendar = Cal.data;
+      return AIActions.snapshotState(target);
+    }
+    function restoreAiActionSnapshot(snapshot) {
+      const target = { nav: Store.state };
+      if (window.Cal && Cal.data) target.calendar = Cal.data;
+      AIActions.rollbackState(target, snapshot);
+      Store.save();
+      if (window.Cal && Cal.save) Cal.save();
+      render();
+      if (window.UICalRefresh) try { window.UICalRefresh(); } catch (_) {}
+    }
+    $("#ai-open-gallery")?.addEventListener("click", () => {
+      galleryPanel.hidden = !galleryPanel.hidden;
+      if (!galleryPanel.hidden) renderAIGallery();
+    });
+    $("#ai-gallery-close")?.addEventListener("click", () => { galleryPanel.hidden = true; });
+    galleryList?.addEventListener("click", (e) => {
+      const card = e.target.closest(".ai-gallery-card");
+      if (!card) return;
+      const item = galleryItems.find((image) => image.id === card.dataset.aiGalleryId);
+      if (!item) return;
+      if (e.target.closest("[data-ai-gallery-save]")) {
+        saveAiImage(item.src, item.alt);
+      } else if (e.target.closest("[data-ai-gallery-preview]")) {
+        openLightbox(item.src, item.alt);
+      } else if (e.target.closest("[data-ai-gallery-copy-prompt]")) {
+        const prompt = item.prompt || AIGallery.buildRegeneratePrompt(item);
+        if (navigator.clipboard) navigator.clipboard.writeText(prompt).then(() => toast("提示词已复制"), () => fallbackCopy(prompt));
+        else fallbackCopy(prompt);
+      } else if (e.target.closest("[data-ai-gallery-regenerate]")) {
+        input.value = AIGallery.buildRegeneratePrompt(item);
+        input.focus();
+        autoResize();
+        galleryPanel.hidden = true;
+      }
+    });
     fab.addEventListener("click", open);
 
     // 建议按钮
@@ -2805,9 +3195,7 @@
       attachments.forEach((a, i) => {
         const el = document.createElement("span");
         el.className = "ai-attach-item";
-        el.innerHTML = a.type === "image"
-          ? `<img src="${a.dataUrl}"><span class="name">${escapeHtml(a.name)}</span><button class="x" data-i="${i}" type="button">×</button>`
-          : `📄<span class="name">${escapeHtml(a.name)}</span><button class="x" data-i="${i}" type="button">×</button>`;
+        el.innerHTML = AIUI.renderAttachmentPreviewItem(a, i);
         attachPreview.appendChild(el);
       });
     }
@@ -2860,7 +3248,13 @@
       AI.AIStore.messages.push(userMsg);
       AI.AIStore.saveMessages();
 
-      const asstMsg = { role: "assistant", content: "", ts: Date.now(), streaming: true };
+      const asstMsg = {
+        role: "assistant",
+        content: "",
+        ts: Date.now(),
+        streaming: true,
+        thinkingLabel: AI.AIStore.data.webSearchEnabled ? "正在联网搜索" : "正在思考",
+      };
       AI.AIStore.messages.push(asstMsg);
       renderMessages();
 
@@ -2872,7 +3266,8 @@
 
       stopBtn.hidden = false;
       sendBtn.hidden = true;
-      tipEl.textContent = "正在思考…";
+      tipEl.classList.remove("err");
+      tipEl.textContent = "";
 
       abortCtrl = new AbortController();
 
@@ -2880,19 +3275,25 @@
         const msgs = await AI.buildMessages(text, currentAttachments);
         await AI.chat({
           provider, model, messages: msgs, signal: abortCtrl.signal,
+          webSearch: AI.AIStore.data.webSearchEnabled,
           onDelta: (_d, full) => {
             asstMsg.content = full;
             const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
-            if (bubble) bubble.innerHTML = renderAssistantContent(full);
+            if (bubble) bubble.innerHTML = renderAssistantContent(full, asstMsg);
             scrollToBottom();
           },
         });
         asstMsg.streaming = false;
         // 解析指令块，生成操作卡
         const actions = AI.parseActions(asstMsg.content);
-        if (actions.length) asstMsg.actions = actions;
+        if (actions.length) {
+          asstMsg.actions = actions;
+          asstMsg.actionPreview = AIActions.previewActions(actions, Store.state);
+        }
         if (actions.length && AI.AIStore.data.autoApply) {
+          const rollbackSnapshot = captureAiActionSnapshot();
           const r = AI.applyActions(actions);
+          r.rollbackSnapshot = rollbackSnapshot;
           asstMsg.applied = true;
           asstMsg.appliedResult = r;
           toast(`已自动执行 ${r.ok} 项指令`);
@@ -2920,10 +3321,7 @@
       const ms = AI.AIStore.messages;
       if (!ms.length) {
         messagesEl.innerHTML = messagesEl.querySelector(".ai-empty") ? messagesEl.innerHTML :
-          `<div class="ai-empty">
-            <div class="ai-empty-logo">🌸</div>
-            <p>让 AI 帮你整理导航页。</p>
-          </div>`;
+          AIUI.renderEmptyState();
         return;
       }
       messagesEl.innerHTML = "";
@@ -2955,21 +3353,17 @@
         messagesEl.appendChild(el);
       });
       scrollToBottom();
+      if (!galleryPanel.hidden) renderAIGallery();
     }
 
     function renderUserContent(m) {
-      let html = escapeHtml(m.content || "").replace(/\n/g, "<br>");
-      if (m.attachments?.length) {
-        html += `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">` +
-          m.attachments.map((a) => a.type === "image"
-            ? `<img class="ai-inline-img" src="${a.dataUrl}" style="max-height:120px" />`
-            : `<span class="ai-attach-item">📄${escapeHtml(a.name)}</span>`
-          ).join("") + `</div>`;
-      }
-      return html;
+      return AIUI.renderUserContent(m);
     }
 
     function renderAssistantContent(text, msg) {
+      if (msg?.streaming && !String(text || "").trim()) {
+        return AIUI.renderThinkingState(msg.thinkingLabel || "正在思考");
+      }
       let html = AI.renderMarkdown(text || "");
       // 替换指令块占位符
       html = html.replace(/<div class="ai-action-placeholder" data-code="([^"]*)"><\/div>/g, (_, code) => {
@@ -2980,28 +3374,46 @@
           return renderActionCard(arr, msg);
         } catch (_) { return ""; }
       });
+      html = AIUI.enhanceAssistantMediaHtml(html);
+      const generatedImages = AIUI.extractGeneratedImages(text || "")
+        .filter((image) => image && image.src && !AIUI.hasRenderedImageSrc(html, image.src));
+      if (generatedImages.length) {
+        html += AIUI.renderGeneratedImages(generatedImages);
+      }
       // 如果消息已 applied
       if (msg?.applied && msg.appliedResult) {
-        html += `<div class="ai-action-card applied"><h5>✓ 已执行（${msg.appliedResult.ok} 成功 / ${msg.appliedResult.fail} 失败）</h5><ol>${msg.appliedResult.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ol></div>`;
+        html += AIUI.renderAppliedResult(msg.appliedResult);
       }
       return html;
     }
 
     function renderActionCard(arr, msg) {
-      const items = arr.map((a) => {
-        const cls = a.op.startsWith("add") ? "op-add" : a.op.startsWith("delete") ? "op-delete" : "op-rename";
-        return `<li><span class="badge ${cls}">${a.op}</span>${escapeHtml(JSON.stringify(Object.fromEntries(Object.entries(a).filter(([k])=>k!=='op'))))}</li>`;
-      }).join("");
       const id = "act-" + Math.random().toString(36).slice(2, 8);
-      return `<div class="ai-action-card" data-actid="${id}"><h5>🛠 AI 请求执行以下操作</h5><ol>${items}</ol>
-        <div class="ai-action-apply">
-          <button class="btn-apply" data-apply="${id}">✅ 应用</button>
-          <button class="btn-ignore" data-apply="${id}" data-ignore="1">忽略</button>
-        </div></div>`;
+      const preview = msg?.actionPreview || AIActions.previewActions(arr, Store.state);
+      return AIUI.renderActionCard(arr, id, AIActions.renderActionPreview(preview));
     }
 
     // 指令卡应用/忽略
     messagesEl.addEventListener("click", (e) => {
+      const rollbackBtn = e.target.closest("[data-ai-action-rollback]");
+      if (rollbackBtn) {
+        const msgEl = rollbackBtn.closest(".ai-msg");
+        const idx = [...messagesEl.children].indexOf(msgEl);
+        const msg = AI.AIStore.messages[idx];
+        if (!msg?.appliedResult?.rollbackSnapshot) return;
+        if (!confirm("撤销本次 AI 操作并恢复应用前的数据？")) return;
+        try {
+          restoreAiActionSnapshot(msg.appliedResult.rollbackSnapshot);
+          msg.appliedResult.rollbackUsed = true;
+          msg.appliedResult.notes = [...(msg.appliedResult.notes || []), "已撤销本次操作"];
+          AI.AIStore.saveMessages();
+          renderMessages();
+          toast("已撤销本次 AI 操作");
+        } catch (err) {
+          toast("撤销失败：" + (err.message || err), 3500);
+        }
+        return;
+      }
       const btn = e.target.closest("[data-apply]");
       if (!btn) return;
       const id = btn.dataset.apply;
@@ -3018,7 +3430,9 @@
         msg.applied = true;
         msg.appliedResult = { ok: 0, fail: 0, notes: ["用户忽略"] };
       } else {
+        const rollbackSnapshot = captureAiActionSnapshot();
         const r = AI.applyActions(msg.actions);
+        r.rollbackSnapshot = rollbackSnapshot;
         msg.applied = true;
         msg.appliedResult = r;
         card.classList.add("applied");
@@ -3034,21 +3448,56 @@
 
     // 灯箱预览
     messagesEl.addEventListener("click", (e) => {
-      const img = e.target.closest(".ai-inline-img");
-      if (!img) return;
-      openLightbox(img.src);
+      const saveBtn = e.target.closest("[data-ai-image-save]");
+      if (saveBtn) {
+        const img = saveBtn.closest(".ai-image-card")?.querySelector(".ai-inline-img");
+        if (img) saveAiImage(img.currentSrc || img.src, img.alt);
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      const preview = e.target.closest("[data-ai-image-preview], .ai-inline-img");
+      if (!preview) return;
+      const img = preview.matches(".ai-inline-img") ? preview : preview.querySelector(".ai-inline-img");
+      if (img) openLightbox(img.currentSrc || img.src, img.alt);
     });
 
-    function openLightbox(src) {
+    function saveAiImage(src, alt) {
+      if (!src) return;
+      const a = document.createElement("a");
+      a.href = src;
+      a.download = AIUI.downloadNameFromImage(src, alt);
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function openLightbox(src, alt) {
       let box = $(".ai-lightbox");
       if (!box) {
         box = document.createElement("div");
         box.className = "ai-lightbox";
-        box.innerHTML = `<img>`;
-        box.addEventListener("click", () => box.hidden = true);
+        box.innerHTML = `
+          <div class="ai-lightbox-toolbar">
+            <button type="button" data-ai-lightbox-save>保存图片</button>
+            <button type="button" data-ai-lightbox-close>关闭</button>
+          </div>
+          <img>`;
+        box.addEventListener("click", (event) => {
+          if (event.target === box || event.target.closest("[data-ai-lightbox-close]")) {
+            box.hidden = true;
+          } else if (event.target.closest("[data-ai-lightbox-save]")) {
+            const img = box.querySelector("img");
+            saveAiImage(img?.src, img?.alt);
+            event.stopPropagation();
+          }
+        });
         document.body.appendChild(box);
       }
-      box.querySelector("img").src = src;
+      const img = box.querySelector("img");
+      img.src = src;
+      img.alt = alt || "AI 生成图片";
       box.hidden = false;
     }
 
@@ -3469,8 +3918,10 @@
   const UICal = (() => {
     const panel = $("#calendar-panel");
     const monthView = $("#cal-month-view");
+    const weekView = $("#cal-week-view");
     const listView = $("#cal-list-view");
     const gridEl = $("#cal-grid");
+    const weekGridEl = $("#cal-week-grid");
     const weekdaysEl = $("#cal-weekdays");
     const titleEl = $("#cal-title");
     const dayTitle = $("#cal-day-title");
@@ -3507,9 +3958,7 @@
 
     function renderWeekdays() {
       const first = Cal.data.settings.firstDayOfWeek || 1;
-      const names = [];
-      for (let i = 0; i < 7; i++) names.push(CalUtils.WEEK_NAMES[(first + i) % 7]);
-      weekdaysEl.innerHTML = names.map((n) => `<span>${n}</span>`).join("");
+      weekdaysEl.innerHTML = CalendarUI.renderWeekdayLabels(first, CalUtils.WEEK_NAMES);
     }
 
     function renderMonth() {
@@ -3532,21 +3981,11 @@
       gridEl.innerHTML = cells.map((c) => {
         const dayKey = c.date.getTime();
         const items = byDay.get(dayKey) || [];
-        const isToday = dayKey === today.getTime();
-        const isSel = dayKey === selectedDate.getTime();
-        const weekday = c.date.getDay();
-        const cls = ["cal-cell"];
-        if (!c.inMonth) cls.push("out");
-        if (isToday) cls.push("today");
-        if (isSel) cls.push("selected");
-        const dayCls = weekday === 0 ? "sun" : weekday === 6 ? "sat" : "";
-        const MAX = 3;
-        const shown = items.slice(0, MAX).map((it) => {
+        const viewItems = items.map((it) => {
           const done = CalUtils.isDoneOccurrence?.(it.task, it.ts) ||
             (it.task.repeat?.type === "none" ? it.task.done : (it.task.doneDates || []).includes(it.ts));
-          return `<div class="day-task ${done ? "done" : ""}" style="--task-color:${escapeHtml(it.task.color || "#ff8fab")}" title="${escapeHtml(it.task.title)}">${escapeHtml(it.task.title)}</div>`;
-        }).join("");
-        const more = items.length > MAX ? `<div class="more">+${items.length - MAX} 更多</div>` : "";
+          return { ...it, done };
+        });
         let wBadge = "";
         if (Store.settings.weatherOnCal && window.WeatherUtils) {
           const ds = `${c.date.getFullYear()}-${String(c.date.getMonth() + 1).padStart(2, "0")}-${String(c.date.getDate()).padStart(2, "0")}`;
@@ -3556,11 +3995,13 @@
             wBadge = `<span class="cal-cell-weather" title="${escapeHtml(WeatherUtils.wmo(f.code)[1])} ${Math.round(f.min)}~${Math.round(f.max)}°">${emoji}</span>`;
           }
         }
-        return `<div class="${cls.join(" ")}" data-ts="${dayKey}" style="position:relative">
-          <span class="day-num ${dayCls}">${c.date.getDate()}</span>
-          ${wBadge}
-          <div class="day-tasks">${shown}${more}</div>
-        </div>`;
+        return CalendarUI.renderMonthCell({
+          cell: c,
+          items: viewItems,
+          todayTime: today.getTime(),
+          selectedTime: selectedDate.getTime(),
+          weatherBadgeHtml: wBadge,
+        });
       }).join("");
     }
 
@@ -3598,21 +4039,16 @@
           wTip = `<span class="task-weather-tip ${cls}" title="${escapeHtml(desc)} ${Math.round(f.min)}~${Math.round(f.max)}°">${emoji} ${Math.round(f.max)}°${extra ? " · " + extra : ""}</span>`;
         }
       }
-      return `<li class="cal-day-item ${done ? "done" : ""}" data-id="${task.id}" data-ts="${ts}" style="--task-color:${escapeHtml(task.color || "#ff8fab")}">
-        <div class="task-title">${escapeHtml(task.title)}${wTip}</div>
-        <div class="task-meta">
-          <span>${escapeHtml(CalUtils.fmtDateTime(ts, task.allDay))}</span>
-          ${repeatLabel}
-          <span class="countdown ${cdCls}" data-cd="${ts}">${escapeHtml(CalUtils.fmtCountdown(diff))}</span>
-        </div>
-        ${task.desc ? `<div style="font-size:12px;color:var(--text-soft)">${escapeHtml(task.desc)}</div>` : ""}
-        <div class="task-actions">
-          <button data-act="${done ? "undo" : "done"}">${done ? "↶ 还原" : "✓ 完成"}</button>
-          <button data-act="skip">⊘ 跳过本次</button>
-          <button data-act="edit">✎ 编辑</button>
-          <button data-act="del">🗑 删除</button>
-        </div>
-      </li>`;
+      return CalendarUI.renderTaskListItem({
+        task,
+        ts,
+        done,
+        dateTimeText: CalUtils.fmtDateTime(ts, task.allDay),
+        repeatLabelHtml: repeatLabel,
+        countdownText: CalUtils.fmtCountdown(diff),
+        countdownClass: cdCls,
+        weatherTipHtml: wTip,
+      });
     }
 
     function renderListView() {
@@ -3641,6 +4077,21 @@
       }).join("");
     }
 
+    function renderWeekView() {
+      const range = CalendarPlanner.weekRange(selectedDate, Cal.data.settings.firstDayOfWeek || 1);
+      titleEl.textContent = `${new Date(range.start).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} - ${new Date(range.end).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}`;
+      const items = CalUtils.listInRange(range.start, range.end);
+      const byDay = CalendarPlanner.groupOccurrencesByDay(items, range.days);
+      weekGridEl.innerHTML = range.days.map((day) => {
+        const arr = byDay.get(CalendarPlanner.dayKey(day)) || [];
+        const label = day.toLocaleDateString("zh-CN", { weekday: "short", month: "numeric", day: "numeric" });
+        return `<section class="cal-week-day">
+          <h4>${escapeHtml(label)}</h4>
+          ${arr.length ? `<ul>${arr.map((it) => renderDayItem(it.task, it.ts)).join("")}</ul>` : `<div class="cal-week-empty">暂无任务</div>`}
+        </section>`;
+      }).join("");
+    }
+
     function renderUpcoming() {
       if (!Store.settings.showUpcoming) { upcomingCard.hidden = true; return; }
       const items = CalUtils.upcoming(5);
@@ -3650,10 +4101,12 @@
         upcomingList.innerHTML = items.map(({ task, ts }) => {
           const diff = ts - Date.now();
           const cls = diff < 0 ? "overdue" : diff < 3600000 ? "soon" : "";
-          return `<li class="upcoming-item ${cls}" data-id="${task.id}" data-ts="${ts}" style="border-left-color:${escapeHtml(task.color || "#ff8fab")}">
-            <span class="u-title">${escapeHtml(task.title)}</span>
-            <span class="u-count" data-cd="${ts}">${escapeHtml(CalUtils.fmtCountdown(diff))}</span>
-          </li>`;
+          return CalendarUI.renderUpcomingItem({
+            task,
+            ts,
+            countdownText: CalUtils.fmtCountdown(diff),
+            stateClass: cls,
+          });
         }).join("");
       }
       upcomingCard.hidden = false;
@@ -3706,7 +4159,9 @@
     function refreshAll() {
       if (!panel.hidden) {
         if (view === "month") renderMonth();
-        else renderListView();
+        else if (view === "week") renderWeekView();
+        else if (view === "list") renderListView();
+        else if (view === "stats") renderStatsView();
         renderDay();
       }
       renderUpcoming();
@@ -3750,14 +4205,33 @@
     }
     dayList.addEventListener("click", handleTaskClick);
     listEl.addEventListener("click", handleTaskClick);
+    weekGridEl.addEventListener("click", handleTaskClick);
     upcomingList.addEventListener("click", handleTaskClick);
 
-    $("#cal-prev").addEventListener("click", () => { viewDate.setMonth(viewDate.getMonth() - 1); renderMonth(); });
-    $("#cal-next").addEventListener("click", () => { viewDate.setMonth(viewDate.getMonth() + 1); renderMonth(); });
+    $("#cal-prev").addEventListener("click", () => {
+      if (view === "week") {
+        selectedDate.setDate(selectedDate.getDate() - 7);
+        viewDate = new Date(selectedDate); viewDate.setDate(1);
+        renderWeekView(); renderDay();
+      } else {
+        viewDate.setMonth(viewDate.getMonth() - 1); renderMonth();
+      }
+    });
+    $("#cal-next").addEventListener("click", () => {
+      if (view === "week") {
+        selectedDate.setDate(selectedDate.getDate() + 7);
+        viewDate = new Date(selectedDate); viewDate.setDate(1);
+        renderWeekView(); renderDay();
+      } else {
+        viewDate.setMonth(viewDate.getMonth() + 1); renderMonth();
+      }
+    });
     $("#cal-today").addEventListener("click", () => {
       viewDate = new Date(); viewDate.setDate(1);
       selectedDate = new Date(); selectedDate.setHours(0, 0, 0, 0);
-      renderMonth(); renderDay();
+      if (view === "week") renderWeekView();
+      else renderMonth();
+      renderDay();
     });
     $("#cal-close").addEventListener("click", close);
     $("#cal-new-task").addEventListener("click", () => openTaskDialog(null, selectedDate));
@@ -3770,10 +4244,12 @@
         view = b.dataset.view;
         $$(".cal-view-switch .chip").forEach((x) => x.classList.toggle("active", x === b));
         monthView.hidden = view !== "month";
+        weekView.hidden = view !== "week";
         listView.hidden = view !== "list";
         statsView.hidden = view !== "stats";
         $("#cal-day-panel").hidden = view !== "month";
         if (view === "list") renderListView();
+        else if (view === "week") renderWeekView();
         else if (view === "stats") renderStatsView();
         else renderMonth();
       });
@@ -3790,26 +4266,7 @@
       $("#stat-total-done").textContent = s.totalCompleted;
       // 柱状图
       const svg = $("#stats-chart");
-      const W = 600, H = 160, PAD = 18;
-      const innerW = W - PAD * 2, innerH = H - PAD * 2;
-      const n = s.days.length;
-      const bw = innerW / n * 0.75;
-      const gap = innerW / n * 0.25;
-      const maxTotal = Math.max(1, ...s.days.map((d) => d.total));
-      let g = "";
-      s.days.forEach((d, i) => {
-        const x = PAD + i * (bw + gap);
-        const hTotal = (d.total / maxTotal) * innerH;
-        const hDone = (d.done / maxTotal) * innerH;
-        const yT = H - PAD - hTotal;
-        const yD = H - PAD - hDone;
-        g += `<rect class="bar-total" x="${x.toFixed(1)}" y="${yT.toFixed(1)}" width="${bw.toFixed(1)}" height="${hTotal.toFixed(1)}" rx="1.5" />`;
-        g += `<rect class="bar-done" x="${x.toFixed(1)}" y="${yD.toFixed(1)}" width="${bw.toFixed(1)}" height="${hDone.toFixed(1)}" rx="1.5" />`;
-        if (i % 5 === 0 || i === n - 1) {
-          g += `<text x="${(x + bw / 2).toFixed(1)}" y="${(H - 4).toFixed(1)}" text-anchor="middle">${d.date.getMonth() + 1}/${d.date.getDate()}</text>`;
-        }
-      });
-      svg.innerHTML = g;
+      svg.innerHTML = CalendarUI.renderStatsChart(s.days);
     }
 
     // iCal 导出/导入
@@ -4140,10 +4597,7 @@
       setC("#set-sync-include-keys", Sync.data.includeAiKeys);
       setC("#set-sync-include-auth", Sync.data.includeAuthCred);
       toggleBackend();
-      const msg = [];
-      if (Sync.data.lastPushed) msg.push("上次上传：" + new Date(Sync.data.lastPushed).toLocaleString("zh-CN"));
-      if (Sync.data.lastPulled) msg.push("上次下载：" + new Date(Sync.data.lastPulled).toLocaleString("zh-CN"));
-      setStatus(msg.join(" · "));
+      setStatus(SyncUI.buildSyncStatus(Sync.data));
       refreshRemotePanel();
     }
     async function refreshRemotePanel() {
@@ -4159,31 +4613,22 @@
       panel.hidden = !show;
     }
     function toggleBackend() {
-      const b = getV("#sync-backend");
+      const visibility = SyncUI.getBackendVisibility(getV("#sync-backend"));
       const w = $("#sync-webdav-conf");
       const g = $("#sync-gist-conf");
-      if (w) w.hidden = b !== "webdav";
-      if (g) g.hidden = b !== "gist";
+      if (w) w.hidden = visibility.webdavHidden;
+      if (g) g.hidden = visibility.gistHidden;
     }
     function readFormWebdav() {
-      Sync.data.backend = getV("#sync-backend");
-      Sync.data.webdav.url = getV("#sync-webdav-url").trim();
-      Sync.data.webdav.user = getV("#sync-webdav-user").trim();
-      Sync.data.webdav.pass = getV("#sync-webdav-pass");
-      Sync.data.webdav.path = getV("#sync-webdav-path").trim() || "sakura-nav.json";
+      SyncUI.applyWebdavForm(Sync.data, SyncUI.readWebdavForm(getV));
       Sync.save();
     }
     function readFormGist() {
-      Sync.data.backend = getV("#sync-backend");
-      Sync.data.gist.token = getV("#sync-gist-token").trim();
-      Sync.data.gist.gistId = getV("#sync-gist-id").trim();
-      Sync.data.gist.fileName = getV("#sync-gist-file").trim() || "sakura-nav.json";
+      SyncUI.applyGistForm(Sync.data, SyncUI.readGistForm(getV));
       Sync.save();
     }
     function readFormOptions() {
-      Sync.data.auto = getC("#set-sync-auto");
-      Sync.data.includeAiKeys = getC("#set-sync-include-keys");
-      Sync.data.includeAuthCred = getC("#set-sync-include-auth");
+      SyncUI.applySyncOptions(Sync.data, SyncUI.readSyncOptions(getC));
       Sync.save();
     }
 
@@ -4495,8 +4940,9 @@
       card.hidden = false;
       grid.innerHTML = list.map((l) => {
         const letter = (l.name || l.url || "?").trim().charAt(0).toUpperCase();
-        const icon = l.icon
-          ? `<img src="${escapeHtml(l.icon)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />`
+        const iconUrl = safeUrlAttribute(l.icon);
+        const icon = iconUrl
+          ? `<img src="${escapeHtml(iconUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />`
           : `<span class="recent-fb">${escapeHtml(letter)}</span>`;
         return `<a class="recent-item" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" data-id="${l.id}" title="${escapeHtml(l.name)}">
           ${icon}
@@ -4553,8 +4999,9 @@
       card.hidden = false;
       grid.innerHTML = list.map((l) => {
         const letter = (l.name || l.url || "?").trim().charAt(0).toUpperCase();
-        const icon = l.icon
-          ? `<img src="${escapeHtml(l.icon)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />`
+        const iconUrl = safeUrlAttribute(l.icon);
+        const icon = iconUrl
+          ? `<img src="${escapeHtml(iconUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />`
           : `<span class="recent-fb">${escapeHtml(letter)}</span>`;
         return `<a class="recent-item" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" data-id="${l.id}" title="${escapeHtml(l.name)} · ${escapeHtml(l.groupName || "")}">
           ${icon}
@@ -4671,8 +5118,8 @@
     }
     // 即使未登录，也提前加载设置并渲染背景/主题/樱花，让登录页更统一
     try {
-      const raw = localStorage.getItem(SETTINGS_KEY);
-      if (raw) Object.assign(Store.settings, JSON.parse(raw));
+      const settings = StorageAdapter.readSettings();
+      if (settings) Object.assign(Store.settings, settings);
     } catch (_) {}
     if (!Store.settings.visualTheme || !Theme.hasVisualTheme(Store.settings.visualTheme)) {
       Store.settings.visualTheme = Theme.DEFAULT_VISUAL_THEME_ID;

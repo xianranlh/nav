@@ -319,7 +319,23 @@
     }
   }
 
-  function buildServerHtml(inv, stats) {
+  async function fetchOrphanMedia() {
+    try {
+      return await fetchJson("/api/media/orphans");
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function deleteOrphanMedia(items) {
+    return await fetchJson("/api/media/orphans/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+  }
+
+  function buildServerHtml(inv, stats, orphans) {
     let html = "";
     html += '<h4 class="storage-subh">🗄 服务端 SQLite（bundle 各项）</h4>';
     html += '<table class="storage-table"><thead><tr><th>键</th><th>体积</th><th>摘要</th><th style="min-width:140px"></th></tr></thead><tbody>';
@@ -371,6 +387,15 @@
         </tr>`;
       }
       html += "</tbody></table>";
+    }
+
+    if (orphans && window.HomepageMediaCleanup) {
+      const orphanCount = Array.isArray(orphans.orphans) ? orphans.orphans.length : 0;
+      html += '<h4 class="storage-subh">🧹 媒体清理</h4>';
+      html += HomepageMediaCleanup.renderOrphanMediaSummary(orphans);
+      if (orphanCount) {
+        html += '<div class="settings-btn-row"><button type="button" class="btn-secondary" id="btn-media-delete-orphans">删除孤儿媒体</button></div>';
+      }
     }
 
     if (stats) {
@@ -443,10 +468,10 @@
     }
 
     let serverHtml = "";
-    let inv = null, stats = null;
+    let inv = null, stats = null, orphans = null;
     if (remoteOn) {
-      [inv, stats] = await Promise.all([fetchInventory(), fetchServerStats()]);
-      if (inv) serverHtml = buildServerHtml(inv, stats);
+      [inv, stats, orphans] = await Promise.all([fetchInventory(), fetchServerStats(), fetchOrphanMedia()]);
+      if (inv) serverHtml = buildServerHtml(inv, stats, orphans);
       else serverHtml = '<p class="hint" style="font-size:12px">未能获取服务端清单（/api/inventory 无响应）。</p>';
     }
 
@@ -492,6 +517,20 @@
     });
     mount.querySelectorAll("[data-idb-clear]").forEach((b) => {
       b.addEventListener("click", () => clearIdbStore(b.getAttribute("data-idb-clear")));
+    });
+    mount.querySelector("#btn-media-delete-orphans")?.addEventListener("click", async () => {
+      const items = orphans && window.HomepageMediaCleanup
+        ? HomepageMediaCleanup.buildDeletePayload(orphans.orphans).items
+        : [];
+      if (!items.length) return;
+      if (!confirm(`确定删除 ${items.length} 个孤儿媒体文件？`)) return;
+      try {
+        await deleteOrphanMedia(items);
+        toast("孤儿媒体已清理");
+        refresh();
+      } catch (e) {
+        toast("清理失败：" + (e.message || e), 3500);
+      }
     });
     const mBtn = mount.querySelector("#btn-legacy-migrate");
     if (mBtn) mBtn.addEventListener("click", migrateIdbToServer);

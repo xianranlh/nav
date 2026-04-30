@@ -4,36 +4,13 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.16.4";
+importScripts("./js/static-assets.js");
+
+const STATIC_ASSETS = self.SakuraStaticAssets;
+const VERSION = STATIC_ASSETS.VERSION;
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
-
-const CORE_FILES = [
-  "./",
-  "./index.html",
-  "./styles.css",
-  "./themes/sakura.css",
-  "./themes/q-anime.css",
-  "./themes/dark-minimal.css",
-  "./themes/paper.css",
-  "./homepage-theme.js",
-  "./homepage-layout.js",
-  "./sakura.js",
-  "./bookmarks.js",
-  "./auth.js",
-  "./ai.js",
-  "./blog.js",
-  "./calendar.js",
-  "./sync.js",
-  "./weather.js",
-  "./suggest.js",
-  "./exporter.js",
-  "./idb.js",
-  "./music.js",
-  "./storage-inspector.js",
-  `./app.js?v=${VERSION}`,
-  "./manifest.json",
-];
+const CORE_FILES = STATIC_ASSETS.coreFiles;
 const CORE_PATHS = CORE_FILES.map((file) => new URL(file, location.href).pathname);
 
 self.addEventListener("install", (e) => {
@@ -97,6 +74,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (isNavigationRequest(req)) {
+    event.respondWith(offlineFallback(req));
+    return;
+  }
+
   // 图标：cache-first
   if (isIconRequest(req)) {
     event.respondWith(cacheFirst(req, RUNTIME_CACHE));
@@ -134,5 +116,20 @@ async function networkFirst(req, cacheName) {
     const cached = await cache.match(req);
     if (cached) return cached;
     return new Response("", { status: 504 });
+  }
+}
+
+function isNavigationRequest(req) {
+  return req.mode === "navigate" || req.destination === "document";
+}
+
+async function offlineFallback(req) {
+  try {
+    return await fetch(req);
+  } catch (_) {
+    const cache = await caches.open(CORE_CACHE);
+    return (await cache.match("./index.html")) ||
+      (await cache.match("/index.html")) ||
+      new Response("", { status: 504 });
   }
 }

@@ -8,11 +8,17 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="themes/sakura.css" />
-  <link rel="stylesheet" href="themes/q-anime.css" />
-  <link rel="stylesheet" href="themes/dark-minimal.css" />
-  <link rel="stylesheet" href="themes/paper.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/settings.css" />
+  <link rel="stylesheet" href="css/ai.css" />
+  <link rel="stylesheet" href="css/calendar.css" />
+  <link rel="stylesheet" href="css/music.css" />
+  <link rel="stylesheet" href="css/weather.css" />
+  <link rel="stylesheet" href="css/cards.css" />
+  <link rel="stylesheet" href="css/themes/sakura.css" />
+  <link rel="stylesheet" href="css/themes/q-anime.css" />
+  <link rel="stylesheet" href="css/themes/dark-minimal.css" />
+  <link rel="stylesheet" href="css/themes/paper.css" />
 </head>
 <body class="pre-auth">
   <div id="bg-layer-a" class="bg-layer" aria-hidden="true"></div>
@@ -89,6 +95,7 @@
           </div>
         </div>
         <button class="chip" id="btn-import-json">导入 JSON</button>
+        <button class="chip" id="btn-link-check">检查链接</button>
         <div class="filter-wrap">
           <input id="filter-input" class="filter-input" placeholder="🔎 过滤已添加网址..." />
           <button id="filter-clear" class="filter-clear" hidden title="清除">✕</button>
@@ -206,6 +213,7 @@
           </div>
         </label>
         <label>描述备注 <input name="desc" maxlength="80" placeholder="可选，一句话介绍..." /></label>
+        <label>标签 <input name="tags" maxlength="120" placeholder="逗号或空格分隔，如 AI 工具 文档" /></label>
 
         <details class="sec bg-editor" data-target="link">
           <summary>🖼 卡片背景媒体</summary>
@@ -359,12 +367,29 @@
               <option value="q-anime">Q 版二次元</option>
               <option value="dark-minimal">暗夜极简</option>
               <option value="paper">复古纸质</option>
+              <option value="custom">自定义</option>
             </select>
           </label>
           <label class="row">品牌主色
             <input type="color" id="set-accent" />
             <button type="button" id="set-accent-reset" class="mini-btn">重置</button>
           </label>
+          <div class="settings-inline-pair">
+            <label class="row row-block">自定义主题名 <input type="text" id="custom-theme-label" maxlength="32" placeholder="我的主题" /></label>
+            <label class="row row-block">粒子特效
+              <select id="custom-theme-particles">
+                <option value="sakura">樱花</option>
+                <option value="candy-stars">星糖</option>
+                <option value="starlight">星光</option>
+                <option value="sycamore">梧桐叶</option>
+                <option value="none">关闭</option>
+              </select>
+            </label>
+          </div>
+          <div class="settings-btn-row">
+            <button type="button" class="btn-secondary" id="custom-theme-apply">保存为自定义主题</button>
+          </div>
+          <div id="custom-theme-summary" class="custom-theme-summary"></div>
           <label class="row">全局字号
             <select id="set-fontsize">
               <option value="small">小</option>
@@ -555,6 +580,12 @@
             <button type="button" class="btn-secondary" id="btn-storage-import-zip">📥 导入迁移</button>
             <input type="file" id="storage-import-zip-file" accept=".zip" hidden />
           </div>
+          <h4 class="settings-section-title">服务端快照</h4>
+          <div class="settings-btn-row settings-btn-row--equal">
+            <button type="button" class="btn-secondary" id="btn-snapshot-create">创建快照</button>
+            <button type="button" class="btn-secondary" id="btn-snapshot-refresh">刷新快照</button>
+          </div>
+          <div id="snapshot-list" class="snapshot-list"></div>
         </details>
 
         <!-- 同步 -->
@@ -628,6 +659,11 @@
             </form>
           </div>
           <p class="hint settings-sync-status" id="sync-status"></p>
+        </details>
+
+        <details class="sec">
+          <summary>🧩 扩展模块</summary>
+          <div id="feature-modules-list" class="feature-module-list"></div>
         </details>
       </div>
 
@@ -787,6 +823,7 @@
       <div class="ai-head-right">
         <select id="ai-model-select" title="模型"></select>
         <button class="icon-btn small" id="ai-refresh-models" title="刷新模型列表">↻</button>
+        <button class="icon-btn small" id="ai-open-gallery" title="AI 图片图库">🖼</button>
         <button class="icon-btn small" id="ai-clear" title="清空会话">🗑</button>
         <button class="icon-btn small" id="ai-open-settings" title="AI 设置">⚙</button>
         <button class="icon-btn small" id="ai-close" title="关闭面板（也可按 Esc）">✕</button>
@@ -799,11 +836,18 @@
         <p>让 AI 帮你整理导航页、分类书签、推荐网站。</p>
         <div class="ai-suggestions">
           <button data-ai-suggest="帮我整理一下当前导航页的结构，给出优化建议">优化结构</button>
-          <button data-ai-suggest="我想新建一个"AI 工具"分组，添加 ChatGPT、Claude、Gemini 三个网址">新建 AI 分组</button>
+          <button data-ai-suggest="我想新建一个&quot;AI 工具&quot;分组，添加 ChatGPT、Claude、Gemini 三个网址">新建 AI 分组</button>
           <button data-ai-suggest="读取我上传的书签列表并帮我归类">分析上传内容</button>
         </div>
       </div>
-    </div>
+      </div>
+    <section id="ai-gallery-panel" class="ai-gallery-panel" hidden>
+      <header>
+        <strong>AI 图片图库</strong>
+        <button type="button" class="icon-btn small" id="ai-gallery-close" title="关闭图库">✕</button>
+      </header>
+      <div id="ai-gallery-list" class="ai-gallery-list"></div>
+    </section>
     <footer class="ai-foot">
       <div id="ai-attach-preview" class="ai-attach-preview"></div>
       <div class="ai-input-row">
@@ -812,6 +856,7 @@
           <input type="file" id="ai-attach-input" multiple accept="image/*,text/*,.json,.html,.md,.csv,.txt" hidden />
         </label>
         <button class="ai-attach-btn voice-btn" id="ai-voice" type="button" title="语音输入（Web Speech API）" aria-label="语音输入">🎙</button>
+        <button class="ai-attach-btn ai-web-search-btn" id="ai-web-search" type="button" title="联网搜索" aria-label="联网搜索" aria-pressed="false">🌐</button>
         <textarea id="ai-input" rows="1" placeholder="输入消息..." aria-label="输入 AI 对话内容。Enter 发送，Shift+Enter 换行" title="Enter 发送，Shift+Enter 换行"></textarea>
         <button id="ai-send" class="btn-primary" title="发送">➤</button>
         <button id="ai-stop" class="btn-secondary" title="停止" hidden>■</button>
@@ -939,6 +984,7 @@
       <div class="cal-head-right">
         <div class="cal-view-switch">
           <button class="chip active" data-view="month">月</button>
+          <button class="chip" data-view="week">周</button>
           <button class="chip" data-view="list">列表</button>
           <button class="chip" data-view="stats">统计</button>
         </div>
@@ -957,6 +1003,11 @@
       <div id="cal-month-view" class="cal-month-view glass">
         <div class="cal-weekdays" id="cal-weekdays"></div>
         <div class="cal-grid" id="cal-grid"></div>
+      </div>
+
+      <!-- 周视图 -->
+      <div id="cal-week-view" class="cal-week-view glass" hidden>
+        <div id="cal-week-grid" class="cal-week-grid"></div>
       </div>
 
       <!-- 列表视图 -->
@@ -1126,24 +1177,48 @@
     </form>
   </dialog>
 
-  <script src="homepage-theme.js"></script>
-  <script src="homepage-layout.js"></script>
-  <script src="sakura.js"></script>
-  <script src="progress.js"></script>
-  <script src="bookmarks.js"></script>
-  <script src="auth.js"></script>
-  <script src="ai.js"></script>
-  <script src="blog.js"></script>
-  <script src="calendar.js"></script>
-  <script src="sync.js"></script>
-  <script src="sakura-remote.js"></script>
-  <script src="sakura-media.js"></script>
-  <script src="weather.js"></script>
-  <script src="suggest.js"></script>
-  <script src="exporter.js"></script>
-  <script src="idb.js"></script>
-  <script src="music.js"></script>
-  <script src="storage-inspector.js"></script>
-  <script src="app.js?v=v1.16.4"></script>
+  <script src="js/static-assets.js"></script>
+  <script src="js/render-utils.js"></script>
+  <script src="js/homepage-theme.js"></script>
+  <script src="js/theme-editor.js"></script>
+  <script src="js/homepage-layout.js"></script>
+  <script src="js/link-ui.js"></script>
+  <script src="js/nav-insights.js"></script>
+  <script src="js/smart-search.js"></script>
+  <script src="js/ai-ui.js"></script>
+  <script src="js/ai-gallery.js"></script>
+  <script src="js/calendar-ui.js"></script>
+  <script src="js/calendar-planner.js"></script>
+  <script src="js/background-ui.js"></script>
+  <script src="js/storage-adapter.js"></script>
+  <script src="js/sakura.js"></script>
+  <script src="js/progress.js"></script>
+  <script src="js/bookmarks.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/ai-image.js"></script>
+  <script src="js/ai-web-search.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/blog.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/sync-ui.js"></script>
+  <script src="js/sakura-remote.js"></script>
+  <script src="js/sakura-media.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/suggest.js"></script>
+  <script src="js/exporter.js"></script>
+  <script src="js/idb.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/storage-inspector.js"></script>
+  <script src="js/settings-ui.js"></script>
+  <script src="js/feature-registry.js"></script>
+  <script src="js/app-modules.js"></script>
+  <script src="js/media-cleanup.js"></script>
+  <script src="js/ai-actions.js"></script>
+  <script src="js/command-palette.js"></script>
+  <script src="js/data-versioning.js"></script>
+  <script src="js/lazy-init.js"></script>
+  <script src="js/a11y.js"></script>
+  <script src="js/app.js?v=v1.20.0"></script>
 </body>
 </html>

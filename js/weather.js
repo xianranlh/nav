@@ -25,6 +25,8 @@
   "use strict";
 
   const KEY = "sakura_nav_weather_v1";
+  const StorageAdapter = window.SakuraStorageAdapter?.adapter;
+  if (!StorageAdapter) throw new Error("Storage adapter is not loaded");
 
   const Weather = {
     data: {
@@ -37,9 +39,8 @@
     },
     load() {
       try {
-        const raw = localStorage.getItem(KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
+        const parsed = StorageAdapter.readJson(KEY);
+        if (!parsed) return;
         // 兼容旧版 { auto, lat, lon, city, cache, lastFetch }
         if (parsed && parsed.cities === undefined && (parsed.lat != null || parsed.city)) {
           const migrated = {
@@ -69,7 +70,7 @@
         if (!this.data.activeId) this.data.activeId = "auto";
       } catch (_) {}
     },
-    save() { localStorage.setItem(KEY, JSON.stringify(this.data)); },
+    save() { StorageAdapter.writeJson(KEY, this.data); },
   };
 
   // WMO weather codes → emoji + 中文

@@ -9,6 +9,8 @@
   "use strict";
 
   const META_KEY = "sakura_nav_music_v1";
+  const StorageAdapter = window.SakuraStorageAdapter?.adapter;
+  if (!StorageAdapter) throw new Error("Storage adapter is not loaded");
   const toast = (m, ms) => window.toast ? window.toast(m, ms) : console.log(m);
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -206,9 +208,8 @@
 
     load() {
       try {
-        const raw = localStorage.getItem(META_KEY);
-        if (!raw) return;
-        const o = JSON.parse(raw);
+        const o = StorageAdapter.readJson(META_KEY);
+        if (!o) return;
         Object.assign(this.data, o);
         delete this.data.currentSource;
         delete this.data.sourceFilter;
@@ -220,7 +221,7 @@
         }
       } catch (_) {}
     },
-    save() { localStorage.setItem(META_KEY, JSON.stringify(this.data)); },
+    save() { StorageAdapter.writeJson(META_KEY, this.data); },
 
     ensureAudio() {
       if (this.audio) return this.audio;

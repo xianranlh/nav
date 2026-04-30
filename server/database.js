@@ -5,6 +5,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { createHash, randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 
 const LEGACY_JSON = "sakura-state.json";
@@ -38,6 +39,14 @@ export function openDatabase(dataDir) {
       id INTEGER PRIMARY KEY CHECK (id = 1),
       payload TEXT NOT NULL,
       updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS data_snapshots (
+      id TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      checksum TEXT NOT NULL,
+      bytes INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
     );
   `);
 
@@ -99,6 +108,196 @@ export function setBundle(obj) {
   db.prepare(
     "INSERT OR REPLACE INTO app_data (id, payload, updated_at) VALUES (1, ?, ?)"
   ).run(raw, now);
+}
+
+function checksumPayload(raw) {
+  return createHash("sha256").update(String(raw || "")).digest("hex");
+}
+
+const SUMMARY_KEYS = Object.freeze([
+  "nav",
+  "settings",
+  "blog",
+  "calendar",
+  "ai",
+  "chat",
+  "music",
+  "weather",
+  "sync",
+  "authCred",
+  "schema",
+  "savedAt",
+]);
+
+function byteSize(value) {
+  try {
+    return Buffer.byteLength(JSON.stringify(value ?? null));
+  } catch (_) {
+    return String(value ?? "").length;
+  }
+}
+
+function countSummaryItems(key, value) {
+  if (value == null) return 0;
+  if (key === "nav") {
+    const groups = Array.isArray(value.groups) ? value.groups : [];
+    return groups.length + groups.reduce((sum, group) => sum + (Array.isArray(group.links) ? group.links.length : 0), 0);
+  }
+  if (key === "calendar") return (value.tasks || value.events || []).length;
+  if (key === "blog") return (value.posts || []).length;
+  if (key === "chat") return Array.isArray(value) ? value.length : 0;
+  if (key === "music") return (value.tracks || []).length;
+  if (key === "weather") return (value.cities || []).length;
+  if (key === "ai") return (value.providers || []).length + (value.personas || []).length;
+  if (Array.isArray(value)) return value.length;
+  if (typeof value === "object") return Object.keys(value).length;
+  return value ? 1 : 0;
+}
+
+export function summarizeDataBundle(bundle) {
+  const source = bundle && typeof bundle === "object" ? bundle : {};
+  const keys = [...new Set([...SUMMARY_KEYS, ...Object.keys(source)])];
+  const categories = {};
+  for (const key of keys) {
+    const value = source[key];
+    categories[key] = {
+      key,
+      exists: Object.prototype.hasOwnProperty.call(source, key),
+      bytes: value == null ? 0 : byteSize(value),
+      items: countSummaryItems(key, value),
+    };
+  }
+  return {
+    schema: "sakura-bundle-summary@1",
+    totalBytes: byteSize(source),
+    categories,
+  };
+}
+
+function diffSummaries(before, after) {
+  const beforeCategories = before?.categories || {};
+  const afterCategories = after?.categories || {};
+  const keys = [...new Set([...Object.keys(beforeCategories), ...Object.keys(afterCategories)])];
+  const categories = {};
+  for (const key of keys) {
+    const a = beforeCategories[key] || { exists: false, bytes: 0, items: 0 };
+    const b = afterCategories[key] || { exists: false, bytes: 0, items: 0 };
+    categories[key] = {
+      key,
+      before: a,
+      after: b,
+      changed: a.exists !== b.exists || a.bytes !== b.bytes || a.items !== b.items,
+      delta: {
+        bytes: (b.bytes || 0) - (a.bytes || 0),
+        items: (b.items || 0) - (a.items || 0),
+      },
+    };
+  }
+  return {
+    schema: "sakura-bundle-diff@1",
+    totalDeltaBytes: (after?.totalBytes || 0) - (before?.totalBytes || 0),
+    categories,
+  };
+}
+
+function getSnapshotRow(id) {
+  return db.prepare("SELECT id, label, payload, checksum, bytes, created_at AS createdAt FROM data_snapshots WHERE id = ?").get(id);
+}
+
+function parseVerifiedSnapshotPayload(row) {
+  if (!row) return null;
+  const checksum = checksumPayload(row.payload);
+  if (checksum !== row.checksum) {
+    throw new Error("快照校验失败，已阻止读取");
+  }
+  return JSON.parse(row.payload);
+}
+
+function snapshotMeta(row) {
+  return {
+    id: row.id,
+    label: row.label,
+    checksum: row.checksum,
+    bytes: row.bytes,
+    createdAt: row.createdAt,
+  };
+}
+
+export function listDataSnapshots(limit = 20) {
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+  return db.prepare(
+    `SELECT id, label, checksum, bytes, created_at AS createdAt
+     FROM data_snapshots
+     ORDER BY created_at DESC
+     LIMIT ?`
+  ).all(safeLimit);
+}
+
+export function createDataSnapshot(label = "手动快照") {
+  const bundle = getBundle();
+  if (!bundle) throw new Error("尚无可快照的数据");
+  const raw = JSON.stringify(bundle);
+  const snapshot = {
+    id: randomUUID(),
+    label: String(label || "手动快照").trim().slice(0, 80) || "手动快照",
+    checksum: checksumPayload(raw),
+    bytes: Buffer.byteLength(raw),
+    createdAt: Date.now(),
+  };
+  db.prepare(
+    `INSERT INTO data_snapshots (id, label, payload, checksum, bytes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(snapshot.id, snapshot.label, raw, snapshot.checksum, snapshot.bytes, snapshot.createdAt);
+  return snapshot;
+}
+
+export function restoreDataSnapshot(id) {
+  const row = getSnapshotRow(id);
+  if (!row) return null;
+  setBundle(parseVerifiedSnapshotPayload(row));
+  return snapshotMeta(row);
+}
+
+export function compareDataSnapshot(id) {
+  const row = getSnapshotRow(id);
+  if (!row) return null;
+  const snapshotBundle = parseVerifiedSnapshotPayload(row);
+  const currentBundle = getBundle() || {};
+  const current = summarizeDataBundle(currentBundle);
+  const snapshot = summarizeDataBundle(snapshotBundle);
+  return {
+    snapshot: snapshotMeta(row),
+    current,
+    snapshotSummary: snapshot,
+    diff: diffSummaries(current, snapshot),
+  };
+}
+
+export function restoreDataSnapshotCategory(id, category) {
+  const row = getSnapshotRow(id);
+  if (!row) return null;
+  const key = String(category || "").trim();
+  if (!key || key === "schema" || key === "savedAt") {
+    throw new Error("该分类不支持局部恢复");
+  }
+  const snapshotBundle = parseVerifiedSnapshotPayload(row);
+  if (!Object.prototype.hasOwnProperty.call(snapshotBundle, key)) {
+    throw new Error("快照中不存在该分类");
+  }
+  const currentBundle = getBundle() || {};
+  currentBundle[key] = snapshotBundle[key];
+  currentBundle.savedAt = Date.now();
+  setBundle(currentBundle);
+  return {
+    snapshot: snapshotMeta(row),
+    category: key,
+    summary: summarizeDataBundle(currentBundle).categories[key],
+  };
+}
+
+export function deleteDataSnapshot(id) {
+  const result = db.prepare("DELETE FROM data_snapshots WHERE id = ?").run(id);
+  return result.changes > 0;
 }
 
 export function recordMediaFile({ filename, category, bytes }) {

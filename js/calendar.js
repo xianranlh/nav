@@ -14,6 +14,8 @@
 
   const KEY = "sakura_nav_calendar_v1";
   const DAY = 86400 * 1000;
+  const StorageAdapter = window.SakuraStorageAdapter?.adapter;
+  if (!StorageAdapter) throw new Error("Storage adapter is not loaded");
 
   const Cal = {
     data: {
@@ -23,15 +25,15 @@
 
     load() {
       try {
-        const raw = localStorage.getItem(KEY);
-        if (raw) Object.assign(this.data, JSON.parse(raw));
+        const data = StorageAdapter.readJson(KEY);
+        if (data) Object.assign(this.data, data);
       } catch (_) {}
       if (!Array.isArray(this.data.tasks)) this.data.tasks = [];
       if (!this.data.settings) this.data.settings = { firstDayOfWeek: 1, notify: false };
       this.seedIfEmpty();
     },
 
-    save() { localStorage.setItem(KEY, JSON.stringify(this.data)); },
+    save() { StorageAdapter.writeJson(KEY, this.data); },
 
     seedIfEmpty() {
       if (this.data.tasks.length) return;

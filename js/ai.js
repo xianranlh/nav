@@ -18,6 +18,12 @@
 
   const AI_KEY = "sakura_nav_ai_v1";
   const CHAT_KEY = "sakura_nav_chat_v1";
+  const StorageAdapter = window.SakuraStorageAdapter?.adapter;
+  const AIImage = window.HomepageAIImage;
+  const AIWebSearch = window.HomepageAIWebSearch;
+  if (!StorageAdapter) throw new Error("Storage adapter is not loaded");
+  if (!AIImage) throw new Error("AI image helper is not loaded");
+  if (!AIWebSearch) throw new Error("AI web search helper is not loaded");
 
   // 内置人设预设
   const DEFAULT_PERSONAS = [
@@ -74,20 +80,21 @@
       currentPersonaId: "nav",
       customSignature: "",  // 例：TG: @xxx / 邮箱：xxx
       autoApply: false,     // 收到指令块时自动执行（默认需确认）
+      webSearchEnabled: false,
     },
     messages: [],           // [{ role, content, ts, attachments?: [{type,name,url/data}] }]
     serverMode: false,
     _pushTimer: null,
 
-    // 从 sakura-remote 的 localStorage shim 同步读取；再异步尝试从独立 AI 设置表覆盖
+    // 从统一业务存储读取；再异步尝试从独立 AI 设置表覆盖
     async load() {
       try {
-        const raw = localStorage.getItem(AI_KEY);
-        if (raw) Object.assign(this.data, JSON.parse(raw));
+        const saved = StorageAdapter.readJson(AI_KEY);
+        if (saved) Object.assign(this.data, saved);
       } catch (_) {}
       try {
-        const raw = localStorage.getItem(CHAT_KEY);
-        if (raw) this.messages = JSON.parse(raw);
+        const savedMessages = StorageAdapter.readJson(CHAT_KEY);
+        if (Array.isArray(savedMessages)) this.messages = savedMessages;
       } catch (_) {}
       if (!Array.isArray(this.data.personas) || !this.data.personas.length) {
         this.data.personas = DEFAULT_PERSONAS.slice();
@@ -112,8 +119,8 @@
             this.data.personas = DEFAULT_PERSONAS.slice();
           }
         }
-        // 进入服务端模式后，清掉浏览器 localStorage 的冗余副本
-        try { localStorage.removeItem(AI_KEY); } catch (_) {}
+        // 进入独立服务端 AI 设置模式后，清掉通用业务存储中的冗余设置副本
+        try { StorageAdapter.remove(AI_KEY); } catch (_) {}
       } catch (_) {}
     },
 
@@ -121,7 +128,7 @@
       if (this.serverMode) {
         this._schedulePush();
       } else {
-        try { localStorage.setItem(AI_KEY, JSON.stringify(this.data)); } catch (_) {}
+        try { StorageAdapter.writeJson(AI_KEY, this.data); } catch (_) {}
       }
     },
 
@@ -143,7 +150,7 @@
       } catch (_) {}
     },
 
-    saveMessages() { localStorage.setItem(CHAT_KEY, JSON.stringify(this.messages.slice(-200))); },
+    saveMessages() { StorageAdapter.writeJson(CHAT_KEY, this.messages.slice(-200)); },
 
     currentProvider() { return this.data.providers.find((p) => p.id === this.data.currentProviderId); },
     currentPersona() {
@@ -174,30 +181,21 @@
     return arr;
   }
 
-  /** 发送聊天（支持流式）*/
-  async function chat({ provider, model, messages, signal, onDelta, temperature }) {
-    const base = normalizeBase(provider.baseUrl);
-    const body = {
-      model,
-      messages,
-      stream: true,
-      temperature: temperature ?? 0.7,
-    };
-    const r = await fetch(base + "/chat/completions", {
-      method: "POST",
-      signal,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + (provider.apiKey || ""),
-      },
-      body: JSON.stringify(body),
-    });
-    if (!r.ok) {
-      const txt = await r.text().catch(() => "");
-      throw new Error("HTTP " + r.status + "：" + txt.slice(0, 300));
-    }
+  function isImageGenerationModel(model) {
+    return AIImage.isImageGenerationModel(model);
+  }
 
-    const reader = r.body.getReader();
+  async function readJsonOrText(response) {
+    const text = await response.text().catch(() => "");
+    try {
+      return { text, json: text ? JSON.parse(text) : null };
+    } catch (_) {
+      return { text, json: null };
+    }
+  }
+
+  async function readSseResponse(response, onDelta) {
+    const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let buf = "";
     let content = "";
@@ -212,7 +210,7 @@
         if (!line) continue;
         if (!line.startsWith("data:")) continue;
         const payload = line.slice(5).trim();
-        if (payload === "[DONE]") { return content; }
+        if (payload === "[DONE]") return content;
         try {
           const j = JSON.parse(payload);
           const delta = j.choices?.[0]?.delta?.content || j.choices?.[0]?.message?.content || "";
@@ -224,6 +222,66 @@
       }
     }
     return content;
+  }
+
+  async function chatViaServer({ provider, model, messages, signal, onDelta, temperature, webSearch = false }) {
+    const r = await fetch("/api/ai/chat", {
+      method: "POST",
+      signal,
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        providerId: provider.id,
+        model,
+        messages,
+        temperature,
+        webSearch,
+      }),
+    });
+    if (!r.ok) {
+      const { text, json } = await readJsonOrText(r);
+      const msg = json?.error || (json ? JSON.stringify(json) : text);
+      throw new Error("HTTP " + r.status + "：" + String(msg || "").slice(0, 300));
+    }
+    const contentType = (r.headers.get("content-type") || "").toLowerCase();
+    if (contentType.includes("application/json")) {
+      const data = await r.json();
+      const content = String(data.content || "");
+      if (content) onDelta?.(content, content);
+      return content;
+    }
+    return readSseResponse(r, onDelta);
+  }
+
+  async function generateImage({ provider, model, prompt, signal, size }) {
+    const body = AIImage.buildImageGenerationBody({ model, prompt, size });
+    if (!body.prompt) throw new Error("请先输入图片描述");
+    return chatViaServer({
+      provider,
+      model,
+      messages: [{ role: "user", content: body.prompt }],
+      signal,
+    });
+  }
+
+  async function chatWithWebSearch({ provider, model, messages, signal, onDelta }) {
+    return chatViaServer({ provider, model, messages, signal, onDelta, webSearch: true });
+  }
+
+  /** 发送聊天（支持流式）*/
+  async function chat({ provider, model, messages, signal, onDelta, temperature, webSearch = false }) {
+    if (isImageGenerationModel(model)) {
+      const prompt = AIImage.extractPromptFromMessages(messages);
+      const content = await generateImage({ provider, model, prompt, signal });
+      onDelta?.(content, content);
+      return content;
+    }
+    if (webSearch) {
+      return chatWithWebSearch({ provider, model, messages, signal, onDelta });
+    }
+    return chatViaServer({ provider, model, messages, signal, onDelta, temperature });
   }
 
   // ===================== 消息构造 =====================
@@ -477,6 +535,12 @@
   // ===================== Markdown 渲染 + 媒体检测 =====================
   const ESC_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
   const esc = (s) => String(s || "").replace(/[&<>"']/g, (c) => ESC_MAP[c]);
+  function safeInlineImageUrl(url) {
+    const value = String(url || "").trim();
+    if (/^https?:\/\//i.test(value)) return esc(value);
+    if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(value)) return esc(value);
+    return "";
+  }
 
   function renderMarkdown(src) {
     if (!src) return "";
@@ -506,8 +570,10 @@
       .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>");
 
     // 5. 图片 ![alt](url) —— 放在链接之前
-    s = s.replace(/!\[([^\]]*)\]\((https?:[^\s)]+)\)/g, (_, t, u) =>
-      `<img class="ai-inline-img" alt="${t}" src="${u}" loading="lazy" />`);
+    s = s.replace(/!\[([^\]]*)\]\(((?:https?:|data:image\/)[^\s)]+)\)/g, (_, t, u) => {
+      const safeUrl = safeInlineImageUrl(u);
+      return safeUrl ? `<img class="ai-inline-img" alt="${t}" src="${safeUrl}" loading="lazy" />` : "";
+    });
     // 6. 链接 [text](url)
     s = s.replace(/\[([^\]]+)\]\(((?:https?|mailto):[^\s)]+)\)/g, (_, t, u) =>
       `<a href="${u}" target="_blank" rel="noopener">${t}</a>`);
@@ -590,6 +656,8 @@
     DEFAULT_PERSONAS,
     fetchModels,
     chat,
+    generateImage,
+    isImageGenerationModel,
     buildMessages,
     parseActions,
     applyActions,

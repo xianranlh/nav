@@ -2,7 +2,9 @@
   "name": "sakura-nav",
   "private": true,
   "scripts": {
+    "check": "node scripts/check-js.js",
     "test": "node --test tests/*.test.js",
+    "smoke:browser": "node scripts/smoke-browser.js",
     "start": "node server/index.js",
     "dev": "node server/index.js --static",
     "install:server": "npm install --prefix server",

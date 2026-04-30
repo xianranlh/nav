@@ -5,6 +5,8 @@
 (function () {
   "use strict";
   const BLOG_KEY = "sakura_nav_blog_v1";
+  const StorageAdapter = window.SakuraStorageAdapter?.adapter;
+  if (!StorageAdapter) throw new Error("Storage adapter is not loaded");
 
   const Blog = {
     data: {
@@ -14,14 +16,14 @@
 
     load() {
       try {
-        const raw = localStorage.getItem(BLOG_KEY);
-        if (raw) Object.assign(this.data, JSON.parse(raw));
+        const data = StorageAdapter.readJson(BLOG_KEY);
+        if (data) Object.assign(this.data, data);
       } catch (_) {}
       if (!Array.isArray(this.data.posts)) this.data.posts = [];
       if (!this.data.posts.length) this.seed();
     },
 
-    save() { localStorage.setItem(BLOG_KEY, JSON.stringify(this.data)); },
+    save() { StorageAdapter.writeJson(BLOG_KEY, this.data); },
 
     seed() {
       this.data.posts = [
@@ -30,7 +32,7 @@
           title: "欢迎使用樱 · 博客",
           content:
             "# 欢迎 🌸\n\n这是内置的示例博客。你可以在 **后台管理** 里编辑、删除、或发布新文章。\n\n" +
-            "## 功能\n\n- 完全本地存储，无需服务器\n- 支持 Markdown（标题、列表、代码、链接、图片）\n- 标签筛选、搜索、封面图\n- AI 可以帮你写草稿\n\n" +
+            "## 功能\n\n- 通过服务端存储持久化\n- 支持 Markdown（标题、列表、代码、链接、图片）\n- 标签筛选、搜索、封面图\n- AI 可以帮你写草稿\n\n" +
             "## 小技巧\n\n1. 点击右下角 🤖 打开 AI，让它帮你写一篇文章，然后把内容粘贴进编辑器\n" +
             "2. 支持拖拽图片自动转 Markdown\n\n```js\nconsole.log('Hello from 樱');\n```",
           tags: ["公告", "欢迎"],

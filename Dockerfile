@@ -16,10 +16,9 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 COPY server/index.js server/database.js ./
 
-COPY index.html styles.css manifest.json sw.js /usr/share/nginx/html/
-COPY sakura.js progress.js bookmarks.js auth.js ai.js blog.js calendar.js sync.js sakura-remote.js sakura-media.js \
-     weather.js suggest.js exporter.js idb.js music.js storage-inspector.js homepage-theme.js homepage-layout.js app.js /usr/share/nginx/html/
-COPY themes/ /usr/share/nginx/html/themes/
+COPY index.html manifest.json sw.js /usr/share/nginx/html/
+COPY css/ /usr/share/nginx/html/css/
+COPY js/ /usr/share/nginx/html/js/
 
 COPY nginx.conf.template /docker/nginx.conf.template
 COPY docker-entrypoint.sh /docker/docker-entrypoint.sh
