@@ -1,4 +1,4 @@
-/* 樱 · AI 助手模块  (build: v1.18.4 · 2026-05-08 · 524-friendly)
+/* 樱 · AI 助手模块  (build: v1.18.5 · 2026-05-08 · 524-friendly)
  * 兼容 OpenAI Chat Completions 协议：
  *   POST  {baseUrl}/chat/completions   (流式 stream: true)
  *   GET   {baseUrl}/models              (列出模型)
@@ -17,7 +17,7 @@
   "use strict";
 
   // —— 启动标记：刷新后在 DevTools Console 应该能看到这一行；看不到说明浏览器还在跑旧版本 ai.js
-  try { console.log("%c[sakura-nav][ai.js] build v1.18.4 · 2026-05-08 · UI 视觉统一 + 4K 超时上调到 480s", "color:#d6336c;font-weight:bold"); } catch (_) {}
+  try { console.log("%c[sakura-nav][ai.js] build v1.18.5 · 2026-05-08 · UI 视觉统一 + 4K 超时上调到 480s", "color:#d6336c;font-weight:bold"); } catch (_) {}
 
   const AI_KEY = "sakura_nav_ai_v1";
   const CHAT_KEY = "sakura_nav_chat_v1";

@@ -757,6 +757,21 @@ body[data-edit="1"] .card .del {
   gap: 18px;
   scrollbar-width: thin;
   scrollbar-color: rgba(var(--accent-rgb), 0.2) transparent;
+  /* 关键：作为 flex 子元素必须 flex: 1 + min-height: 0 才能正确收缩 + 触发 overflow-y 滚动；
+     默认 flex: 0 1 auto 会按内容高度撑开，超出时被父级 form 的 overflow:hidden 截断（之前
+     "添加网址 → 卡片背景媒体" 展开后下半段被遮的根因）。 */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dialog-actions { flex: 0 0 auto; }
+.dialog-header { flex: 0 0 auto; }
+/* 弹窗里的 <details class="sec">（折叠节）必须 flex-shrink:0，否则 flex 会强行压缩它，
+   配合 `.sec { overflow: hidden }` 把展开后的内容裁掉。同时让 details 自身 overflow 可见，
+   依赖外层 .dialog-body 的滚动条。 */
+.dialog-body > details.sec,
+.dialog-body > .sec {
+  flex-shrink: 0;
+  overflow: visible;
 }
 .dialog-body::-webkit-scrollbar { width: 5px; }
 .dialog-body::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb), 0.2); border-radius: 10px; }
