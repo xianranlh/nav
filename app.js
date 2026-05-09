@@ -2544,6 +2544,44 @@
   // 其中账号 form 会在 bindSettings() 里接管 submit；这里只兜底其它 form 的 submit 默认行为。
   // 同步区块已拆分为多个单动作 form；无需全局兜底 submit。
 
+  // ===================== 离线状态提示横幅 =====================
+  (function bindOfflineBanner() {
+    const banner = $("#offline-banner");
+    if (!banner) return;
+    let dismissed = false; // 用户主动关闭过这次会话不再弹
+    function show() {
+      if (dismissed) return;
+      banner.hidden = false;
+      // 延迟一帧让 transform 动画生效
+      requestAnimationFrame(() => banner.classList.add("is-visible"));
+    }
+    function hide() {
+      banner.classList.remove("is-visible");
+      // 等动画完
+      setTimeout(() => { banner.hidden = true; }, 320);
+    }
+    function refresh() {
+      if (navigator.onLine === false) show();
+      else hide();
+    }
+    window.addEventListener("offline", show);
+    window.addEventListener("online", () => {
+      hide();
+      // 网络恢复时让 sakura-remote 重新尝试一次（如果它处于待发送状态）
+      if (window.SakuraRemote && typeof SakuraRemote.pushNow === "function" && SakuraRemote.isRemote && SakuraRemote.isRemote()) {
+        SakuraRemote.pushNow().then(() => {
+          if (window.toast) window.toast("网络已恢复，已立即同步本地改动");
+        }).catch(() => {});
+      }
+    });
+    $("#offline-banner-close")?.addEventListener("click", () => {
+      dismissed = true;
+      hide();
+    });
+    // 启动时检查一次
+    refresh();
+  })();
+
   // ===================== 键盘快捷键 =====================
   document.addEventListener("keydown", (e) => {
     const tag = document.activeElement?.tagName;
@@ -2558,8 +2596,30 @@
     } else if (!inInput && e.key.toLowerCase() === "e") {
       document.body.dataset.edit = document.body.dataset.edit === "1" ? "0" : "1";
       toast("编辑模式 " + (document.body.dataset.edit === "1" ? "已开启" : "已关闭"));
+    } else if (!inInput && e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Shift+/ 在大多数键盘上 = "?"；这里只在非输入态下触发，不会抢用户输入
+      e.preventDefault();
+      openShortcutsDialog();
     } else if (e.key === "Escape") {
       hideCtxMenu();
+    }
+  });
+
+  function openShortcutsDialog() {
+    const dlg = $("#dialog-shortcuts");
+    if (!dlg) return;
+    if (typeof dlg.showModal === "function") {
+      if (!dlg.open) dlg.showModal();
+    } else {
+      dlg.setAttribute("open", "");
+    }
+  }
+  // 暴露给底部 hint 点击使用
+  $("#footer-hotkey-hint")?.addEventListener("click", openShortcutsDialog);
+  $("#footer-hotkey-hint")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openShortcutsDialog();
     }
   });
 
@@ -3113,6 +3173,96 @@
       AI.AIStore.saveMessages();
       renderMessages();
     });
+
+    // 导出当前对话为 Markdown
+    $("#ai-export")?.addEventListener("click", () => {
+      const msgs = (AI.AIStore && Array.isArray(AI.AIStore.messages)) ? AI.AIStore.messages : [];
+      if (!msgs.length) { toast("当前对话为空，无可导出"); return; }
+      try {
+        const md = aiMessagesToMarkdown(msgs);
+        const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const ts = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const fname = `ai-chat-${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}.md`;
+        a.href = url;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        toast("已导出 " + fname);
+      } catch (e) {
+        console.error("[ai-export]", e);
+        toast("导出失败：" + (e?.message || e));
+      }
+    });
+
+    function aiMessagesToMarkdown(messages) {
+      const lines = [];
+      const title = (window.Store?.data?.siteTitle || document.title || "AI 对话");
+      lines.push(`# ${title} · AI 对话记录`);
+      lines.push("");
+      lines.push(`> 导出时间：${new Date().toLocaleString()}`);
+      const cur = AI.AIStore?.data;
+      if (cur?.currentProviderId) {
+        const p = (cur.providers || []).find((x) => x.id === cur.currentProviderId);
+        if (p) lines.push(`> 当前供应商：${p.name || p.id} · 模型：${cur.currentModel || p.defaultModel || "—"}`);
+      }
+      lines.push("");
+      lines.push("---");
+      lines.push("");
+      for (const m of messages) {
+        const roleLabel = m.role === "user" ? "🧑 用户" : (m.role === "assistant" ? "🤖 助手" : (m.role === "system" ? "⚙ 系统" : m.role));
+        lines.push(`## ${roleLabel}`);
+        lines.push("");
+        // 生图卡片（结构化数据）
+        if (Array.isArray(m.imageResults) && m.imageResults.length) {
+          const meta = m.imageMeta || {};
+          if (meta.prompt) {
+            lines.push(`**提示词：** ${meta.prompt}`);
+          }
+          const pills = [];
+          if (meta.model) pills.push(`模型 \`${meta.model}\``);
+          if (meta.size) pills.push(`尺寸 ${meta.size}`);
+          if (meta.quality) pills.push(`质量 ${meta.quality}`);
+          if (meta.count) pills.push(`数量 ${meta.count}`);
+          if (pills.length) lines.push(`*${pills.join(" · ")}*`);
+          lines.push("");
+          m.imageResults.forEach((r, i) => {
+            if (r.status === "done" && r.url) {
+              lines.push(`![image-${i+1}](${r.url})`);
+            } else if (r.status === "error") {
+              lines.push(`> ❌ 第 ${i+1} 张生成失败：${r.error || "未知错误"}`);
+            } else {
+              lines.push(`> ⏳ 第 ${i+1} 张生成中…`);
+            }
+          });
+          lines.push("");
+          continue;
+        }
+        // 普通消息：content 可能是字符串或 {text, images}
+        let text = "";
+        if (typeof m.content === "string") text = m.content;
+        else if (m.content && typeof m.content === "object") text = m.content.text || "";
+        text = text || "";
+        if (text) {
+          lines.push(text);
+        } else {
+          lines.push("*(无内容)*");
+        }
+        // 用户附件图片
+        if (m.content && Array.isArray(m.content.images) && m.content.images.length) {
+          lines.push("");
+          for (const img of m.content.images) {
+            if (typeof img === "string") lines.push(`![attachment](${img})`);
+          }
+        }
+        lines.push("");
+      }
+      return lines.join("\n");
+    }
     $("#ai-close").addEventListener("click", close);
     // Esc 关闭面板；若当前有 <dialog open>（含 AI 设置）则交给弹窗，不抢 Esc
     document.addEventListener("keydown", (e) => {

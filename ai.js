@@ -1,4 +1,4 @@
-/* 樱 · AI 助手模块  (build: v1.18.5 · 2026-05-08 · 524-friendly)
+/* 樱 · AI 助手模块  (build: v1.18.6 · 2026-05-09 · sync 重试 + 快捷键帮助)
  * 兼容 OpenAI Chat Completions 协议：
  *   POST  {baseUrl}/chat/completions   (流式 stream: true)
  *   GET   {baseUrl}/models              (列出模型)
@@ -17,7 +17,7 @@
   "use strict";
 
   // —— 启动标记：刷新后在 DevTools Console 应该能看到这一行；看不到说明浏览器还在跑旧版本 ai.js
-  try { console.log("%c[sakura-nav][ai.js] build v1.18.5 · 2026-05-08 · UI 视觉统一 + 4K 超时上调到 480s", "color:#d6336c;font-weight:bold"); } catch (_) {}
+  try { console.log("%c[sakura-nav][ai.js] build v1.18.6 · 2026-05-09 · 数据同步重试 + 快捷键帮助 + 离线提示", "color:#d6336c;font-weight:bold"); } catch (_) {}
 
   const AI_KEY = "sakura_nav_ai_v1";
   const CHAT_KEY = "sakura_nav_chat_v1";
@@ -336,6 +336,46 @@
     }
     return { kind: "unknown" };
   }
+
+  /** 定期清理过期的 cooldown 台账与 probeStatus。
+   *  cooldownLedger：value < now 的键立刻删；
+   *  probeStatus：成功记录 30 min 后过期，失败记录 5 min 后过期，与 getModelStatus 保持一致；
+   *  upstreamMap：如果 ui key 已不在台账（既没冷却也没探测记录），相应映射也清。
+   *  返回 {ledger, status, upstream} 三个清理计数，便于调试。 */
+  function pruneStaleStatus() {
+    const ledger = window.AI?.cooldownLedger;
+    const status = window.AI?.probeStatus;
+    const upstreamMap = window.AI?.upstreamMap;
+    if (!ledger || !status || !upstreamMap) return { ledger: 0, status: 0, upstream: 0 };
+    const now = Date.now();
+    let lc = 0, sc = 0, uc = 0;
+    for (const k of Object.keys(ledger)) {
+      if ((ledger[k] || 0) <= now) { delete ledger[k]; lc++; }
+    }
+    for (const k of Object.keys(status)) {
+      const rec = status[k];
+      if (!rec || typeof rec.ts !== "number") { delete status[k]; sc++; continue; }
+      const age = now - rec.ts;
+      const ttl = rec.kind === "error" ? 5 * 60 * 1000 : 30 * 60 * 1000;
+      if (age >= ttl) { delete status[k]; sc++; }
+    }
+    for (const k of Object.keys(upstreamMap)) {
+      const up = upstreamMap[k];
+      const stillCold = up && (ledger[up] || 0) > now;
+      const stillKnown = !!status[k];
+      if (!stillCold && !stillKnown) { delete upstreamMap[k]; uc++; }
+    }
+    if (lc + sc + uc > 0) {
+      try { console.debug("[ai.js] pruned stale status: ledger=" + lc + " status=" + sc + " upstream=" + uc); } catch (_) {}
+    }
+    return { ledger: lc, status: sc, upstream: uc };
+  }
+
+  // 每 5 分钟自动清理一次；页面回到前台也立刻跑一次（避免长时间挂后台一回来全是过期键）
+  setInterval(pruneStaleStatus, 5 * 60 * 1000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") pruneStaleStatus();
+  });
 
   /** 给定一组 UI 模型，剔除已知冷却的，未冷却在前、冷却的兜底排后。 */
   function rankModels(provider, models) {
@@ -1369,6 +1409,7 @@
     recordProbeOk,
     recordProbeError,
     getModelStatus,
+    pruneStaleStatus,
     rankModels,
     probeModel,
     findAvailableModel,

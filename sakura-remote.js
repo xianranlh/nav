@@ -69,31 +69,75 @@
     return count;
   }
 
-  async function putCurrentBundle() {
+  /** 给 fetch 加超时，避免极慢网络让 PUT 永远 hang。 */
+  function fetchWithTimeout(url, opts, timeoutMs) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  }
+
+  async function putCurrentBundleOnce() {
     if (!window.SyncUtils || typeof SyncUtils.collect !== "function") {
       throw new Error("同步模块尚未加载，无法写入服务端");
     }
     const body = JSON.stringify(SyncUtils.collect(false));
-    const r = await fetch("/api/data", {
+    const r = await fetchWithTimeout("/api/data", {
       method: "PUT",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body,
-    });
-    if (!r.ok) throw new Error("上传失败 HTTP " + r.status);
-    pending = false;
+    }, 15_000);
+    if (!r.ok) {
+      const err = new Error("上传失败 HTTP " + r.status);
+      err.status = r.status;
+      throw err;
+    }
     return r;
   }
 
+  /** 网络瞬断 / 服务端刚重启时不立刻丢失数据。指数退避（1s → 3s → 7s）三次重试，
+   *  4xx（除 408/429）这种"客户端错"立刻放弃；5xx 和 fetch 失败都重试。 */
+  async function putCurrentBundle(maxRetry = 3) {
+    let lastErr;
+    for (let i = 0; i <= maxRetry; i++) {
+      if (i > 0) {
+        const delay = i === 1 ? 1000 : i === 2 ? 3000 : 7000;
+        await new Promise((r) => setTimeout(r, delay));
+      }
+      try {
+        const r = await putCurrentBundleOnce();
+        pending = false;
+        return r;
+      } catch (e) {
+        lastErr = e;
+        const s = +e?.status || 0;
+        // 业务错（4xx 但非超时/限流）不要傻乎乎重试
+        if (s >= 400 && s < 500 && s !== 408 && s !== 429) break;
+      }
+    }
+    pending = true;
+    throw lastErr;
+  }
+
+  let consecutivePutFailures = 0;
   function schedulePush() {
     if (!remoteActive || !window.SyncUtils || typeof SyncUtils.collect !== "function") return;
     pending = true;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(() => {
       pushTimer = null;
-      putCurrentBundle().catch((e) => {
-        pending = true;
-        console.warn("[sakura-remote] PUT failed", e);
+      putCurrentBundle().then(() => {
+        if (consecutivePutFailures > 0) {
+          consecutivePutFailures = 0;
+          if (window.toast) window.toast("已重新连接到服务端，数据同步恢复正常");
+        }
+      }).catch((e) => {
+        consecutivePutFailures += 1;
+        // 第一次失败不打扰；连续 ≥3 次才提示用户
+        if (consecutivePutFailures >= 3 && window.toast) {
+          window.toast("数据同步连续失败，可能网络异常或服务端不可达。改动暂存内存，恢复后会自动重传。", 5000);
+        }
+        console.warn("[sakura-remote] PUT failed (retry " + consecutivePutFailures + "x):", e?.message || e);
       });
     }, 1000);
   }

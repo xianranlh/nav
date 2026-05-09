@@ -5484,3 +5484,139 @@ html[data-hero-mode="hidden"] .header-bar .clock {
   border-radius: 8px;
   text-align: center;
 }
+
+/* ===================================================================
+ * v1.18.6 快捷键速查弹窗 + 离线提示横幅
+ * ===================================================================*/
+#footer-hotkey-hint {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+#footer-hotkey-hint:hover {
+  background: rgba(var(--accent-rgb), 0.10);
+  border-color: rgba(var(--accent-rgb), 0.30);
+  transform: translateY(-1px);
+}
+#footer-hotkey-hint:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.shortcuts-dialog form {
+  width: min(560px, 92vw);
+  max-height: 85vh;
+}
+.shortcuts-dialog .dialog-body {
+  padding: 18px 22px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.shortcut-section {
+  border-radius: 12px;
+  padding: 12px 14px 10px;
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-rgb), 0.14);
+}
+[data-theme="dark"] .shortcut-section {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.08);
+}
+.shortcut-section h4 {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 2fr;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 2px;
+  border-bottom: 1px dashed rgba(var(--accent-rgb), 0.10);
+  font-size: 13px;
+}
+.shortcut-row:last-child { border-bottom: none; }
+.shortcut-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  color: var(--text);
+  font-size: 12px;
+}
+.shortcut-desc {
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+.shortcuts-dialog kbd {
+  padding: 2px 7px;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(0,0,0,0.10);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--text);
+}
+[data-theme="dark"] .shortcuts-dialog kbd {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.18);
+}
+.shortcut-foot-tip {
+  margin: 4px 4px 4px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  line-height: 1.6;
+}
+.shortcut-foot-tip kbd {
+  padding: 1px 5px;
+  font-size: 10.5px;
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 3px;
+  margin: 0 1px;
+}
+
+/* ---- 离线提示横幅（顶部 fixed） ---- */
+#offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99;
+  padding: 9px 16px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  box-shadow: 0 4px 14px rgba(239,68,68,0.30);
+  transform: translateY(-100%);
+  transition: transform 0.30s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+#offline-banner.is-visible { transform: translateY(0); }
+#offline-banner .ob-icon { font-size: 14px; }
+#offline-banner .ob-msg { letter-spacing: 0.02em; }
+#offline-banner .ob-close {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.40);
+  color: #fff;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+#offline-banner .ob-close:hover { background: rgba(255,255,255,0.20); }
+@media (max-width: 540px) {
+  #offline-banner { font-size: 11.5px; padding: 7px 10px; }
+  #offline-banner .ob-close { display: none; }
+}

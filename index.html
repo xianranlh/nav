@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.18.5" />
+  <link rel="stylesheet" href="styles.css?v=v1.18.6" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -20,6 +20,13 @@
   <video id="bg-video" class="bg-video" muted loop playsinline autoplay aria-hidden="true"></video>
   <div id="bg-mask" class="bg-mask" aria-hidden="true"></div>
   <canvas id="sakura-canvas" aria-hidden="true"></canvas>
+
+  <!-- 离线状态横幅 -->
+  <div id="offline-banner" role="status" aria-live="polite" hidden>
+    <span class="ob-icon">📶</span>
+    <span class="ob-msg">您的浏览器似乎已离线，部分功能（数据同步、AI 调用）暂不可用</span>
+    <button type="button" class="ob-close" id="offline-banner-close" title="本会话内不再提示">关闭</button>
+  </div>
 
   <!-- 登录遮罩层 -->
   <div id="login-overlay" class="login-overlay" hidden>
@@ -159,7 +166,7 @@
     <section id="groups-container" class="groups"></section>
 
     <footer class="footer">
-      <span>按 <kbd>/</kbd> 聚焦搜索 · <kbd>Ctrl</kbd>+<kbd>K</kbd> 添加网址 · <kbd>E</kbd> 切换编辑模式</span>
+      <span id="footer-hotkey-hint" role="button" tabindex="0" title="点击查看全部快捷键">按 <kbd>/</kbd> 聚焦搜索 · <kbd>Ctrl</kbd>+<kbd>K</kbd> 添加网址 · <kbd>E</kbd> 切换编辑模式 · <kbd>?</kbd> 全部快捷键</span>
     </footer>
   </main>
 
@@ -798,6 +805,7 @@
         <button class="ai-tool-btn" id="ai-refresh-models" title="重新拉取这个供应商的模型列表"><span class="ai-tool-ico">↻</span><span class="ai-tool-txt">刷新</span></button>
         <button class="ai-tool-btn" id="ai-find-model" title="逐个发 1-token 探针自动找一个能用的模型"><span class="ai-tool-ico">🔍</span><span class="ai-tool-txt">探测</span></button>
         <button class="ai-tool-btn" id="ai-image-mode" title="切换生图模式（请求改走 /v1/images/generations）" aria-pressed="false"><span class="ai-tool-ico">🎨</span><span class="ai-tool-txt">生图</span></button>
+        <button class="ai-tool-btn" id="ai-export" title="导出当前对话为 Markdown 文件"><span class="ai-tool-ico">⤓</span><span class="ai-tool-txt">导出</span></button>
         <button class="ai-tool-btn" id="ai-clear" title="清空会话历史"><span class="ai-tool-ico">🗑</span><span class="ai-tool-txt">清空</span></button>
         <button class="ai-tool-btn" id="ai-open-settings" title="打开 AI 设置弹窗"><span class="ai-tool-ico">⚙</span><span class="ai-tool-txt">设置</span></button>
         <button class="ai-tool-btn" id="ai-close" title="关闭面板（Esc）"><span class="ai-tool-ico">✕</span><span class="ai-tool-txt">关闭</span></button>
@@ -851,7 +859,7 @@
   <dialog id="dialog-ai" class="glass-dialog ai-dialog">
     <form method="dialog">
       <div class="dialog-header">
-        <h3><span>🤖</span> AI 助手设置 <small class="ai-build-tag" title="前端 ai.js 构建版本">v1.18.5</small></h3>
+        <h3><span>🤖</span> AI 助手设置 <small class="ai-build-tag" title="前端 ai.js 构建版本">v1.18.6</small></h3>
         <button type="button" class="close-btn" data-close title="关闭">&times;</button>
       </div>
 
@@ -1141,6 +1149,44 @@
   </section>
 
   <!-- ===== 博客编辑器 ===== -->
+  <!-- 快捷键速查 -->
+  <dialog id="dialog-shortcuts" class="glass-dialog shortcuts-dialog">
+    <form method="dialog">
+      <div class="dialog-header">
+        <h3><span>⌨️</span> 快捷键速查</h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="shortcut-section">
+          <h4>导航与搜索</h4>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>/</kbd></span><span class="shortcut-desc">聚焦搜索框</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>?</kbd></span><span class="shortcut-desc">打开本帮助</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Esc</kbd></span><span class="shortcut-desc">关闭弹窗 / 收起面板 / 取消菜单</span></div>
+        </div>
+        <div class="shortcut-section">
+          <h4>编辑与添加</h4>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Ctrl</kbd>+<kbd>K</kbd></span><span class="shortcut-desc">添加网址（macOS：<kbd>⌘</kbd>+<kbd>K</kbd>）</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>E</kbd></span><span class="shortcut-desc">切换编辑模式（拖拽 / 删除按钮显隐）</span></div>
+        </div>
+        <div class="shortcut-section">
+          <h4>AI 助手</h4>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Enter</kbd></span><span class="shortcut-desc">AI 输入框：发送消息</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Shift</kbd>+<kbd>Enter</kbd></span><span class="shortcut-desc">AI 输入框：换行</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Esc</kbd></span><span class="shortcut-desc">查找可用模型时：取消探测</span></div>
+        </div>
+        <div class="shortcut-section">
+          <h4>页面级</h4>
+          <div class="shortcut-row"><span class="shortcut-keys"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></span><span class="shortcut-desc">硬刷新（绕过 Service Worker 缓存）</span></div>
+          <div class="shortcut-row"><span class="shortcut-keys">右键</span><span class="shortcut-desc">AI 面板顶栏：重置位置/大小</span></div>
+        </div>
+        <p class="shortcut-foot-tip">提示：在输入框、文本域内输入时，单字快捷键（<kbd>/</kbd> <kbd>E</kbd> <kbd>?</kbd>）不会触发，避免抢键。</p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-primary" data-close>知道了</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="dialog-post" class="glass-dialog post-dialog">
     <form method="dialog" id="form-post">
       <h3 id="post-title-head">新建文章</h3>
@@ -1170,7 +1216,7 @@
   <script src="progress.js"></script>
   <script src="bookmarks.js"></script>
   <script src="auth.js"></script>
-  <script src="ai.js?v=v1.18.5"></script>
+  <script src="ai.js?v=v1.18.6"></script>
   <script src="blog.js"></script>
   <script src="calendar.js"></script>
   <script src="sync.js"></script>
@@ -1182,6 +1228,6 @@
   <script src="idb.js"></script>
   <script src="music.js"></script>
   <script src="storage-inspector.js"></script>
-  <script src="app.js?v=v1.18.5"></script>
+  <script src="app.js?v=v1.18.6"></script>
 </body>
 </html>
