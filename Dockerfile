@@ -6,8 +6,8 @@ FROM node:20-alpine
 
 RUN apk add --no-cache nginx gettext
 
-LABEL org.opencontainers.image.title="Sakura Nav"
-LABEL org.opencontainers.image.description="樱 · 个人导航（单容器：前端 + 数据 API）"
+LABEL org.opencontainers.image.title="Xianran Nav"
+LABEL org.opencontainers.image.description="樱 · 个人导航（单容器：前端 + 数据 API + AI 反代）"
 LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
@@ -28,7 +28,7 @@ RUN chmod +x /docker/docker-entrypoint.sh \
 
 ENV NODE_ENV=production \
     PORT=3000 \
-    DATA_DIR=/data/sakura-nav \
+    DATA_DIR=/data/xianran-nav \
     BIND_HOST=127.0.0.1
 
 EXPOSE 80

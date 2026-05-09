@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=v1.18.4" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -95,13 +95,13 @@
         </div>
       </div>
       <div class="toolbar-right">
-        <button class="icon-btn" id="btn-calendar" title="日历">
-          <span class="calendar-icon">📅</span><span class="icon-badge" id="cal-badge" hidden></span>
+        <button class="topbar-btn" id="btn-calendar" title="打开日历面板查看任务和日程">
+          <span class="topbar-ico calendar-icon">📅</span><span class="topbar-txt">日历</span><span class="icon-badge" id="cal-badge" hidden></span>
         </button>
-        <button class="icon-btn" id="btn-blog" title="博客">📝</button>
-        <button class="icon-btn" id="btn-theme" title="切换主题">🌓</button>
-        <button class="icon-btn" id="btn-settings" title="设置">⚙</button>
-        <button class="icon-btn" id="btn-logout" title="退出登录">⎋</button>
+        <button class="topbar-btn" id="btn-blog" title="打开博客面板，写笔记和长文"><span class="topbar-ico">📝</span><span class="topbar-txt">博客</span></button>
+        <button class="topbar-btn" id="btn-theme" title="切换亮色 / 暗色 / 跟随系统"><span class="topbar-ico">🌓</span><span class="topbar-txt">主题</span></button>
+        <button class="topbar-btn" id="btn-settings" title="打开整站设置：账号、外观、组件、同步"><span class="topbar-ico">⚙</span><span class="topbar-txt">设置</span></button>
+        <button class="topbar-btn" id="btn-logout" title="退出当前账号"><span class="topbar-ico">⎋</span><span class="topbar-txt">退出</span></button>
       </div>
     </section>
 
@@ -341,6 +341,15 @@
             </div>
             <p class="hint" id="auth-change-msg" style="min-height:1.2em;color:var(--text-soft)"></p>
           </form>
+        </details>
+
+        <!-- 站点信息 -->
+        <details class="sec">
+          <summary>🏷️ 站点信息</summary>
+          <label class="row">页面标题
+            <input type="text" id="set-site-title" placeholder="樱 · 个人导航" maxlength="60" autocomplete="off" />
+          </label>
+          <p class="hint">浏览器标签页和登录页顶部都会用这个名字。留空恢复默认。</p>
         </details>
 
         <!-- 外观 -->
@@ -785,14 +794,33 @@
         <select id="ai-persona-select" title="角色"></select>
       </div>
       <div class="ai-head-right">
-        <select id="ai-model-select" title="模型"></select>
-        <button class="icon-btn small" id="ai-refresh-models" title="刷新模型列表">↻</button>
-        <button class="icon-btn small" id="ai-clear" title="清空会话">🗑</button>
-        <button class="icon-btn small" id="ai-open-settings" title="AI 设置">⚙</button>
-        <button class="icon-btn small" id="ai-close" title="关闭面板（也可按 Esc）">✕</button>
+        <select id="ai-model-select" title="模型（每条选项前的 ✓/❄/⚠/· 表示最近一次状态）"></select>
+        <button class="ai-tool-btn" id="ai-refresh-models" title="重新拉取这个供应商的模型列表"><span class="ai-tool-ico">↻</span><span class="ai-tool-txt">刷新</span></button>
+        <button class="ai-tool-btn" id="ai-find-model" title="逐个发 1-token 探针自动找一个能用的模型"><span class="ai-tool-ico">🔍</span><span class="ai-tool-txt">探测</span></button>
+        <button class="ai-tool-btn" id="ai-image-mode" title="切换生图模式（请求改走 /v1/images/generations）" aria-pressed="false"><span class="ai-tool-ico">🎨</span><span class="ai-tool-txt">生图</span></button>
+        <button class="ai-tool-btn" id="ai-clear" title="清空会话历史"><span class="ai-tool-ico">🗑</span><span class="ai-tool-txt">清空</span></button>
+        <button class="ai-tool-btn" id="ai-open-settings" title="打开 AI 设置弹窗"><span class="ai-tool-ico">⚙</span><span class="ai-tool-txt">设置</span></button>
+        <button class="ai-tool-btn" id="ai-close" title="关闭面板（Esc）"><span class="ai-tool-ico">✕</span><span class="ai-tool-txt">关闭</span></button>
       </div>
     </header>
-    <p class="hint" style="margin:0;padding:0 14px 10px;font-size:11px;opacity:.85">关闭：点右上角 ✕，或按键盘 <kbd>Esc</kbd></p>
+    <div id="ai-image-controls" class="ai-image-controls" hidden>
+      <label class="ai-imgctl-field"><span>尺寸</span><select id="ai-image-size"></select></label>
+      <label class="ai-imgctl-field"><span>质量</span><select id="ai-image-quality"></select></label>
+      <label class="ai-imgctl-field"><span>张数</span>
+        <select id="ai-image-n">
+          <option value="1">1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option>
+        </select>
+      </label>
+      <label class="ai-imgctl-custom" hidden>
+        <span>自定义</span>
+        <span class="ai-imgctl-custom-row">
+          <input id="ai-image-custom-w" type="number" min="64" step="8" placeholder="宽 W" />
+          <em>×</em>
+          <input id="ai-image-custom-h" type="number" min="64" step="8" placeholder="高 H" />
+        </span>
+      </label>
+    </div>
     <div id="ai-messages" class="ai-messages">
       <div class="ai-empty">
         <div class="ai-empty-logo">🌸</div>
@@ -807,14 +835,14 @@
     <footer class="ai-foot">
       <div id="ai-attach-preview" class="ai-attach-preview"></div>
       <div class="ai-input-row">
-        <label class="ai-attach-btn" title="上传图片或文件">
-          📎
+        <label class="ai-attach-btn" title="上传图片或文本附件作为对话上下文">
+          <span class="ai-tool-ico">📎</span><span class="ai-tool-txt">附件</span>
           <input type="file" id="ai-attach-input" multiple accept="image/*,text/*,.json,.html,.md,.csv,.txt" hidden />
         </label>
-        <button class="ai-attach-btn voice-btn" id="ai-voice" type="button" title="语音输入（Web Speech API）" aria-label="语音输入">🎙</button>
+        <button class="ai-attach-btn voice-btn" id="ai-voice" type="button" title="语音输入（Web Speech API，按一下开始/停止录制）" aria-label="语音输入"><span class="ai-tool-ico">🎙</span><span class="ai-tool-txt">语音</span></button>
         <textarea id="ai-input" rows="1" placeholder="输入消息..." aria-label="输入 AI 对话内容。Enter 发送，Shift+Enter 换行" title="Enter 发送，Shift+Enter 换行"></textarea>
-        <button id="ai-send" class="btn-primary" title="发送">➤</button>
-        <button id="ai-stop" class="btn-secondary" title="停止" hidden>■</button>
+        <button id="ai-send" class="btn-primary" title="发送（Enter）"><span class="ai-tool-ico">➤</span><span class="ai-tool-txt">发送</span></button>
+        <button id="ai-stop" class="btn-secondary" title="停止当前请求" hidden><span class="ai-tool-ico">■</span><span class="ai-tool-txt">停止</span></button>
       </div>
       <div class="ai-tip" id="ai-tip"></div>
     </footer>
@@ -823,7 +851,7 @@
   <dialog id="dialog-ai" class="glass-dialog ai-dialog">
     <form method="dialog">
       <div class="dialog-header">
-        <h3><span>🤖</span> AI 助手设置</h3>
+        <h3><span>🤖</span> AI 助手设置 <small class="ai-build-tag" title="前端 ai.js 构建版本">v1.18.4</small></h3>
         <button type="button" class="close-btn" data-close title="关闭">&times;</button>
       </div>
 
@@ -867,6 +895,12 @@
               <input type="checkbox" id="ai-auto-apply" />
               <span>检测到 JSON 指令块时自动执行（无需手动点击）</span>
             </label>
+            <label class="row row-tight">
+              <input type="checkbox" id="ai-smart-mode" />
+              <span>智能模式：发送前若当前模型在本地冷却台账里，则先用 1-token 探针自动找一个可用模型再发
+                <small style="display:block;opacity:.7;margin-top:2px">适合 CPAMC / OneAPI 这类多 Key 轮询的中转网关，被 model_cooldown 卡住时能自动绕开</small>
+              </span>
+            </label>
           </div>
         </details>
       </div>
@@ -888,6 +922,10 @@
         <label>名称 <input name="name" required placeholder="如：OpenAI / 我的 Kimi" autocomplete="organization" /></label>
         <label>Base URL <input name="baseUrl" type="url" required placeholder="https://api.openai.com/v1" autocomplete="url" /></label>
         <label>API Key <input name="apiKey" type="password" placeholder="sk-..." autocomplete="current-password" /></label>
+        <label class="provider-proxy-row">
+          <input name="disableProxy" type="checkbox" />
+          <span>禁用本机反代，浏览器直连上游<small class="hint">默认会自动走本机 <code>/api/ai-proxy/*</code> 转发以绕过浏览器 CORS / 524 拦截。仅在你的上游本身已经返回正确 CORS 头、不希望多一跳时才勾选此项。</small></span>
+        </label>
         <label>默认模型（可留空，稍后在面板切换）
           <div class="input-with-btn">
             <input name="defaultModel" list="provider-models-dl" placeholder="如：gpt-4o-mini" autocomplete="off" />
@@ -1132,7 +1170,7 @@
   <script src="progress.js"></script>
   <script src="bookmarks.js"></script>
   <script src="auth.js"></script>
-  <script src="ai.js"></script>
+  <script src="ai.js?v=v1.18.4"></script>
   <script src="blog.js"></script>
   <script src="calendar.js"></script>
   <script src="sync.js"></script>
@@ -1144,6 +1182,6 @@
   <script src="idb.js"></script>
   <script src="music.js"></script>
   <script src="storage-inspector.js"></script>
-  <script src="app.js?v=v1.16.4"></script>
+  <script src="app.js?v=v1.18.4"></script>
 </body>
 </html>

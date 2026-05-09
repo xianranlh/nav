@@ -1,11 +1,11 @@
 $ErrorActionPreference = 'Continue'
 'Cleanup...' | Out-File up.log -Encoding utf8
 docker compose down 2>&1 | Out-File -Append up.log -Encoding utf8
-docker rm -f sakura-nav-test 2>&1 | Out-File -Append up.log -Encoding utf8
+docker rm -f xianran-nav-test 2>&1 | Out-File -Append up.log -Encoding utf8
 # 用一个大概率空闲的端口
 $port = 18099
 "Running on port $port ..." | Out-File -Append up.log -Encoding utf8
-docker run -d --name sakura-nav-test -p "${port}:80" sakura-nav:latest 2>&1 | Out-File -Append up.log -Encoding utf8
+docker run -d --name xianran-nav-test -p "${port}:80" xianran-nav:latest 2>&1 | Out-File -Append up.log -Encoding utf8
 Start-Sleep -Seconds 2
 try {
   $h = (Invoke-WebRequest -Uri "http://127.0.0.1:${port}/healthz" -UseBasicParsing -TimeoutSec 5).Content
@@ -30,7 +30,7 @@ try {
   "css status: $($r3.StatusCode)" | Out-File -Append up.log -Encoding utf8
   "css cache-control: $($r3.Headers['Cache-Control'])" | Out-File -Append up.log -Encoding utf8
 } catch { "css ERR: $($_.Exception.Message)" | Out-File -Append up.log -Encoding utf8 }
-docker rm -f sakura-nav-test 2>&1 | Out-File -Append up.log -Encoding utf8
+docker rm -f xianran-nav-test 2>&1 | Out-File -Append up.log -Encoding utf8
 
 # === Theme & layout source checks ===
 $themeFiles = @('themes/sakura.css','themes/q-anime.css','themes/dark-minimal.css','themes/paper.css')

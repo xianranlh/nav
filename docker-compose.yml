@@ -8,15 +8,15 @@
 #
 # 可选：复制 .env.example 为 .env 后修改 HOST_PORT / SAKURA_API_KEY
 
-name: sakura-nav
+name: xianran-nav
 
 services:
-  sakura-nav:
+  xianran-nav:
     build:
       context: .
       dockerfile: Dockerfile
-    image: sakura-nav:latest
-    container_name: sakura-nav
+    image: xianran-nav:latest
+    container_name: xianran-nav
     restart: unless-stopped
 
     ports:
@@ -25,8 +25,9 @@ services:
     environment:
       TZ: Asia/Shanghai
       PORT: "3000"
-      # 数据落在挂载卷 /data 下的子目录，避免与其它项目共用一个扁平目录
-      DATA_DIR: /data/sakura-nav
+      # 数据目录：默认 /data/xianran-nav。
+      # 老 deploy 用的是 /data/sakura-nav；server 启动时检测到旧目录会自动 rename 过来（一次性迁移），用户数据零丢失。
+      DATA_DIR: /data/xianran-nav
       BIND_HOST: "127.0.0.1"
       SAKURA_API_KEY: ${SAKURA_API_KEY:-}
 
@@ -59,10 +60,10 @@ services:
   # === Caddy 自动 HTTPS（可选）===
   # caddy:
   #   image: caddy:2-alpine
-  #   container_name: sakura-nav-caddy
+  #   container_name: xianran-nav-caddy
   #   restart: unless-stopped
   #   depends_on:
-  #     - sakura-nav
+  #     - xianran-nav
   #   ports:
   #     - "80:80"
   #     - "443:443"

@@ -1,5 +1,5 @@
 {
-  "name": "sakura-nav",
+  "name": "xianran-nav",
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.js",
@@ -8,6 +8,6 @@
     "install:server": "npm install --prefix server",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f sakura-nav"
+    "docker:logs": "docker compose logs -f xianran-nav"
   }
 }

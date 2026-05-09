@@ -31,7 +31,7 @@
     header @nocache Cache-Control "no-cache, no-store, must-revalidate"
 
     # 反代到后端 nginx 容器
-    reverse_proxy sakura-nav:80 {
+    reverse_proxy xianran-nav:80 {
         header_up X-Real-IP       {remote_host}
         header_up X-Forwarded-For {remote_host}
     }

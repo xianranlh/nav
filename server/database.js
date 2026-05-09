@@ -14,7 +14,20 @@ let currentDbPath = "";
 let currentDataDir = "";
 
 export function openDatabase(dataDir) {
+  // 一次性兼容迁移：v1.18 前数据目录叫 sakura-nav，重命名后改为 xianran-nav。
+  // 如果新目录还不存在但同级的 sakura-nav 存在，把它整个 rename 过来，用户数据零丢失。
+  try {
+    const parent = path.dirname(dataDir);
+    const oldDir = path.join(parent, "sakura-nav");
+    if (oldDir !== dataDir && fs.existsSync(oldDir) && !fs.existsSync(dataDir)) {
+      console.log(`[xianran-data] 检测到旧 ${oldDir}，迁移到新位置 ${dataDir}`);
+      fs.renameSync(oldDir, dataDir);
+    }
+  } catch (e) {
+    console.warn("[xianran-data] 旧目录迁移跳过：", e?.message || e);
+  }
   fs.mkdirSync(dataDir, { recursive: true });
+  // 数据库文件名仍然叫 sakura.db（不能改，否则丢历史数据；它是内部文件无所谓品牌）
   const dbPath = path.join(dataDir, "sakura.db");
   currentDbPath = dbPath;
   currentDataDir = dataDir;

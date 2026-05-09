@@ -130,6 +130,8 @@
       collapsedGroups: {},
       /** 视觉氛围：由 homepage-theme.js 注册（影响渐变、粒子、AI 角标等） */
       visualTheme: "sakura",
+      /** 站点标题：浏览器 tab + 登录页顶部都用这个；空字符串视为用默认。 */
+      siteTitle: "",
     },
 
     load() {
@@ -294,7 +296,33 @@
 
   function render() {
     groupsContainer.innerHTML = "";
-    for (const g of Store.state.groups) groupsContainer.appendChild(renderGroup(g));
+    if (!Store.state.groups.length) {
+      // 没分组时给一张引导卡，比纯空白友好得多
+      const empty = document.createElement("section");
+      empty.className = "glass groups-empty";
+      empty.innerHTML = `
+        <div class="ge-icon" aria-hidden="true">📚</div>
+        <h2 class="ge-title">还没有任何网址分组</h2>
+        <p class="ge-sub">先建一个分组开始整理你的导航，或者直接导入浏览器书签：</p>
+        <div class="ge-actions">
+          <button type="button" class="btn-primary" data-ge-act="add-link">+ 添加第一个网址</button>
+          <button type="button" class="btn-secondary" data-ge-act="add-group">+ 新建空分组</button>
+          <button type="button" class="btn-secondary" data-ge-act="import-bookmarks">⇧ 导入浏览器书签</button>
+          <button type="button" class="btn-secondary" data-ge-act="import-json">⇧ 导入 JSON</button>
+        </div>
+        <p class="ge-tip">小 tips：按 <kbd>/</kbd> 聚焦搜索；按 <kbd>Ctrl</kbd>+<kbd>K</kbd> 快速添加；按 <kbd>E</kbd> 切换编辑模式</p>
+      `;
+      empty.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-ge-act]");
+        if (!b) return;
+        const act = b.dataset.geAct;
+        const map = { "add-link": "btn-add", "add-group": "btn-add-group", "import-bookmarks": "btn-import", "import-json": "btn-import-json" };
+        document.getElementById(map[act])?.click();
+      });
+      groupsContainer.appendChild(empty);
+    } else {
+      for (const g of Store.state.groups) groupsContainer.appendChild(renderGroup(g));
+    }
     // 重新应用过滤
     try { Filter.apply(); } catch (_) {}
     renderGroupTabs();
@@ -1363,6 +1391,15 @@
   };
 
   // ===================== 主题 & 样式 =====================
+  /** 把 settings.siteTitle 应用到浏览器 tab title 和登录页大标题。
+   *  空字符串视作"用默认"，恢复成 "樱 · 个人导航"。 */
+  function applySiteTitle() {
+    const t = (Store.settings.siteTitle || "").trim() || "樱 · 个人导航";
+    try { document.title = t; } catch (_) {}
+    const heading = document.querySelector("#login-overlay .login-card h2");
+    if (heading) heading.textContent = t;
+  }
+
   function applyTheme() {
     const t = Store.settings.theme;
     if (t === "auto") {
@@ -1461,6 +1498,7 @@
     if (authMsg) authMsg.textContent = "";
 
     // --- 回填 ---
+    setV("#set-site-title", s.siteTitle || "");
     setV("#set-theme", s.theme);
     setV("#set-visual-theme", s.visualTheme || "sakura");
     setV("#set-accent", s.accent || "#ff8fab");
@@ -1547,6 +1585,11 @@
     });
 
     // --- 外观 ---
+    $("#set-site-title")?.addEventListener("input", (e) => {
+      s.siteTitle = String(e.target.value || "").slice(0, 60);
+      Store.saveSettings(true);
+      applySiteTitle();
+    });
     $("#set-theme").addEventListener("change", (e) => { s.theme = e.target.value; Store.saveSettings(); applyTheme(); });
     $("#set-visual-theme").addEventListener("change", (e) => {
       const id = e.target.value;
@@ -2607,6 +2650,7 @@
     if (window.Weather) Weather.load();
     applyTheme();
     applyStyle();
+    applySiteTitle();
     Bg.init();
 
     renderEngines();
@@ -2701,11 +2745,217 @@
     const attachPreview = $("#ai-attach-preview");
     const modelSel = $("#ai-model-select");
     const personaSel = $("#ai-persona-select");
+    const imgModeBtn = $("#ai-image-mode");
+    const imgCtrl = $("#ai-image-controls");
+    const imgSizeSel = $("#ai-image-size");
+    const imgQualitySel = $("#ai-image-quality");
+    const imgNSel = $("#ai-image-n");
+    const imgCustomBox = imgCtrl?.querySelector(".ai-imgctl-custom");
+    const imgCustomW = $("#ai-image-custom-w");
+    const imgCustomH = $("#ai-image-custom-h");
+
+    // 填充生图下拉
+    if (imgSizeSel) {
+      imgSizeSel.innerHTML = AI.IMAGE_SIZES.map((o) =>
+        `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
+    }
+    if (imgQualitySel) {
+      imgQualitySel.innerHTML = AI.IMAGE_QUALITIES.map((o) =>
+        `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
+    }
+
+    function syncImageMode() {
+      const on = !!AI.AIStore.data.imageMode;
+      imgModeBtn?.setAttribute("aria-pressed", on ? "true" : "false");
+      imgModeBtn?.classList.toggle("active", on);
+      if (imgCtrl) imgCtrl.hidden = !on;
+      if (input) input.placeholder = on ? "描述要画的图…（Enter 发送）" : "输入消息...";
+      // 把当前持久化的值回填到下拉
+      const o = AI.AIStore.data.imageOpts || {};
+      if (imgSizeSel) imgSizeSel.value = o.size || "1024x1024";
+      if (imgQualitySel) imgQualitySel.value = o.quality || "auto";
+      if (imgNSel) imgNSel.value = String(o.n || 1);
+      if (imgCustomW) imgCustomW.value = o.customW || 3840;
+      if (imgCustomH) imgCustomH.value = o.customH || 2160;
+      if (imgCustomBox) imgCustomBox.hidden = (imgSizeSel?.value !== "custom");
+      syncImageWarnState();
+    }
+    /** 选了 4K（包括自定义里 W/H 触及 4K）就给 .ai-image-controls 加 data-warn="4k"，CSS 接管显示提示。 */
+    function syncImageWarnState() {
+      if (!imgCtrl) return;
+      const o = AI.AIStore.data.imageOpts || {};
+      let is4K = false;
+      const sizeStr = (o.size === "custom")
+        ? `${o.customW || 0}x${o.customH || 0}`
+        : (o.size || "");
+      const m = /^(\d+)x(\d+)$/.exec(sizeStr);
+      if (m) {
+        const longSide = Math.max(+m[1], +m[2]);
+        if (longSide >= 2560) is4K = true; // 2K 以上就给提示
+      }
+      if (is4K) imgCtrl.setAttribute("data-warn", "4k");
+      else imgCtrl.removeAttribute("data-warn");
+    }
+    syncImageMode();
+
+    imgModeBtn?.addEventListener("click", () => {
+      AI.AIStore.data.imageMode = !AI.AIStore.data.imageMode;
+      AI.AIStore.save();
+      syncImageMode();
+    });
+    imgSizeSel?.addEventListener("change", () => {
+      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), size: imgSizeSel.value };
+      AI.AIStore.save();
+      if (imgCustomBox) imgCustomBox.hidden = (imgSizeSel.value !== "custom");
+      syncImageWarnState();
+    });
+    imgQualitySel?.addEventListener("change", () => {
+      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), quality: imgQualitySel.value };
+      AI.AIStore.save();
+    });
+    imgNSel?.addEventListener("change", () => {
+      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), n: +imgNSel.value || 1 };
+      AI.AIStore.save();
+    });
+    imgCustomW?.addEventListener("change", () => {
+      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), customW: +imgCustomW.value || 3840 };
+      AI.AIStore.save();
+      syncImageWarnState();
+    });
+    imgCustomH?.addEventListener("change", () => {
+      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), customH: +imgCustomH.value || 2160 };
+      AI.AIStore.save();
+      syncImageWarnState();
+    });
 
     let attachments = [];
     let abortCtrl = null;
 
+    // ===== AI 面板可拖动 + 可调大小 + 几何持久化 =====
+    const PANEL_GEOM_KEY = "sakura_nav_ai_panel_geom_v1";
+    function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+    function loadPanelGeometry() {
+      // 移动端用 CSS @media 接管布局（占满屏幕），不读保存的桌面端几何，避免错位
+      if (window.matchMedia("(max-width: 480px)").matches) return;
+      try {
+        const raw = localStorage.getItem(PANEL_GEOM_KEY);
+        if (!raw) return;
+        const g = JSON.parse(raw);
+        if (!g || typeof g !== "object") return;
+        // 兜底：极端值不应用，避免存了一份"窗口外"的位置导致面板看不见
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const w = clamp(+g.width  || 420, 320, vw);
+        const h = clamp(+g.height || vh - 32, 360, vh);
+        const top  = clamp(+g.top  || 16, 0, vh - 80);
+        const left = clamp(+g.left || (vw - w - 16), -w + 100, vw - 100);
+        panel.style.right = "auto";
+        panel.style.bottom = "auto";
+        panel.style.top = top + "px";
+        panel.style.left = left + "px";
+        panel.style.width = w + "px";
+        panel.style.height = h + "px";
+      } catch (_) {}
+    }
+
+    function savePanelGeometry() {
+      if (window.matchMedia("(max-width: 480px)").matches) return; // 移动端不存
+      const r = panel.getBoundingClientRect();
+      if (r.width < 100 || r.height < 100) return; // 防止 hidden 状态污染
+      try {
+        localStorage.setItem(PANEL_GEOM_KEY, JSON.stringify({
+          top: Math.round(r.top), left: Math.round(r.left),
+          width: Math.round(r.width), height: Math.round(r.height),
+        }));
+      } catch (_) {}
+    }
+
+    function resetPanelGeometry() {
+      try { localStorage.removeItem(PANEL_GEOM_KEY); } catch (_) {}
+      // 还原 CSS 默认（top/right + width/height）
+      panel.style.top = "";
+      panel.style.left = "";
+      panel.style.right = "";
+      panel.style.bottom = "";
+      panel.style.width = "";
+      panel.style.height = "";
+    }
+
+    // 1) 标题栏拖动 → 改 top/left
+    {
+      const head = panel.querySelector(".ai-head");
+      let dragging = false;
+      let startMouseX = 0, startMouseY = 0;
+      let startTop = 0, startLeft = 0;
+
+      head.addEventListener("mousedown", (e) => {
+        // 点在按钮 / select / input / label 等交互元素上时不触发拖动
+        if (e.target.closest("button, select, input, textarea, label, .ai-tool-btn, .ai-model-status")) return;
+        if (e.button !== 0) return;
+        dragging = true;
+        const r = panel.getBoundingClientRect();
+        startTop = r.top;
+        startLeft = r.left;
+        startMouseX = e.clientX;
+        startMouseY = e.clientY;
+        // 切到 top/left 定位（如果之前是 right/bottom）
+        panel.style.right = "auto";
+        panel.style.bottom = "auto";
+        panel.style.top = startTop + "px";
+        panel.style.left = startLeft + "px";
+        panel.style.width = r.width + "px";
+        panel.style.height = r.height + "px";
+        panel.classList.add("ai-dragging");
+        e.preventDefault();
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startMouseX;
+        const dy = e.clientY - startMouseY;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const w = panel.offsetWidth;
+        const newTop = clamp(startTop + dy, 0, vh - 60);
+        const newLeft = clamp(startLeft + dx, -w + 120, vw - 120); // 至少留 120px 在屏幕里以便拖回
+        panel.style.top = newTop + "px";
+        panel.style.left = newLeft + "px";
+      });
+
+      document.addEventListener("mouseup", () => {
+        if (!dragging) return;
+        dragging = false;
+        panel.classList.remove("ai-dragging");
+        savePanelGeometry();
+      });
+    }
+
+    // 2) 监听 resize:both 触发的尺寸变化，自动持久化
+    {
+      let saveTimer = null;
+      const ro = new ResizeObserver(() => {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          // 只在面板可见时保存，避免 hidden 状态下的尺寸（0×0）覆盖正常值
+          if (!panel.hidden) savePanelGeometry();
+        }, 250);
+      });
+      ro.observe(panel);
+    }
+
+    // 3) 标题栏右键菜单：复位
+    panel.querySelector(".ai-head").addEventListener("contextmenu", (e) => {
+      // 在按钮等元素上不拦截
+      if (e.target.closest("button, select, input, textarea, .ai-tool-btn, .ai-model-status")) return;
+      e.preventDefault();
+      if (confirm("把 AI 面板复位到默认位置和大小？")) {
+        resetPanelGeometry();
+        toast?.("AI 面板已复位");
+      }
+    });
+
     function open() {
+      // 打开前先把保存的几何应用上（之所以在 open 而不是 init 时做，是因为 hidden 状态下 ResizeObserver 拿到的尺寸是 0）
+      loadPanelGeometry();
       panel.hidden = false;
       fab.classList.remove("has-new");
       autoResize();
@@ -2722,14 +2972,60 @@
       ).join("");
     }
 
+    /** 把 AI.getModelStatus 的结果渲染成下拉前缀文本（select 不能塞 HTML，只能用 unicode 符号）。 */
+    function modelOptionPrefix(p, m) {
+      const st = AI.getModelStatus(p, m);
+      if (st.kind === "cold")    return "❄ ";
+      if (st.kind === "error")   return "⚠ ";
+      if (st.kind === "ok")      return "✓ ";
+      return "· ";
+    }
+
     function refreshModelOptions() {
       const p = AI.AIStore.currentProvider();
-      if (!p) { modelSel.innerHTML = `<option value="">请先添加供应商</option>`; return; }
+      if (!p) { modelSel.innerHTML = `<option value="">请先添加供应商</option>`; refreshModelStatus(); return; }
       const models = (p.models && p.models.length ? p.models : [p.defaultModel || "default"]).filter(Boolean);
       modelSel.innerHTML = models.map((m) =>
-        `<option value="${escapeHtml(m)}" ${m === AI.AIStore.data.currentModel ? "selected" : ""}>${escapeHtml(m)}</option>`
+        `<option value="${escapeHtml(m)}" ${m === AI.AIStore.data.currentModel ? "selected" : ""}>${escapeHtml(modelOptionPrefix(p, m) + m)}</option>`
       ).join("");
       if (!AI.AIStore.data.currentModel) AI.AIStore.data.currentModel = models[0];
+      refreshModelStatus();
+    }
+
+    /** 用户已经反馈 "模型可用性应该出现在下拉里"，因此头部的状态徽章已删。
+     *  refreshModelStatus 现在改成"重画下拉前缀 + 把当前模型的状态写到 select 的 title 提示里"。
+     *  其它代码原来调用 refreshModelStatus()，全部继续可用。 */
+    function refreshModelStatus() {
+      const sel = modelSel;
+      if (!sel) return;
+      const p = AI.AIStore.currentProvider();
+      const cur = AI.AIStore.data.currentModel;
+      // 1) 重画每个 option 的前缀（基于最新台账）
+      Array.from(sel.options).forEach((opt) => {
+        const m = opt.value;
+        if (!m) return;
+        opt.textContent = (p ? modelOptionPrefix(p, m) : "· ") + m;
+      });
+      // 2) 给整个 select 一个 tooltip：当前模型最近状态
+      if (!p || !cur) {
+        sel.title = "选择模型（每条选项前的 ✓/❄/⚠/· 表示最近一次状态）";
+        return;
+      }
+      const st = AI.getModelStatus(p, cur);
+      const head = "选择模型 — 当前 " + cur + "：";
+      let detail = "未测：尚未对该模型发起过请求";
+      if (st.kind === "ok") {
+        const mins = Math.max(1, Math.round(st.ageMs / 60000));
+        detail = `✓ 可用（最近一次成功约 ${mins} 分钟前）`;
+      } else if (st.kind === "cold") {
+        const remainMin = Math.ceil(st.remainingMs / 60000);
+        detail = `❄ 冷却中（约 ${remainMin} 分钟后恢复）`;
+      } else if (st.kind === "error") {
+        detail = `⚠ 出错：${(st.msg || "").slice(0, 120)}`;
+      } else {
+        detail = "· 未测";
+      }
+      sel.title = head + "\n" + detail + "\n\n下拉里每条选项前的 ✓/❄/⚠/· 表示该模型最近一次状态";
     }
 
     personaSel.addEventListener("change", () => {
@@ -2739,7 +3035,10 @@
     modelSel.addEventListener("change", () => {
       AI.AIStore.data.currentModel = modelSel.value;
       AI.AIStore.save();
+      refreshModelStatus();
     });
+    // 每 30 秒刷一下下拉前缀，让冷却剩余分钟自然衰减
+    setInterval(refreshModelStatus, 30 * 1000);
 
     $("#ai-refresh-models").addEventListener("click", async () => {
       const p = AI.AIStore.currentProvider();
@@ -2756,6 +3055,55 @@
         tipEl.classList.add("err");
         tipEl.textContent = "拉取失败：" + e.message.slice(0, 120);
         setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 4000);
+      }
+    });
+
+    // 🔍 主动探测：逐个发 1-token 请求，挑第一个能通的模型
+    $("#ai-find-model").addEventListener("click", async () => {
+      const p = AI.AIStore.currentProvider();
+      if (!p) { toast("请先在 AI 设置中添加供应商"); return; }
+      const list = (p.models || []).filter(Boolean);
+      if (!list.length) { toast("先点 ↻ 拉取模型列表"); return; }
+      const findBtn = $("#ai-find-model");
+      findBtn.disabled = true;
+      findBtn.classList.add("spinning");
+      const findCtrl = new AbortController();
+      const stopOnEsc = (e) => { if (e.key === "Escape") findCtrl.abort(); };
+      document.addEventListener("keydown", stopOnEsc);
+      try {
+        const live = await AI.findAvailableModel({
+          provider: p,
+          signal: findCtrl.signal,
+          prefer: AI.AIStore.data.currentModel,
+          onProgress: ({ index, total, model: m, status }) => {
+            tipEl.classList.remove("err");
+            if (status === "probing") tipEl.textContent = `🔍 探测 ${index}/${total}：${m}`;
+            else if (status === "cooldown") tipEl.textContent = `❄️ ${m} 冷却中，跳过…`;
+            else if (status === "ok") tipEl.textContent = `✅ 已选用 ${m}`;
+            else if (status === "error") tipEl.textContent = `⚠️ ${m} 不可用，继续…`;
+          },
+        });
+        if (live) {
+          AI.AIStore.data.currentModel = live;
+          AI.AIStore.save();
+          refreshModelOptions();
+          tipEl.textContent = `✅ 已切到可用模型：${live}`;
+          setTimeout(() => tipEl.textContent = "", 4000);
+        } else {
+          tipEl.classList.add("err");
+          tipEl.textContent = "所有模型都不可用，建议换一家供应商或稍后再试";
+          setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 6000);
+        }
+      } catch (e) {
+        tipEl.classList.add("err");
+        tipEl.textContent = e.name === "AbortError" ? "已取消探测" : ("探测失败：" + (e.message || "").slice(0, 120));
+        setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 4000);
+      } finally {
+        findBtn.disabled = false;
+        findBtn.classList.remove("spinning");
+        document.removeEventListener("keydown", stopOnEsc);
+        // 探测把整个模型列表都跑了一遍，台账更新很多，整个下拉的前缀都要重画
+        try { refreshModelOptions(); } catch (_) {}
       }
     });
 
@@ -2848,6 +3196,7 @@
       }
       const model = AI.AIStore.data.currentModel || provider.defaultModel;
       if (!model) { toast("请先选择模型"); return; }
+      const imageMode = !!AI.AIStore.data.imageMode;
 
       const userMsg = {
         role: "user",
@@ -2872,47 +3221,242 @@
 
       stopBtn.hidden = false;
       sendBtn.hidden = true;
-      tipEl.textContent = "正在思考…";
+      // 思考状态已经移到气泡里的动画指示器；tipEl 只在生图时仍给一句文字
+      tipEl.textContent = imageMode ? "正在生成图片…" : "";
 
       abortCtrl = new AbortController();
 
+      // ========== 🎨 生图分支 ==========
+      if (imageMode) {
+        // 借鉴 ChatGpt-Image-Studio 的 turn 模型：把元数据 + 生图占位写到 assistant 消息上，渲染时走结构化卡片而不是 markdown 拼字符串
+        const opts = AI.AIStore.data.imageOpts || {};
+        let size = opts.size || "1024x1024";
+        if (size === "custom") {
+          const w = Math.max(64, +opts.customW || 3840);
+          const h = Math.max(64, +opts.customH || 2160);
+          size = `${w}x${h}`;
+        }
+        const requestedCount = Math.max(1, +opts.n || 1);
+        asstMsg.imageMeta = {
+          size,
+          quality: opts.quality || "auto",
+          n: requestedCount,
+          model,
+          prompt: text || "",
+          startedAt: Date.now(),
+        };
+        // 占位 results：每张都是 loading
+        asstMsg.imageResults = Array.from({ length: requestedCount }, (_, i) => ({
+          id: "img-" + Date.now() + "-" + i,
+          status: "loading",
+        }));
+        // imageGenStatus 由 renderAssistantContent 用来显示"已等待 XXs"，发送中持续递增
+        asstMsg.imageGenStatus = { phase: "running", elapsedSec: 0 };
+        renderMessages();
+        const tickTimer = setInterval(() => {
+          if (!asstMsg.imageGenStatus || asstMsg.imageGenStatus.phase !== "running") return;
+          asstMsg.imageGenStatus.elapsedSec = Math.floor((Date.now() - asstMsg.imageMeta.startedAt) / 1000);
+          // 只重渲染当前最后一条助手 bubble，避免整列表重建
+          const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
+          if (bubble) bubble.innerHTML = renderAssistantContent(asstMsg.content, asstMsg);
+        }, 1000);
+
+        try {
+          const arr = await AI.generateImage({
+            provider, model,
+            prompt: text || "请生成一张创意图片",
+            size,
+            quality: opts.quality || "auto",
+            n: requestedCount,
+            signal: abortCtrl.signal,
+            retry: {
+              maxAttempts: 2,
+              delayMs: 1500,
+              onRetry: (n, total) => { tipEl.textContent = `生图重试 ${n}/${total - 1}…`; },
+            },
+          });
+          // 把返回结果 merge 到占位 results 上；多了的填，少了的标错（借鉴 mergeResultImages）
+          const merged = arr.map((it, i) => ({
+            id: asstMsg.imageResults[i]?.id || "img-" + Date.now() + "-" + i,
+            status: "success",
+            dataUrl: it.dataUrl,
+            url: it.url,
+            revisedPrompt: it.revisedPrompt || "",
+          }));
+          while (merged.length < requestedCount) {
+            merged.push({
+              id: "img-err-" + merged.length,
+              status: "error",
+              error: "接口返回的图片数量不足",
+            });
+          }
+          asstMsg.imageResults = merged;
+          asstMsg.imageGenStatus = { phase: "done", elapsedSec: Math.floor((Date.now() - asstMsg.imageMeta.startedAt) / 1000) };
+          asstMsg.streaming = false;
+          // content 留空，渲染走 imageResults 卡片；存一个简短 markdown 描述用于历史导出/复制
+          asstMsg.content = `**🎨 生图** · \`${model}\` · ${size} · ${opts.quality || "auto"} · 张数 ${arr.length}`;
+          AI.AIStore.saveMessages();
+          renderMessages();
+          tipEl.textContent = "";
+        } catch (err) {
+          asstMsg.streaming = false;
+          asstMsg.imageGenStatus = { phase: "done", elapsedSec: Math.floor((Date.now() - asstMsg.imageMeta.startedAt) / 1000) };
+          if (err.name === "AbortError") {
+            // 取消：所有占位变成 cancelled
+            asstMsg.imageResults = (asstMsg.imageResults || []).map((r) => r.status === "loading"
+              ? { ...r, status: "cancelled" }
+              : r);
+            asstMsg.content = `**🎨 生图** · \`${model}\` · 已取消`;
+          } else {
+            // 失败：所有占位变成 error，每张都带友好翻译。content 只存一个简短摘要，
+            // 不存完整 formatAIError 文本，避免历史里塞重复内容；详细错误在 imageResults[i].error 里。
+            const friendly = AI.formatImageErrorMessage(err.message || "生图失败");
+            asstMsg.imageResults = (asstMsg.imageResults || []).map((r) => r.status === "loading"
+              ? { ...r, status: "error", error: friendly }
+              : r);
+            asstMsg.imageError = friendly;
+            asstMsg.error = true;
+            asstMsg.content = `**🎨 生图失败** · \`${model}\` · ${friendly.split("\n")[0]}`;
+          }
+          AI.AIStore.saveMessages();
+          renderMessages();
+          tipEl.classList.add("err");
+          tipEl.textContent = (err.message || "生图失败").replace(/\s+/g, " ").slice(0, 160);
+          setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 6000);
+        } finally {
+          clearInterval(tickTimer);
+          abortCtrl = null;
+          stopBtn.hidden = true;
+          sendBtn.hidden = false;
+          try { refreshModelStatus(); } catch (_) {}
+        }
+        return;
+      }
+
+      // 构建候选模型链：用户选的优先，剩下按 provider.models 顺序补齐；
+      // 本地台账里仍在冷却中的模型先排到末尾（保留作为兜底）；同时考虑 upstream 维度的冷却。
+      const allModels = (provider.models || []).filter(Boolean);
+      const dedupe = new Set();
+      const orderedAll = [model, ...allModels].filter((m) => {
+        if (!m || dedupe.has(m)) return false;
+        dedupe.add(m); return true;
+      });
+      const ranked = AI.rankModels(provider, orderedAll);
+      let chain = ranked.fresh.length ? [...ranked.fresh, ...ranked.cold] : ranked.ordered;
+
+      // 智能模式：当前选的模型已经在台账里冷却 → 发送前先用 1-token 探针找一个真正活的
+      if (AI.AIStore.data.smartMode && ranked.cold.includes(model)) {
+        try {
+          tipEl.textContent = "智能模式：探测可用模型…";
+          const live = await AI.findAvailableModel({
+            provider,
+            signal: abortCtrl.signal,
+            prefer: model,
+            onProgress: ({ index, total, model: m, status }) => {
+              tipEl.textContent =
+                status === "probing" ? `智能模式：探测 ${index}/${total} «${m}»…` :
+                status === "cooldown" ? `«${m}» 冷却中，跳过…` :
+                status === "ok" ? `已选用 «${m}»` :
+                tipEl.textContent;
+            },
+          });
+          if (live) chain = [live, ...chain.filter((m) => m !== live)];
+        } catch (_) { /* 探测失败也走原 chain */ }
+      }
+
+      let usedModel = chain[0];
+      let succeeded = false;
+      let lastErr = null;
+      let attemptIdx = 0;
+
       try {
         const msgs = await AI.buildMessages(text, currentAttachments);
-        await AI.chat({
-          provider, model, messages: msgs, signal: abortCtrl.signal,
-          onDelta: (_d, full) => {
-            asstMsg.content = full;
-            const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
-            if (bubble) bubble.innerHTML = renderAssistantContent(full);
-            scrollToBottom();
-          },
-        });
-        asstMsg.streaming = false;
-        // 解析指令块，生成操作卡
-        const actions = AI.parseActions(asstMsg.content);
-        if (actions.length) asstMsg.actions = actions;
-        if (actions.length && AI.AIStore.data.autoApply) {
-          const r = AI.applyActions(actions);
-          asstMsg.applied = true;
-          asstMsg.appliedResult = r;
-          toast(`已自动执行 ${r.ok} 项指令`);
+        let prevModel = null;
+        const visited = new Set();
+        while (chain.length) {
+          const tryModel = chain.shift();
+          if (!tryModel || visited.has(tryModel)) continue;
+          visited.add(tryModel);
+          // 已知该 UI 模型映射到的 upstream 仍在冷却 → 直接跳过，避免做无意义的尝试
+          const myUp = AI.upstreamMap[provider.id + "::" + tryModel];
+          if (myUp && (AI.cooldownLedger[myUp] || 0) > Date.now()) continue;
+          attemptIdx++;
+          if (attemptIdx > 1) {
+            tipEl.textContent = `「${prevModel}」冷却中，正在切到「${tryModel}」重试…`;
+            asstMsg.content = ""; // 抹掉上次失败时填的错误正文
+            renderMessages();
+          }
+          try {
+            await AI.chat({
+              provider, model: tryModel, messages: msgs, signal: abortCtrl.signal,
+              retry: {
+                maxAttempts: 2,
+                delayMs: 1200,
+                onRetry: (n, total) => {
+                  tipEl.textContent = `「${tryModel}」凭据冷却，重试 ${n}/${total - 1}…`;
+                },
+              },
+              onDelta: (_d, full) => {
+                asstMsg.content = full;
+                const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
+                if (bubble) bubble.innerHTML = renderAssistantContent(full);
+                scrollToBottom();
+              },
+            });
+            usedModel = tryModel;
+            succeeded = true;
+            break;
+          } catch (err) {
+            lastErr = err;
+            prevModel = tryModel;
+            if (err.name === "AbortError") break;
+            const cool = AI.isCooldownError(err);
+            const gw = AI.isGatewayError(err);
+            if (!cool && !gw) break; // 既不是冷却也不是网关错误 → 真错，立刻报
+            if (cool) {
+              // UI 模型 + upstream 都登记到台账；下一轮 while 自动会跳过同一 upstream 的别名
+              AI.recordCooldown(provider, tryModel, err);
+            }
+            // 网关错误（504/502 等）不写台账，因为它跟凭据无关；切下一个模型再试
+          }
         }
-        AI.AIStore.saveMessages();
-        renderMessages();
-        tipEl.textContent = "";
+
+        if (succeeded) {
+          asstMsg.streaming = false;
+          if (usedModel !== model) {
+            asstMsg.routedFrom = model;
+            asstMsg.routedTo = usedModel;
+          }
+          // 解析指令块，生成操作卡
+          const actions = AI.parseActions(asstMsg.content);
+          if (actions.length) asstMsg.actions = actions;
+          if (actions.length && AI.AIStore.data.autoApply) {
+            const r = AI.applyActions(actions);
+            asstMsg.applied = true;
+            asstMsg.appliedResult = r;
+            toast(`已自动执行 ${r.ok} 项指令`);
+          }
+          AI.AIStore.saveMessages();
+          renderMessages();
+          tipEl.textContent = "";
+        } else {
+          throw lastErr || new Error("未知错误");
+        }
       } catch (err) {
         asstMsg.streaming = false;
         if (err.name === "AbortError") asstMsg.content += "\n\n_[已取消]_";
-        else asstMsg.content = `**出错了：** ${err.message}`;
+        else { asstMsg.content = formatAIError(err); asstMsg.error = true; }
         AI.AIStore.saveMessages();
         renderMessages();
         tipEl.classList.add("err");
-        tipEl.textContent = err.message?.slice(0, 160) || "网络错误";
-        setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 5000);
+        tipEl.textContent = (err.message || "网络错误").replace(/\s+/g, " ").slice(0, 160);
+        setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 6000);
       } finally {
         abortCtrl = null;
         stopBtn.hidden = true;
         sendBtn.hidden = false;
+        // 一次 send 完成（成功 / 失败 / 取消都算），刷一下模型状态徽章 — chat()/generateImage() 内部已经记好台账了
+        try { refreshModelStatus(); } catch (_) {}
       }
     }
 
@@ -2943,8 +3487,8 @@
             const tts = document.createElement("button");
             tts.className = "tts-btn";
             tts.type = "button";
-            tts.title = "朗读 / 停止";
-            tts.textContent = "🔊";
+            tts.title = "朗读 / 停止朗读这条回复";
+            tts.innerHTML = '<span class="ai-tool-ico">🔊</span><span class="ai-tool-txt">朗读</span>';
             tts.addEventListener("click", (e) => {
               e.stopPropagation();
               window.AITts.speak(m.content, tts);
@@ -2960,17 +3504,126 @@
     function renderUserContent(m) {
       let html = escapeHtml(m.content || "").replace(/\n/g, "<br>");
       if (m.attachments?.length) {
-        html += `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">` +
+        html += `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">` +
           m.attachments.map((a) => a.type === "image"
-            ? `<img class="ai-inline-img" src="${a.dataUrl}" style="max-height:120px" />`
+            ? `<figure class="ai-img-figure" style="margin:0">
+                 <img class="ai-inline-img" src="${a.dataUrl}" alt="${escapeHtml(a.name||"")}" style="max-height:140px" />
+                 <div class="ai-img-tools">
+                   <button type="button" class="ai-img-btn" data-img-act="open" title="新窗口打开">↗</button>
+                   <button type="button" class="ai-img-btn" data-img-act="download" title="下载">⬇</button>
+                 </div>
+               </figure>`
             : `<span class="ai-attach-item">📄${escapeHtml(a.name)}</span>`
           ).join("") + `</div>`;
       }
       return html;
     }
 
+    /** 借鉴 ChatGpt-Image-Studio web/src/app/image/components/conversation-turns.tsx 的卡片设计：
+     *  顶部一排胶囊（model/size/quality/张数/已用时间）；中间图片网格（1 列单图、2 列多图）；
+     *  每张图下面一排圆形按钮（下载 / 复制提示词 / 重生）；
+     *  loading 状态显示带 spinner 的占位框 + "已等待 XXs"；error 状态用玫瑰色块 + 重试按钮。 */
+    function renderImageGenCard(msg) {
+      const meta = msg.imageMeta || {};
+      const results = msg.imageResults || [];
+      const status = msg.imageGenStatus || {};
+      const isRunning = !!msg.streaming;
+      const successCount = results.filter((r) => r.status === "success").length;
+      const errorCount = results.filter((r) => r.status === "error").length;
+      const cancelledCount = results.filter((r) => r.status === "cancelled").length;
+      const elapsed = status.elapsedSec || 0;
+
+      // 胶囊行
+      const pills = [];
+      if (meta.model)   pills.push(`<span class="ai-img-pill">${escapeHtml(meta.model)}</span>`);
+      if (meta.size)    pills.push(`<span class="ai-img-pill">${escapeHtml(meta.size.toUpperCase())}</span>`);
+      if (meta.quality && meta.quality !== "auto") pills.push(`<span class="ai-img-pill">Quality ${escapeHtml(meta.quality)}</span>`);
+      if (results.length > 1) pills.push(`<span class="ai-img-pill">${results.length} 张</span>`);
+      if (isRunning) {
+        pills.push(`<span class="ai-img-pill running">⏱ 已等待 ${elapsed}s</span>`);
+      } else if (elapsed > 0) {
+        pills.push(`<span class="ai-img-pill">耗时 ${elapsed}s</span>`);
+      }
+      if (errorCount && !isRunning) pills.push(`<span class="ai-img-pill err">${errorCount} 张失败</span>`);
+      if (cancelledCount) pills.push(`<span class="ai-img-pill muted">${cancelledCount} 张取消</span>`);
+
+      // 图片网格
+      const gridCls = results.length === 1 ? "ai-img-grid one" : "ai-img-grid many";
+      const cards = results.map((r, i) => {
+        const safeIdx = String(i + 1).padStart(2, "0");
+        const dlName = `sakura-image-${Date.now()}-${safeIdx}.png`;
+        if (r.status === "success") {
+          const u = r.dataUrl || r.url;
+          const cap = r.revisedPrompt
+            ? `<div class="ai-img-revised" title="${escapeHtml(r.revisedPrompt)}">改写：${escapeHtml(r.revisedPrompt.slice(0, 100))}${r.revisedPrompt.length > 100 ? "…" : ""}</div>`
+            : "";
+          return `<figure class="ai-img-card success">
+              <img class="ai-img-thumb" src="${u}" alt="生图结果 #${i + 1}" title="点击查看大图" />
+              ${cap}
+              <div class="ai-img-actions">
+                <a class="ai-img-act" href="${u}" download="${dlName}" title="保存到本地">⬇ 下载</a>
+                <button type="button" class="ai-img-act" data-img-act="seed-prompt" title="把这条提示词复制回输入框">✎ 复制提示词</button>
+                <button type="button" class="ai-img-act" data-img-act="retry-image" title="用同样的提示词再生成一次">↻ 再生成</button>
+              </div>
+            </figure>`;
+        }
+        if (r.status === "error") {
+          return `<figure class="ai-img-card error">
+              <div class="ai-img-err-text">${escapeHtml(r.error || "处理失败")}</div>
+              <div class="ai-img-actions">
+                <button type="button" class="ai-img-act" data-img-act="retry-image" title="重新发送同样的请求">↻ 重新生成</button>
+              </div>
+            </figure>`;
+        }
+        if (r.status === "cancelled") {
+          return `<figure class="ai-img-card cancelled"><div class="ai-img-cancel-text">已取消</div></figure>`;
+        }
+        // loading 占位
+        return `<figure class="ai-img-card loading">
+            <div class="ai-img-spinner-wrap">
+              <div class="ai-img-spinner" aria-hidden="true"></div>
+              <p class="ai-img-spinner-title">正在生成图片…</p>
+              <p class="ai-img-spinner-sub">已等待 ${elapsed}s · 图片处理通常需要十几秒到几分钟</p>
+            </div>
+          </figure>`;
+      }).join("");
+
+      // 顶部 prompt 摘要：跟下面每张图的错误信息可能完全一样，所以全失败时不重复显示同一句错误，
+      // 只给一句简短状态，详细错误已经在每张图的卡片里。
+      let summary = "";
+      if (isRunning) {
+        summary = `<div class="ai-img-summary running">🎨 正在生成 ${results.length} 张图片…</div>`;
+      } else if (errorCount === results.length && results.length > 0) {
+        summary = `<div class="ai-img-summary err">❌ 生成失败 · 详情见下方</div>`;
+      } else if (errorCount > 0 && successCount > 0) {
+        summary = `<div class="ai-img-summary partial">⚠️ ${successCount} 张成功 / ${errorCount} 张失败</div>`;
+      } else if (successCount > 0) {
+        summary = `<div class="ai-img-summary ok">✅ 生成完成 · ${successCount} 张</div>`;
+      } else if (cancelledCount === results.length) {
+        summary = `<div class="ai-img-summary muted">已取消</div>`;
+      }
+
+      return `<div class="ai-img-card-wrap">
+        <div class="ai-img-pills">${pills.join("")}</div>
+        ${summary}
+        <div class="${gridCls}">${cards}</div>
+      </div>`;
+    }
+
     function renderAssistantContent(text, msg) {
-      let html = AI.renderMarkdown(text || "");
+      // 生图卡片优先：如果消息带 imageResults 字段（不论成功/失败/加载中），用结构化卡片渲染
+      if (msg?.imageResults && msg.imageResults.length) {
+        return renderImageGenCard(msg);
+      }
+      // 流式中且尚无任何文本内容时，在气泡里显示动画"思考中"指示器
+      const thinking = !!msg?.streaming && !String(text || "").trim();
+      let html = thinking
+        ? `<div class="ai-thinking" aria-label="正在思考"><span></span><span></span><span></span></div>`
+        : AI.renderMarkdown(text || "");
+      // fallback 命中时在最前面挂一条提示
+      if (msg?.routedTo && msg.routedFrom && msg.routedTo !== msg.routedFrom) {
+        html = `<div class="ai-route-note">🔁 <code>${escapeHtml(msg.routedFrom)}</code> 当前不可用，已自动切到 <b>${escapeHtml(msg.routedTo)}</b> 完成回答</div>` + html;
+      }
       // 替换指令块占位符
       html = html.replace(/<div class="ai-action-placeholder" data-code="([^"]*)"><\/div>/g, (_, code) => {
         try {
@@ -2983,6 +3636,13 @@
       // 如果消息已 applied
       if (msg?.applied && msg.appliedResult) {
         html += `<div class="ai-action-card applied"><h5>✓ 已执行（${msg.appliedResult.ok} 成功 / ${msg.appliedResult.fail} 失败）</h5><ol>${msg.appliedResult.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ol></div>`;
+      }
+      // 错误消息：附加“立即重试 / 清除冷却台账”按钮
+      if (msg?.error) {
+        html += `<div class="ai-error-actions">
+          <button type="button" class="btn-retry-ai" data-retry-send="1">🔁 立即重试</button>
+          <button type="button" class="btn-clear-cooldown" data-clear-cooldown="1" title="清空本地记录的冷却中模型">🧹 清空冷却记录</button>
+        </div>`;
       }
       return html;
     }
@@ -3032,24 +3692,289 @@
       requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
     }
 
-    // 灯箱预览
+    /** 从最后一条 user 消息重新发送：抹掉 user 之后的所有助手消息，
+     *  把内容/附件回填到输入框，再走一次 send()。 */
+    function retryFromLastError() {
+      const ms = AI.AIStore.messages;
+      let i = ms.length - 1;
+      while (i >= 0 && ms[i].role !== "user") i--;
+      if (i < 0) { toast?.("没有可重试的消息"); return; }
+      const u = ms[i];
+      ms.length = i; // 删除 user + 之后所有
+      AI.AIStore.saveMessages();
+      input.value = u.content || "";
+      attachments = (u.attachments || []).map((a) => a.type === "image"
+        ? { type: "image", name: a.name, dataUrl: a.dataUrl }
+        : { type: "text", name: a.name, text: a.text || "" });
+      renderAttachments();
+      autoResize();
+      renderMessages();
+      send();
+    }
+
+    /** 把上游错误（含 429 限额 / 模型冷却 JSON / 5xx 网关 HTML）渲染成友好 Markdown。 */
+    function formatAIError(err) {
+      const msg = err.message || "网络错误";
+      const upstream = err.upstream || tryParseEmbeddedJson(msg);
+      const e = upstream?.error || upstream || {};
+      const lower = (e.message || "").toLowerCase();
+      const isCooldown = e.code === "model_cooldown" || /cool(ing)?[ _-]?down/.test(lower);
+      const isLimit = err.status === 429 || e.type === "usage_limit_reached" || /usage[_ ]?limit|rate[_ ]?limit/.test(lower);
+      const isGateway = AI.isGatewayError(err);
+
+      // 估算剩余秒数（兼容 resets_in_seconds / reset_seconds / resets_at / reset_time）
+      let secs = +e.resets_in_seconds || +e.reset_seconds || 0;
+      if (!secs && e.resets_at) secs = Math.max(0, +e.resets_at - Math.floor(Date.now()/1000));
+      if (!secs && typeof e.reset_time === "string") {
+        const h = +(e.reset_time.match(/(\d+)\s*h/i)?.[1] || 0);
+        const m = +(e.reset_time.match(/(\d+)\s*m(?!s)/i)?.[1] || 0);
+        const s = +(e.reset_time.match(/(\d+)\s*s/i)?.[1] || 0);
+        secs = h * 3600 + m * 60 + s;
+      }
+      const when = secs ? humanDur(secs) : "稍后";
+      const resetAt = e.resets_at ? new Date(+e.resets_at * 1000).toLocaleString("zh-CN")
+                     : (secs ? new Date(Date.now() + secs * 1000).toLocaleString("zh-CN") : "");
+
+      const requested = AI.AIStore.data.currentModel || "(未知)";
+
+      if (isCooldown) {
+        const realModel = e.model ? `\`${e.model}\`` : "未知";
+        const realProv = e.provider ? `\`${e.provider}\`` : "未知";
+        const provider = AI.AIStore.currentProvider();
+        const ledger = AI.cooldownLedger || {};
+        const allTried = (provider?.models || []).filter((m) => ledger[provider.id + "::" + m]).map((m) => `\`${m}\``);
+        const triedLine = allTried.length
+          ? `- 本会话已尝试并标记冷却的模型：${allTried.join("、")}`
+          : "";
+        return [
+          `**⚠️ 上游中转所有可用凭据都在冷却**`,
+          ``,
+          `- 你选择的模型：\`${requested}\``,
+          `- 中转实际路由到：${realModel}（provider：${realProv}）`,
+          `- 该后端的所有凭据正在冷却，约 **${when}** 后恢复${resetAt ? `（${resetAt}）` : ""}`,
+          triedLine,
+          ``,
+          `客户端已经做了：① 同模型 1~2 次快速重试；② 沿下拉里的其它模型自动 fallback。下面这种情况都没成功，说明 CPAMC 这个号池整体确实在冷却。可以：`,
+          `  1. 点 "立即重试" — 等几秒再试，刚释放的 Key 经常能命中；`,
+          `  2. 在 "AI 设置" 加一个备用供应商，发不出去时一键切换；`,
+          `  3. 联系 CPAMC 站长检查号池/限流配置；`,
+          `  4. 等冷却结束自动恢复。`,
+        ].filter(Boolean).join("\n");
+      }
+      if (isLimit) {
+        const plan = e.plan_type ? `（${e.plan_type} 套餐）` : "";
+        return [
+          `**⚠️ 上游 AI 配额已用完${plan}**`,
+          ``,
+          `- 重置倒计时：约 **${when}**${resetAt ? `（${resetAt}）` : ""}`,
+          `- 你可以：`,
+          `  1. 等待自动恢复；`,
+          `  2. 在 "AI 设置" 中切换到其它 **供应商 / 模型** 继续对话；`,
+          `  3. 如果用的是图片生成模型，可以临时换一个不计入这个套餐的服务。`,
+        ].join("\n");
+      }
+      if (isGateway) {
+        const isTimeout = err.status === 504;
+        const head = isTimeout
+          ? `**⏱️ 上游网关超时（HTTP 504）**`
+          : `**🚧 上游网关暂时不可达（HTTP ${err.status}）**`;
+        return [
+          head,
+          ``,
+          `- 你选择的模型：\`${requested}\``,
+          `- 客户端已经做了：① 同模型 1~2 次重试；② 沿下拉里其它模型 fallback。还是失败说明中转/上游确实抽风。`,
+          ``,
+          isTimeout
+            ? `**为什么常发生在画图请求**：图片生成动辄 30~60 秒，超过中转网关（Cloudflare/Nginx 默认 30~60s）的等待上限就会被强制 504 切断 —— 这跟模型有没有产出无关。`
+            : `这通常是中转把流量打到的某台后端节点临时挂了或在重启。`,
+          ``,
+          `建议：`,
+          `  1. 直接点 "🔁 立即重试"；`,
+          `  2. 把提示词缩短一些（图片生成请求越短越不容易超时）；`,
+          `  3. 在头部 🔍 主动找一个非画图、能正常出文字的模型；`,
+          `  4. 在 "AI 设置" 中加一个直连图片生成 API 的供应商（避开中转）。`,
+        ].join("\n");
+      }
+      return `**出错了：** ${msg}`;
+    }
+    function tryParseEmbeddedJson(text) {
+      const i = String(text || "").indexOf("{");
+      if (i < 0) return null;
+      try { return JSON.parse(text.slice(i)); } catch (_) { return null; }
+    }
+    function humanDur(secs) {
+      secs = Math.max(0, Math.floor(secs));
+      if (secs < 60) return secs + " 秒";
+      const m = Math.floor(secs / 60);
+      if (m < 60) return m + " 分钟";
+      const h = Math.floor(m / 60), rm = m % 60;
+      if (h < 24) return rm ? `${h} 小时 ${rm} 分钟` : `${h} 小时`;
+      const d = Math.floor(h / 24), rh = h % 24;
+      return rh ? `${d} 天 ${rh} 小时` : `${d} 天`;
+    }
+
+    // 灯箱预览 / 图片悬浮按钮（下载、新窗口） / 错误气泡按钮
     messagesEl.addEventListener("click", (e) => {
-      const img = e.target.closest(".ai-inline-img");
+      // 0a) 错误气泡：立即重试
+      if (e.target.closest("[data-retry-send]")) {
+        e.preventDefault();
+        e.stopPropagation();
+        retryFromLastError();
+        return;
+      }
+      // 0b) 错误气泡：清空本地冷却台账
+      if (e.target.closest("[data-clear-cooldown]")) {
+        e.preventDefault();
+        e.stopPropagation();
+        const k = AI.cooldownLedger || {};
+        for (const key of Object.keys(k)) delete k[key];
+        toast?.("已清空本地冷却记录，下次发送将重新尝试所有模型");
+        return;
+      }
+      // 1) 图片悬浮按钮：下载 / 新窗口 / 复制提示词回填 / 重新生成
+      const btn = e.target.closest("[data-img-act]");
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const act = btn.dataset.imgAct;
+        // 找所属消息：根据 DOM 顺序定位 messages 索引
+        const msgEl = btn.closest(".ai-msg");
+        const idx = msgEl ? [...messagesEl.children].indexOf(msgEl) : -1;
+        const msg = idx >= 0 ? AI.AIStore.messages[idx] : null;
+
+        if (act === "seed-prompt") {
+          // 把这条 assistant 消息对应的 user prompt 回填到输入框
+          const promptText = msg?.imageMeta?.prompt
+            || (idx > 0 ? AI.AIStore.messages[idx - 1]?.content : "")
+            || "";
+          input.value = promptText;
+          autoResize();
+          input.focus();
+          toast?.("已复制提示词到输入框");
+          return;
+        }
+        if (act === "retry-image") {
+          // 直接重发：把对应 user 消息的 prompt 当作新一轮提交
+          retryFromLastError();
+          return;
+        }
+        // 新卡片：open 用 data-url；老结构：从 .ai-img-figure 的 img 取 src
+        let imgSrc = btn.dataset.url;
+        let imgAlt = "";
+        if (!imgSrc) {
+          const fig = btn.closest(".ai-img-figure, .ai-img-card");
+          const img = fig?.querySelector("img");
+          if (img) { imgSrc = img.src; imgAlt = img.alt; }
+        }
+        if (!imgSrc) return;
+        if (act === "open") {
+          window.open(imgSrc, "_blank", "noopener");
+        } else if (act === "download") {
+          downloadImage(imgSrc, imgAlt);
+        }
+        return;
+      }
+      // 1.5) 卡片图片本身 → 灯箱（点 .ai-img-thumb）
+      const thumb = e.target.closest(".ai-img-thumb");
+      if (thumb) {
+        // 借用现有 .ai-inline-img 的灯箱逻辑：先把 src 转给灯箱代码处理
+        // 简单做法：当成 ai-inline-img 同等对待，下面的灯箱逻辑会接住
+      }
+      // 2) 点击图片 → 灯箱（兼容老 .ai-inline-img 和新 .ai-img-thumb）
+      const img = e.target.closest(".ai-inline-img, .ai-img-thumb");
       if (!img) return;
-      openLightbox(img.src);
+      // 老结构里 <a class="ai-media-link"> 包着 <img>，避免新标签页打断预览
+      const wrap = e.target.closest(".ai-media-link");
+      if (wrap) e.preventDefault();
+      openLightbox(img.src, img.alt);
     });
 
-    function openLightbox(src) {
-      let box = $(".ai-lightbox");
-      if (!box) {
-        box = document.createElement("div");
-        box.className = "ai-lightbox";
-        box.innerHTML = `<img>`;
-        box.addEventListener("click", () => box.hidden = true);
-        document.body.appendChild(box);
+    let _lbBox = null;
+    function openLightbox(src, alt) {
+      if (!_lbBox) {
+        _lbBox = document.createElement("div");
+        _lbBox.className = "ai-lightbox";
+        _lbBox.innerHTML = `
+          <div class="ai-lightbox-toolbar">
+            <button class="ai-lb-btn" data-lb-act="open" type="button" title="新窗口打开">↗</button>
+            <button class="ai-lb-btn" data-lb-act="download" type="button" title="下载">⬇</button>
+            <button class="ai-lb-btn" data-lb-act="close" type="button" title="关闭 (Esc)">✕</button>
+          </div>
+          <img alt="">`;
+        _lbBox.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-lb-act]");
+          const img = _lbBox.querySelector("img");
+          if (!b) {
+            // 点击空白区域关闭，但点击图片本身不关闭
+            if (e.target.tagName !== "IMG") _lbBox.hidden = true;
+            return;
+          }
+          e.stopPropagation();
+          if (b.dataset.lbAct === "close") _lbBox.hidden = true;
+          else if (b.dataset.lbAct === "open") window.open(img.src, "_blank", "noopener");
+          else if (b.dataset.lbAct === "download") downloadImage(img.src, img.alt);
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && _lbBox && !_lbBox.hidden) _lbBox.hidden = true;
+        });
+        document.body.appendChild(_lbBox);
       }
-      box.querySelector("img").src = src;
-      box.hidden = false;
+      const img = _lbBox.querySelector("img");
+      img.src = src;
+      img.alt = alt || "";
+      _lbBox.hidden = false;
+    }
+
+    /** 把任意图片（http(s) / data: / blob:）保存到本地。
+     *  优先用 fetch + Blob，失败就退化到 <a download> + 新窗口提示。 */
+    async function downloadImage(src, hint) {
+      if (!src) return;
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const baseName = (hint || "sakura-ai-image").replace(/[\\/:*?"<>|]+/g, "_").slice(0, 60) || "image";
+      // data: 直接转 Blob
+      if (src.startsWith("data:")) {
+        try {
+          const m = /^data:([^;,]+)(?:;base64)?,/i.exec(src) || [];
+          const mime = m[1] || "image/png";
+          const ext = (mime.split("/")[1] || "png").split("+")[0];
+          const blob = await (await fetch(src)).blob();
+          triggerSave(blob, `${baseName}-${stamp}.${ext}`);
+          return;
+        } catch (_) { /* 失败则继续走通用路径 */ }
+      }
+      try {
+        const res = await fetch(src, { mode: "cors", credentials: "omit" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const blob = await res.blob();
+        const ext = (blob.type.split("/")[1] || guessExt(src)).split(";")[0] || "png";
+        triggerSave(blob, `${baseName}-${stamp}.${ext}`);
+        toast?.("已开始下载");
+      } catch (_) {
+        // CORS 失败：退化为新窗口（用户右键另存为）
+        const a = document.createElement("a");
+        a.href = src;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.download = `${baseName}-${stamp}.${guessExt(src)}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        toast?.("当前图片不支持直接下载，已新窗口打开，请右键另存为");
+      }
+    }
+    function guessExt(url) {
+      const m = /\.(png|jpe?g|gif|webp|bmp|svg)(?:[?#]|$)/i.exec(url || "");
+      return m ? m[1].toLowerCase() : "png";
+    }
+    function triggerSave(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 8000);
     }
 
     // 拖拽文件到输入框
@@ -3063,7 +3988,7 @@
       renderAttachments();
     });
 
-    return { open, close, refreshPersonaOptions, refreshModelOptions, renderMessages };
+    return { open, close, refreshPersonaOptions, refreshModelOptions, refreshModelStatus, renderMessages };
   })();
 
   // ===================== AI 设置 UI =====================
@@ -3076,6 +4001,7 @@
     renderAIPersonas();
     $("#ai-signature").value = AI.AIStore.data.customSignature || "";
     $("#ai-auto-apply").checked = !!AI.AIStore.data.autoApply;
+    const sm = $("#ai-smart-mode"); if (sm) sm.checked = !!AI.AIStore.data.smartMode;
     dlgAI.showModal();
   }
 
@@ -3086,6 +4012,13 @@
   $("#ai-auto-apply").addEventListener("change", (e) => {
     AI.AIStore.data.autoApply = e.target.checked;
     AI.AIStore.save();
+  });
+  $("#ai-smart-mode")?.addEventListener("change", (e) => {
+    AI.AIStore.data.smartMode = e.target.checked;
+    AI.AIStore.save();
+    toast(e.target.checked
+      ? "已开启智能模式：发送前会自动绕开冷却模型"
+      : "已关闭智能模式");
   });
 
   function renderAIProviders() {
@@ -3171,6 +4104,8 @@
       f.name.value = existing.name;
       f.baseUrl.value = existing.baseUrl;
       f.apiKey.value = existing.apiKey || "";
+      // 反代默认开启；只在 useProxy === false（用户显式禁用）时勾选"禁用本机反代"复选框
+      if (f.disableProxy) f.disableProxy.checked = existing.useProxy === false;
       f.defaultModel.value = existing.defaultModel || "";
       populateProviderModelsDatalist(existing.models || []);
       f.dataset.fetchedModels = JSON.stringify(existing.models || []);
@@ -3194,6 +4129,9 @@
     const msg = $("#provider-fetch-msg");
     const baseUrl = (f.baseUrl.value || "").trim();
     const apiKey = (f.apiKey.value || "").trim();
+    // disableProxy 勾选 → useProxy=false 强制直连；否则 undefined 走自动判定
+    const disableProxy = !!(f.disableProxy && f.disableProxy.checked);
+    const useProxy = disableProxy ? false : undefined;
     if (!baseUrl) {
       if (msg) { msg.textContent = "请先填写 Base URL"; msg.classList.add("err"); }
       return;
@@ -3201,7 +4139,7 @@
     if (msg) { msg.textContent = "正在拉取模型列表…"; msg.classList.remove("err", "ok"); }
     btn.disabled = true;
     try {
-      const models = await AI.fetchModels({ baseUrl, apiKey });
+      const models = await AI.fetchModels({ baseUrl, apiKey, useProxy });
       populateProviderModelsDatalist(models);
       f.dataset.fetchedModels = JSON.stringify(models);
       if (!f.defaultModel.value && models[0]) f.defaultModel.value = models[0];
@@ -3217,19 +4155,47 @@
     e.preventDefault();
     const f = e.target;
     const data = Object.fromEntries(new FormData(f));
+    delete data.disableProxy; // 这是 UI 字段，不直接落库
+    // 反代决策：勾上"禁用本机反代"= useProxy=false；不勾就把字段干掉走自动判定（buildFetchTarget 会按 proxyAvailable 决定）
+    if (f.disableProxy && f.disableProxy.checked) {
+      data.useProxy = false;
+    } else {
+      delete data.useProxy;
+    }
     let fetched = [];
     try { fetched = JSON.parse(f.dataset.fetchedModels || "[]"); } catch (_) {}
     const editId = f.dataset.editId;
     if (editId) {
       const p = AI.AIStore.data.providers.find((x) => x.id === editId);
       if (p) {
+        const oldDefault = p.defaultModel;
         Object.assign(p, data);
+        // Object.assign 不删字段：useProxy 不在 data 里时也要把旧的 false 清掉，让自动判定接管
+        if (!("useProxy" in data)) delete p.useProxy;
         if (fetched.length) p.models = fetched;
+        // 如果改的是当前正在用的供应商，且默认模型变了，把对话页正在用的当前模型也跟过去；
+        // 否则用户在设置里改完默认模型后，对话页头部仍显示旧模型，迷惑性极强。
+        if (p.id === AI.AIStore.data.currentProviderId
+            && p.defaultModel
+            && p.defaultModel !== oldDefault) {
+          AI.AIStore.data.currentModel = p.defaultModel;
+        }
+        // 进一步兜底：当前模型不在新模型列表里就强制切到默认模型（或第一个）
+        const models = p.models || [];
+        if (p.id === AI.AIStore.data.currentProviderId
+            && AI.AIStore.data.currentModel
+            && models.length
+            && !models.includes(AI.AIStore.data.currentModel)) {
+          AI.AIStore.data.currentModel = p.defaultModel || models[0];
+        }
       }
     } else {
       const newP = Object.assign({ id: AI.uid(), models: fetched }, data);
       AI.AIStore.data.providers.push(newP);
-      if (!AI.AIStore.data.currentProviderId) AI.AIStore.data.currentProviderId = newP.id;
+      if (!AI.AIStore.data.currentProviderId) {
+        AI.AIStore.data.currentProviderId = newP.id;
+        AI.AIStore.data.currentModel = newP.defaultModel || (newP.models || [])[0] || "";
+      }
     }
     AI.AIStore.save();
     dlgProvider.close();
@@ -4659,6 +5625,7 @@
     if (serverStorageUnavailable()) {
       applyTheme();
       applyStyle();
+      applySiteTitle();
       Sakura.init({
         count: Theme.particleCountForViewport(Store.settings.sakuraCount, window.matchMedia.bind(window)),
         speed: Store.settings.sakuraSpeed,
@@ -4680,6 +5647,7 @@
 
     applyTheme();
     applyStyle();
+    applySiteTitle();
     Bg.init();
     Sakura.init({
       count: Theme.particleCountForViewport(Store.settings.sakuraCount, window.matchMedia.bind(window)),

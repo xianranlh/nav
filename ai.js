@@ -1,4 +1,4 @@
-/* 樱 · AI 助手模块
+/* 樱 · AI 助手模块  (build: v1.18.4 · 2026-05-08 · 524-friendly)
  * 兼容 OpenAI Chat Completions 协议：
  *   POST  {baseUrl}/chat/completions   (流式 stream: true)
  *   GET   {baseUrl}/models              (列出模型)
@@ -15,6 +15,9 @@
  */
 (function () {
   "use strict";
+
+  // —— 启动标记：刷新后在 DevTools Console 应该能看到这一行；看不到说明浏览器还在跑旧版本 ai.js
+  try { console.log("%c[sakura-nav][ai.js] build v1.18.4 · 2026-05-08 · UI 视觉统一 + 4K 超时上调到 480s", "color:#d6336c;font-weight:bold"); } catch (_) {}
 
   const AI_KEY = "sakura_nav_ai_v1";
   const CHAT_KEY = "sakura_nav_chat_v1";
@@ -74,25 +77,68 @@
       currentPersonaId: "nav",
       customSignature: "",  // 例：TG: @xxx / 邮箱：xxx
       autoApply: false,     // 收到指令块时自动执行（默认需确认）
+      smartMode: false,     // 智能模式：发送前若 currentModel 在冷却台账里就先 probe 找可用模型
+      imageMode: false,     // 🎨 生图模式：把发送改路由到 /v1/images/generations
+      imageOpts: {          // 生图参数（持久化）
+        size: "1024x1024",
+        quality: "auto",
+        n: 1,
+        customW: 3840,
+        customH: 2160,
+      },
     },
     messages: [],           // [{ role, content, ts, attachments?: [{type,name,url/data}] }]
     serverMode: false,
+    /** 本机是否有 /api/ai-proxy 端点：能就默认走反代绕开 CORS；能不能要 probe 一下。 */
+    proxyAvailable: false,
     _pushTimer: null,
+    _proxyProbeStarted: false,
 
     // 从 sakura-remote 的 localStorage shim 同步读取；再异步尝试从独立 AI 设置表覆盖
     async load() {
       try {
         const raw = localStorage.getItem(AI_KEY);
-        if (raw) Object.assign(this.data, JSON.parse(raw));
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") Object.assign(this.data, parsed);
+        }
       } catch (_) {}
       try {
         const raw = localStorage.getItem(CHAT_KEY);
-        if (raw) this.messages = JSON.parse(raw);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          // bundle 把空聊天序列化成 null 存到 localStorage 后，这里 raw="null" 会让 messages 被顶成 null。兜底成数组。
+          if (Array.isArray(parsed)) this.messages = parsed;
+        }
       } catch (_) {}
+      // 终极兜底：messages 永远是数组
+      if (!Array.isArray(this.messages)) this.messages = [];
       if (!Array.isArray(this.data.personas) || !this.data.personas.length) {
         this.data.personas = DEFAULT_PERSONAS.slice();
       }
-      await this._hydrateFromServer();
+      // 并行：服务端 hydrate 和反代 probe 一起走，整体阻塞的时间是两个里更长的那个
+      await Promise.all([this._hydrateFromServer(), this._probeProxy()]);
+    },
+
+    /** 探测本机是否有 /api/ai-proxy 端点。
+     *  端点对无 target 头的 GET 请求统一回 200 + JSON `{ok:true, kind:"sakura-nav-ai-proxy"}`，
+     *  纯静态部署会回 404 或被 SPA 兜底成 200 HTML（content-type 不含 json）。 */
+    async _probeProxy() {
+      if (this._proxyProbeStarted) return;
+      this._proxyProbeStarted = true;
+      try {
+        const r = await fetch("/api/ai-proxy/__probe", { method: "GET" });
+        const ct = (r.headers.get("content-type") || "").toLowerCase();
+        if (r.ok && ct.includes("json")) {
+          const j = await r.json().catch(() => null);
+          if (j && j.kind === "sakura-nav-ai-proxy") {
+            this.proxyAvailable = true;
+            try { console.log("%c[sakura-nav][ai] proxy available · 默认走 /api/ai-proxy/*", "color:#3aa657"); } catch (_) {}
+          }
+        }
+      } catch (_) {
+        // 静默失败：保持 proxyAvailable=false
+      }
     },
 
     async _hydrateFromServer() {
@@ -143,7 +189,10 @@
       } catch (_) {}
     },
 
-    saveMessages() { localStorage.setItem(CHAT_KEY, JSON.stringify(this.messages.slice(-200))); },
+    saveMessages() {
+      if (!Array.isArray(this.messages)) this.messages = [];
+      localStorage.setItem(CHAT_KEY, JSON.stringify(this.messages.slice(-200)));
+    },
 
     currentProvider() { return this.data.providers.find((p) => p.id === this.data.currentProviderId); },
     currentPersona() {
@@ -163,38 +212,274 @@
     return url;
   }
 
-  async function fetchModels(provider) {
+  /** 给定 provider 和子路径（如 "chat/completions"），返回最终请求的 url + headers。
+   *  反代决策：
+   *   - provider.useProxy === true  → 强制走 /api/ai-proxy/*
+   *   - provider.useProxy === false → 强制直连 baseUrl
+   *   - 其它（undefined / null）    → 当本机 /api/ai-proxy 探测可用时默认走反代，不可用就直连
+   *  反代会绕开第三方 baseUrl 的 CORS 限制，所以默认开启对绝大多数中转更友好。 */
+  function buildFetchTarget(provider, subPath) {
     const base = normalizeBase(provider.baseUrl);
-    const r = await fetch(base + "/models", {
-      headers: { "Authorization": "Bearer " + (provider.apiKey || "") },
-    });
-    if (!r.ok) throw new Error("HTTP " + r.status + " " + (await r.text().catch(() => "")).slice(0, 200));
+    const sub = String(subPath || "").replace(/^\/+/, "");
+    let useProxy;
+    if (provider.useProxy === true) useProxy = true;
+    else if (provider.useProxy === false) useProxy = false;
+    else useProxy = !!(window.AI && window.AI.AIStore && window.AI.AIStore.proxyAvailable);
+    if (useProxy) {
+      return {
+        url: "/api/ai-proxy/" + sub,
+        headers: {
+          "X-Sakura-Target-Base": base,
+          "X-Sakura-Target-Auth": "Bearer " + (provider.apiKey || ""),
+        },
+      };
+    }
+    return {
+      url: base + "/" + sub,
+      headers: {
+        "Authorization": "Bearer " + (provider.apiKey || ""),
+      },
+    };
+  }
+
+  async function fetchModels(provider) {
+    const t = buildFetchTarget(provider, "models");
+    const r = await fetch(t.url, { headers: t.headers });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      throw buildHttpError(r.status, txt);
+    }
     const data = await r.json();
     const arr = (data.data || data.models || []).map((m) => m.id || m.name).filter(Boolean);
     return arr;
   }
 
-  /** 发送聊天（支持流式）*/
-  async function chat({ provider, model, messages, signal, onDelta, temperature }) {
-    const base = normalizeBase(provider.baseUrl);
+  /** 判断错误是否值得 (a) 同模型重试、(b) 切到其它模型继续。 */
+  function isCooldownError(err) {
+    const ue = err?.upstream?.error || err?.upstream || {};
+    if (err?.status !== 429) return false;
+    return ue.code === "model_cooldown" ||
+      /cool(ing)?[\s_-]?down|all credentials|rate[\s_]?limit|too many/i.test(ue.message || err?.message || "");
+  }
+
+  /** 从上游错误体里抠出"还要冷却多少秒"。 */
+  function cooldownSeconds(err) {
+    const ue = err?.upstream?.error || err?.upstream || {};
+    let secs = +ue.reset_seconds || +ue.resets_in_seconds || 0;
+    if (!secs && ue.resets_at) secs = Math.max(0, +ue.resets_at - Math.floor(Date.now() / 1000));
+    if (!secs && typeof ue.reset_time === "string") {
+      const h = +(ue.reset_time.match(/(\d+)\s*h/i)?.[1] || 0);
+      const m = +(ue.reset_time.match(/(\d+)\s*m(?!s)/i)?.[1] || 0);
+      const s = +(ue.reset_time.match(/(\d+)\s*s/i)?.[1] || 0);
+      secs = h * 3600 + m * 60 + s;
+    }
+    return secs;
+  }
+
+  /** 把一次 cooldown 错误登记到台账（同时记录 UI 模型 + upstream 真实模型）。
+   *  返回这次冷却的剩余秒数，便于调用方做 UI 提示。 */
+  function recordCooldown(provider, uiModel, err) {
+    const ledger = window.AI.cooldownLedger;
+    const upstreamMap = window.AI.upstreamMap;
+    const ue = err?.upstream?.error || err?.upstream || {};
+    const secs = cooldownSeconds(err);
+    const expire = secs > 0 ? Date.now() + secs * 1000 : Date.now() + 60 * 1000; // 兜底 1 分钟
+    if (uiModel) ledger[provider.id + "::" + uiModel] = expire;
+    if (ue.provider && ue.model) {
+      const upKey = "upstream::" + ue.provider + "::" + ue.model;
+      ledger[upKey] = Math.max(ledger[upKey] || 0, expire);
+      if (uiModel) upstreamMap[provider.id + "::" + uiModel] = upKey;
+    }
+    return secs;
+  }
+
+  /** 把"探测/对话/生图最近一次的结果"写到状态台账，UI 用来挂可用性徽章。
+   *  kind: "ok"   = 最近一次请求成功
+   *        "error"= 最近一次请求失败但不是 cooldown 类（拒绝、参数不兼容、5xx 等）
+   *  cooldown 类不进这里，cooldownLedger 自己有更精确的过期时间。 */
+  function recordProbeOk(provider, uiModel) {
+    if (!provider?.id || !uiModel) return;
+    const status = window.AI.probeStatus;
+    status[provider.id + "::" + uiModel] = { kind: "ok", ts: Date.now() };
+  }
+  function recordProbeError(provider, uiModel, err) {
+    if (!provider?.id || !uiModel) return;
+    const status = window.AI.probeStatus;
+    status[provider.id + "::" + uiModel] = {
+      kind: "error",
+      ts: Date.now(),
+      msg: String(err?.message || err || "").slice(0, 200),
+    };
+  }
+
+  /** 解析模型当前应该展示什么状态。优先级 cooldown > error(<5min) > ok(<30min) > unknown。 */
+  function getModelStatus(provider, uiModel) {
+    if (!provider || !uiModel) return { kind: "unknown" };
+    const ledger = window.AI.cooldownLedger;
+    const upstreamMap = window.AI.upstreamMap;
+    const status = window.AI.probeStatus;
+    const now = Date.now();
+    // 1) cooldown 优先
+    const expire = ledger[provider.id + "::" + uiModel] || 0;
+    let coldExpire = expire;
+    const upKey = upstreamMap[provider.id + "::" + uiModel];
+    if (upKey) coldExpire = Math.max(coldExpire, ledger[upKey] || 0);
+    if (coldExpire > now) {
+      return { kind: "cold", remainingMs: coldExpire - now };
+    }
+    // 2) probeStatus
+    const rec = status[provider.id + "::" + uiModel];
+    if (rec) {
+      const ageMs = now - rec.ts;
+      if (rec.kind === "error" && ageMs < 5 * 60 * 1000) return { kind: "error", msg: rec.msg, ageMs };
+      if (rec.kind === "ok"    && ageMs < 30 * 60 * 1000) return { kind: "ok", ageMs };
+    }
+    return { kind: "unknown" };
+  }
+
+  /** 给定一组 UI 模型，剔除已知冷却的，未冷却在前、冷却的兜底排后。 */
+  function rankModels(provider, models) {
+    const ledger = window.AI.cooldownLedger;
+    const upstreamMap = window.AI.upstreamMap;
+    const now = Date.now();
+    const isCold = (m) => {
+      if ((ledger[provider.id + "::" + m] || 0) > now) return true;
+      const up = upstreamMap[provider.id + "::" + m];
+      if (up && (ledger[up] || 0) > now) return true;
+      return false;
+    };
+    const fresh = [], cold = [];
+    for (const m of models) (isCold(m) ? cold : fresh).push(m);
+    return { fresh, cold, ordered: [...fresh, ...cold] };
+  }
+
+  /** 对单个模型发一个 1-token 的最小请求；200 返回 true，否则抛 buildHttpError。 */
+  async function probeModel(provider, model, signal) {
+    const t = buildFetchTarget(provider, "chat/completions");
+    const r = await fetch(t.url, {
+      method: "POST",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...t.headers,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: "ping" }],
+        stream: false,
+        max_tokens: 1,
+        temperature: 0,
+      }),
+    });
+    const txt = await r.text().catch(() => "");
+    if (!r.ok) throw buildHttpError(r.status, txt);
+    return true;
+  }
+
+  /** 顺序探测 provider.models，返回第一个可用的；
+   *  onProgress({index,total,model,status:'probing'|'ok'|'cooldown'|'error',err?}) 用于 UI。 */
+  async function findAvailableModel({ provider, signal, onProgress, prefer }) {
+    let models = (provider.models || []).filter(Boolean);
+    if (!models.length) throw new Error("没有候选模型，请先在设置里加载模型列表");
+    if (prefer && models.includes(prefer)) {
+      models = [prefer, ...models.filter((m) => m !== prefer)];
+    }
+    const { ordered } = rankModels(provider, models);
+    let i = 0;
+    for (const m of ordered) {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      i++;
+      onProgress?.({ index: i, total: ordered.length, model: m, status: "probing" });
+      try {
+        await probeModel(provider, m, signal);
+        recordProbeOk(provider, m);
+        onProgress?.({ index: i, total: ordered.length, model: m, status: "ok" });
+        return m;
+      } catch (err) {
+        if (err.name === "AbortError") throw err;
+        if (isCooldownError(err)) {
+          recordCooldown(provider, m, err);
+          onProgress?.({ index: i, total: ordered.length, model: m, status: "cooldown", err });
+          continue;
+        }
+        recordProbeError(provider, m, err);
+        onProgress?.({ index: i, total: ordered.length, model: m, status: "error", err });
+        // 非冷却错误不记冷却台账，但记到 probeStatus 让徽章显示"⚠ 出错"
+      }
+    }
+    return null;
+  }
+
+  /** 发送聊天（支持流式 + 可选自动重试）
+   *  retry: { maxAttempts?: 1~3, delayMs?: 1200, onRetry?(n,total,lastErr) }
+   */
+  async function chat(opts) {
+    const { retry } = opts || {};
+    const attempts = Math.max(1, Math.min(5, +(retry?.maxAttempts) || 1));
+    const baseDelay = +(retry?.delayMs) || 1200;
+    let lastErr;
+    for (let i = 0; i < attempts; i++) {
+      if (i > 0) {
+        try { retry?.onRetry?.(i, attempts, lastErr); } catch (_) {}
+        await sleepWithSignal(baseDelay * i, opts.signal);
+        if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      }
+      try {
+        const result = await chatRequest(opts);
+        recordProbeOk(opts.provider, opts.model);
+        return result;
+      } catch (err) {
+        lastErr = err;
+        if (err?.name === "AbortError") throw err;
+        const cool = isCooldownError(err);
+        const gw = isRetryableGatewayError(err);
+        if (cool) {
+          recordCooldown(opts.provider, opts.model, err);
+        } else {
+          recordProbeError(opts.provider, opts.model, err);
+        }
+        if (!cool && !gw) throw err;
+        if (cool) {
+          // 仅在剩余冷却时间「比我们要等的还短」时继续重试，避免毫无意义的等待
+          const need = cooldownSeconds(err);
+          if (need > 0 && need * 1000 > baseDelay * attempts) throw err;
+        }
+        // 524 / 504 已经在 isRetryableGatewayError 里被排除：那种慢失败再重试一遍就是双倍痛苦
+      }
+    }
+    throw lastErr;
+  }
+
+  function sleepWithSignal(ms, signal) {
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(resolve, ms);
+      if (!signal) return;
+      const onAbort = () => { clearTimeout(t); reject(new DOMException("Aborted", "AbortError")); };
+      if (signal.aborted) onAbort();
+      else signal.addEventListener("abort", onAbort, { once: true });
+    });
+  }
+
+  async function chatRequest({ provider, model, messages, signal, onDelta, temperature }) {
+    const t = buildFetchTarget(provider, "chat/completions");
     const body = {
       model,
       messages,
       stream: true,
       temperature: temperature ?? 0.7,
     };
-    const r = await fetch(base + "/chat/completions", {
+    const r = await fetch(t.url, {
       method: "POST",
       signal,
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer " + (provider.apiKey || ""),
+        ...t.headers,
       },
       body: JSON.stringify(body),
     });
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
-      throw new Error("HTTP " + r.status + "：" + txt.slice(0, 300));
+      throw buildHttpError(r.status, txt);
     }
 
     const reader = r.body.getReader();
@@ -215,15 +500,474 @@
         if (payload === "[DONE]") { return content; }
         try {
           const j = JSON.parse(payload);
-          const delta = j.choices?.[0]?.delta?.content || j.choices?.[0]?.message?.content || "";
-          if (delta) {
-            content += delta;
-            onDelta?.(delta, content);
+          const choice = j.choices?.[0] || {};
+          const src = choice.delta || choice.message || {};
+          const chunk = extractChunk(src);
+          if (chunk) {
+            content += chunk;
+            onDelta?.(chunk, content);
           }
         } catch (_) {}
       }
     }
     return content;
+  }
+
+  /** 从一条 delta/message 中提取“可拼接到正文里的字符串”，
+   *  覆盖 OpenAI / Anthropic / Gemini 兼容层等常见图片返回形态。 */
+  function extractChunk(src) {
+    if (!src) return "";
+    let out = "";
+    const c = src.content;
+    if (typeof c === "string") {
+      out += c;
+    } else if (Array.isArray(c)) {
+      for (const part of c) {
+        if (!part) continue;
+        if (typeof part === "string") { out += part; continue; }
+        if (part.type === "text" && part.text) { out += part.text; continue; }
+        if (part.type === "image_url") {
+          const u = typeof part.image_url === "string" ? part.image_url : part.image_url?.url;
+          if (u) out += "\n\n![image](" + u + ")\n\n";
+          continue;
+        }
+        if (part.type === "image" && part.source) {
+          const mime = part.source.media_type || "image/png";
+          if (part.source.data) out += "\n\n![image](data:" + mime + ";base64," + part.source.data + ")\n\n";
+          else if (part.source.url) out += "\n\n![image](" + part.source.url + ")\n\n";
+          continue;
+        }
+        if (part.type === "output_image" || part.type === "image_generation") {
+          const b64 = part.image_base64 || part.b64_json || part.data;
+          if (b64) out += "\n\n![image](data:image/png;base64," + b64 + ")\n\n";
+          else if (part.url) out += "\n\n![image](" + part.url + ")\n\n";
+          continue;
+        }
+      }
+    }
+    // 部分服务把图片放到独立字段
+    const imgs = src.images || src.image || [];
+    const arr = Array.isArray(imgs) ? imgs : [imgs];
+    for (const img of arr) {
+      if (!img) continue;
+      const u = (typeof img === "string") ? img :
+        (img.image_url?.url || img.url || img.src ||
+          (img.b64_json ? "data:image/png;base64," + img.b64_json : "") ||
+          (img.data && img.media_type ? "data:" + img.media_type + ";base64," + img.data : ""));
+      if (!u) continue;
+      out += /^data:|^https?:/.test(u) ? "\n\n![image](" + u + ")\n\n"
+                                       : "\n\n![image](data:image/png;base64," + u + ")\n\n";
+    }
+    if (typeof src.reasoning === "string" && !out) out += src.reasoning;
+    return out;
+  }
+
+  /** 5xx 网关类错误（502/503/504/520~524 等）— 通常是上游临时不可达 / 超时。 */
+  function isGatewayError(err) {
+    const s = +err?.status;
+    if (!(s >= 500 && s < 600)) return false;
+    // 501 是 Not Implemented，不属于"重试一下可能就好了"，排除
+    if (s === 501) return false;
+    return true;
+  }
+
+  /** 网关错误里"值得重试"的子集。
+   *  - 524 / 504：等满 100s 才返回，再重试一次又是 100s，对用户体验是双倍痛苦，跳过。
+   *  - 502 / 503 / 520-523：通常几秒内就 fail（origin 拒连/重启中），重试有意义。 */
+  function isRetryableGatewayError(err) {
+    const s = +err?.status;
+    if (s === 524 || s === 504) return false;
+    return isGatewayError(err);
+  }
+
+  /** 从 HTML 错误页里抠出一行人话；抠不到就返回空。 */
+  function summarizeHtml(html) {
+    if (!html) return "";
+    const tt = html.match(/<title>([^<]+)<\/title>/i)?.[1]
+            || html.match(/<h1[^>]*>([^<]+)<\/h1>/i)?.[1]
+            || html.match(/<h2[^>]*>([^<]+)<\/h2>/i)?.[1]
+            || "";
+    return tt.replace(/\s+/g, " ").trim();
+  }
+
+  /** 把上游错误体翻译成更友好的 Error。 */
+  function buildHttpError(status, text) {
+    let friendly = "HTTP " + status;
+    let parsed = null;
+    const t = String(text || "").trim();
+    const looksHtml = /^\s*(<!doctype|<html|<\?xml)/i.test(t) || /<\/(html|body)>/i.test(t);
+    if (!looksHtml) {
+      // 兼容 “上游 AI 返回错误：{...json...}” 这种被中转包了一层的字符串
+      const jsonStart = t.indexOf("{");
+      if (jsonStart >= 0) {
+        try { parsed = JSON.parse(t.slice(jsonStart)); } catch (_) {}
+      }
+      if (!parsed) { try { parsed = JSON.parse(t); } catch (_) {} }
+    }
+    const e = parsed?.error || parsed || {};
+    const msg = e.message || e.error_msg || "";
+    const isLimit = e.type === "usage_limit_reached" || /usage[_ ]?limit|rate[_ ]?limit|too many/i.test(msg) || status === 429;
+    const isCooldown = e.code === "model_cooldown" || /cool(ing)?[ _-]?down/i.test(msg);
+    let secs = +e.resets_in_seconds || +e.reset_seconds || 0;
+    if (!secs && e.resets_at) secs = Math.max(0, +e.resets_at - Math.floor(Date.now() / 1000));
+    if (!secs && typeof e.reset_time === "string") {
+      // 形如 "50m46s" / "1h2m3s"
+      const mm = e.reset_time.match(/(\d+)\s*h/i);
+      const ss = e.reset_time.match(/(\d+)\s*m(?!s)/i);
+      const ts = e.reset_time.match(/(\d+)\s*s/i);
+      secs = (+(mm?.[1] || 0)) * 3600 + (+(ss?.[1] || 0)) * 60 + (+(ts?.[1] || 0));
+    }
+    const when = secs ? humanDuration(secs) : "稍后";
+    if (isCooldown) {
+      const m = e.model ? `「${e.model}」` : "";
+      const p = e.provider ? `（provider: ${e.provider}）` : "";
+      friendly = `上游中转的实际模型 ${m}${p} 全部凭据正在冷却，${when}后恢复。可改选其它模型再试。`;
+    } else if (isLimit) {
+      const plan = e.plan_type ? `（${e.plan_type} 套餐）` : "";
+      friendly = `上游 AI 配额已用完${plan}，${when}后自动恢复。可在 AI 设置中切换其它供应商或模型继续。`;
+    } else if (status === 504) {
+      const tt = summarizeHtml(t);
+      friendly = `上游网关超时（HTTP 504${tt ? "：" + tt : ""}）。图片/长文生成耗时较长时常见，重试或换模型一般就能恢复。`;
+    } else if (status === 502 || status === 503 || (status >= 520 && status <= 524)) {
+      const tt = summarizeHtml(t);
+      friendly = `上游网关暂时不可达（HTTP ${status}${tt ? "：" + tt : ""}）。稍后重试或切换其它模型。`;
+    } else if (looksHtml) {
+      const tt = summarizeHtml(t);
+      friendly = `HTTP ${status}${tt ? "：" + tt : "（上游返回了 HTML 错误页）"}`;
+    } else if (msg) {
+      friendly = `HTTP ${status}：${msg}`;
+    } else if (t) {
+      friendly = `HTTP ${status}：${t.slice(0, 240)}`;
+    }
+    const err = new Error(friendly);
+    err.status = status;
+    err.upstream = parsed;
+    err.raw = text;
+    err.bodyKind = looksHtml ? "html" : (parsed ? "json" : "text");
+    return err;
+  }
+
+  function humanDuration(secs) {
+    secs = Math.max(0, Math.floor(secs));
+    if (secs < 60) return secs + " 秒";
+    const m = Math.floor(secs / 60);
+    if (m < 60) return m + " 分钟";
+    const h = Math.floor(m / 60), rm = m % 60;
+    if (h < 24) return rm ? `${h} 小时 ${rm} 分钟` : `${h} 小时`;
+    const d = Math.floor(h / 24), rh = h % 24;
+    return rh ? `${d} 天 ${rh} 小时` : `${d} 天`;
+  }
+
+  /** 从当前 provider 的模型列表里挑出"看起来像图片专用生成模型"的候选，给错误提示用。
+   *  Gemini 系（gemini-*-image / -image-preview）现在也算进来了 —— nav 检测到这种模型会自动改走
+   *  /v1beta/models/{model}:generateContent 的 Google 原生分支，不再被 /images/generations 那条路拒。 */
+  function suggestImageModels() {
+    try {
+      const p = window.AI?.AIStore?.currentProvider?.();
+      if (!p || !Array.isArray(p.models)) return [];
+      return p.models.filter((m) =>
+        /^imagen[\d._-]|^gpt-image-1\b|^dall.?e[-\d]|^sdxl(\b|-)|^flux(\b|-)|^midjourney|^nano-?banana|^gemini[-_].*image/i.test(m));
+    } catch (_) { return []; }
+  }
+
+  /** 把生图常见错误翻译成可操作的中文提示。
+   *  借鉴 ChatGpt-Image-Studio web/src/app/image/submit-utils.ts 的 formatImageErrorMessage。 */
+  function formatImageErrorMessage(message) {
+    const trimmed = String(message || "").trim();
+    if (!trimmed) return "处理图片失败";
+    const normalized = trimmed.toLowerCase();
+    // ===== 模型不被上游接受用于生图 =====
+    // 兼容 ai.centos.hk 这类中转的具体话术 + 通用 OpenAI/Anthropic/Google 风格的措辞
+    const looksLikeUnsupportedModel =
+      normalized.includes("not supported model for image generation") ||
+      (normalized.includes("only") && normalized.includes("imagen") && normalized.includes("supported")) ||
+      normalized.includes("model does not support image generation") ||
+      normalized.includes("model not supported for images") ||
+      (normalized.includes("invalid model") && normalized.includes("image"));
+    if (looksLikeUnsupportedModel) {
+      const candidates = suggestImageModels();
+      const tail = candidates.length
+        ? `\n你这家供应商列表里这些是真正的图片生成模型，可以切过去试：${candidates.slice(0, 5).map((m) => "「" + m + "」").join("、")}`
+        : "\n你这家供应商当前的模型列表里没有真正的图片专用模型（注意：gemini-*-image-preview 和 gpt-image-2 这类名字看着像但实际很多中转不接受）。\n建议：① 进 AI 设置 → 编辑供应商 → ↻ 获取模型 重新拉一遍模型列表，看是否有 imagen-*、gpt-image-1、dall-e-*、flux-* 这类名字；② 如果都没有，这个中转可能就不开放图片生成接口，需要换一个支持的供应商（比如 OpenAI 直连用 dall-e-3）。";
+      return "❌ 上游不接受当前模型用于图片生成。这家中转的 /images/generations 接口只认特定的图片专用模型（通常是 imagen-*、gpt-image-1、dall-e-* 之类）。" + tail;
+    }
+    if (normalized.includes("an error occurred while processing your request")) {
+      const requestId = trimmed.match(/request id\s+([a-z0-9-]+)/i)?.[1];
+      return [
+        "提示词内容过多，或当前分辨率/质量组合过高。",
+        "建议减少提示词内容，或降低分辨率、质量后重试。",
+        requestId ? `请求 ID：${requestId}` : "",
+      ].filter(Boolean).join("\n");
+    }
+    if (normalized.includes("no images generated") && normalized.includes("model may have refused")) {
+      return "没有生成图片，模型可能检测到敏感内容拒绝了请求。建议调整提示词后重试。";
+    }
+    if (normalized.includes("timed out waiting for async image generation")) {
+      return "图片生成等待超时。建议稍后重试，或降低分辨率/质量。";
+    }
+    if (normalized.includes("safety system") || normalized.includes("content policy")) {
+      return "提示词触发了内容安全策略。请修改后重试。";
+    }
+    if (normalized.includes("billing") || normalized.includes("quota") || normalized.includes("insufficient")) {
+      return "上游账号配额或余额不足。请联系供应商或换一个账号。";
+    }
+    if (normalized.includes("上游返回空响应")) {
+      return [
+        "❌ 上游返回了 200 OK 但 body 完全是空的。",
+        "这通常意味着：",
+        "  ① 中转把请求路由到了一个根本不会返回数据的后端（配置错误）；",
+        "  ② 中转 / 反向代理在转发时把 body 截断或丢弃了；",
+        "  ③ 你选择的模型在这家中转上没绑定真实后端，被静默 noop 了。",
+        "建议联系你这家中转的站长，或换一家明确支持你目标模型的供应商。",
+      ].join("\n");
+    }
+    if (normalized.includes("上游返回了 html")) {
+      return [
+        "❌ 上游返回了 HTML 页面而不是 JSON。",
+        "通常是请求被前置反向代理（Cloudflare、Nginx 错误页、登录墙等）拦了，没真正落到 API。",
+        "建议：① 检查 baseUrl 是否正确（应该是 .../v1 而不是网站首页）；② 确认 API Key 没过期；③ 试一下命令行 curl 同样的 URL 看能不能通。",
+      ].join("\n");
+    }
+    return trimmed;
+  }
+
+  // ===================== 生图（/v1/images/generations） =====================
+  /** UI 下拉里能选的常见尺寸；除此之外用户还能切换到"自定义"。 */
+  const IMAGE_SIZES = [
+    { value: "auto",       label: "auto · 让模型自己定" },
+    { value: "1024x1024",  label: "1024 × 1024 · 1:1" },
+    { value: "1024x1536",  label: "1024 × 1536 · 2:3" },
+    { value: "1536x1024",  label: "1536 × 1024 · 3:2" },
+    { value: "1024x1792",  label: "1024 × 1792 · 9:16（DALL·E 3）" },
+    { value: "1792x1024",  label: "1792 × 1024 · 16:9（DALL·E 3）" },
+    { value: "2048x2048",  label: "2048 × 2048 · 1:1（2K 方）" },
+    { value: "2160x3840",  label: "2160 × 3840 · 9:16（4K 竖）" },
+    { value: "3840x2160",  label: "3840 × 2160 · 16:9（4K 横）" },
+    { value: "custom",     label: "自定义尺寸…" },
+  ];
+  const IMAGE_QUALITIES = [
+    { value: "auto",     label: "auto · 让模型自己定" },
+    { value: "low",      label: "low · 省 Token（gpt-image-1）" },
+    { value: "medium",   label: "medium · 平衡" },
+    { value: "high",     label: "high · 最佳（最慢）" },
+    { value: "standard", label: "standard · DALL·E 3" },
+    { value: "hd",       label: "hd · DALL·E 3 高清" },
+  ];
+
+  /** 生图。返回 [{url|dataUrl, revisedPrompt?}]，错误走 buildHttpError。
+   *  opts: { provider, model, prompt, size?, quality?, n?, signal, retry? }
+   *  size 可以是 "1024x1024"/"3840x2160"/"auto"，也可以传 "WIDTHxHEIGHT" 任意自定义。 */
+  async function generateImage(opts) {
+    const { retry } = opts || {};
+    const attempts = Math.max(1, Math.min(5, +(retry?.maxAttempts) || 1));
+    const baseDelay = +(retry?.delayMs) || 1500;
+    let lastErr;
+    for (let i = 0; i < attempts; i++) {
+      if (i > 0) {
+        try { retry?.onRetry?.(i, attempts, lastErr); } catch (_) {}
+        await sleepWithSignal(baseDelay * i, opts.signal);
+        if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      }
+      try {
+        const result = await imageRequest(opts);
+        recordProbeOk(opts.provider, opts.model);
+        return result;
+      } catch (err) {
+        lastErr = err;
+        if (err?.name === "AbortError") throw err;
+        const cool = isCooldownError(err);
+        const gw = isRetryableGatewayError(err);
+        if (cool) {
+          recordCooldown(opts.provider, opts.model, err);
+        } else {
+          recordProbeError(opts.provider, opts.model, err);
+        }
+        if (!cool && !gw) throw err;
+        if (cool) {
+          const need = cooldownSeconds(err);
+          if (need > 0 && need * 1000 > baseDelay * attempts) throw err;
+        }
+      }
+    }
+    throw lastErr;
+  }
+
+  /** 检测是不是 Google Gemini 系的图片生成模型（不走标准 OpenAI /images/generations，而是 Google 原生 /v1beta/models/{model}:generateContent）。
+   *  匹配 gemini-*-image-* 和 gemini-*-image 这种命名约定。 */
+  function isGeminiImageModel(model) {
+    return /^gemini[-_]/i.test(String(model || "")) && /image/i.test(String(model || ""));
+  }
+
+  /** 从 OpenAI 兼容 baseUrl（"https://ai.centos.hk/v1"）推导出 Google 原生 baseUrl（"https://ai.centos.hk/v1beta"）。
+   *  策略：去掉末尾的 /v1 / /v2 / /v1beta，再补上 /v1beta。 */
+  function geminiNativeBase(provider) {
+    let host = String(provider?.baseUrl || "").trim().replace(/\/+$/, "");
+    host = host.replace(/\/v\d+(beta)?$/i, "");
+    return host + "/v1beta";
+  }
+
+  /** 把 nav 的 size string（"1024x1024"）和 quality 翻译成 Google 原生 imageConfig 字段：aspectRatio + imageSize。 */
+  function geminiImageConfigFromOpts(size, quality) {
+    const cfg = {};
+    if (size && size !== "auto" && /^\d+x\d+$/.test(size)) {
+      const [w, h] = size.split("x").map(Number);
+      // 用最大公约数化简成 W:H
+      const gcd = (a, b) => b ? gcd(b, a % b) : a;
+      const g = gcd(w, h) || 1;
+      cfg.aspectRatio = `${w / g}:${h / g}`;
+      // 4K / 2K / 1K：Google 用大写字符串
+      const longSide = Math.max(w, h);
+      if (longSide >= 3840) cfg.imageSize = "4K";
+      else if (longSide >= 2048) cfg.imageSize = "2K";
+      else if (longSide >= 1024) cfg.imageSize = "1K";
+    }
+    return Object.keys(cfg).length ? cfg : null;
+  }
+
+  /** Gemini 原生 generateContent：POST {base}/models/{model}:generateContent
+   *  - body: { contents:[{parts:[{text:"..."}]}], generationConfig:{ responseModalities:["TEXT","IMAGE"], imageConfig:{...} } }
+   *  - 鉴权：Authorization Bearer 优先，部分中转可能要 x-goog-api-key（这里两套都带上）
+   *  - 通过本机 ai-proxy 走，沿用 X-Sakura-Target-Base / Auth 头，base 改成 v1beta */
+  async function imageRequestGemini({ provider, model, prompt, size, quality, signal }) {
+    const sub = "models/" + encodeURIComponent(model) + ":generateContent";
+    const nativeBase = geminiNativeBase(provider);
+    // 沿用 buildFetchTarget 的反代决策（auto / 强制反代 / 强制直连）
+    let useProxy;
+    if (provider.useProxy === true) useProxy = true;
+    else if (provider.useProxy === false) useProxy = false;
+    else useProxy = !!(window.AI && window.AI.AIStore && window.AI.AIStore.proxyAvailable);
+    const url = useProxy ? "/api/ai-proxy/" + sub : nativeBase + "/" + sub;
+    const headers = { "Content-Type": "application/json" };
+    if (useProxy) {
+      headers["X-Sakura-Target-Base"] = nativeBase;
+      headers["X-Sakura-Target-Auth"] = "Bearer " + (provider.apiKey || "");
+    } else {
+      headers["Authorization"] = "Bearer " + (provider.apiKey || "");
+      headers["x-goog-api-key"] = provider.apiKey || "";
+    }
+    const generationConfig = {
+      responseModalities: ["TEXT", "IMAGE"],
+    };
+    const imgCfg = geminiImageConfigFromOpts(size, quality);
+    if (imgCfg) generationConfig.imageConfig = imgCfg;
+
+    const body = {
+      contents: [{ parts: [{ text: String(prompt || "").slice(0, 4000) }] }],
+      generationConfig,
+    };
+
+    const r = await fetch(url, {
+      method: "POST",
+      signal,
+      headers,
+      body: JSON.stringify(body),
+    });
+    const txt = await r.text().catch(() => "");
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    if (!r.ok) throw buildHttpError(r.status, txt);
+    if (!txt.trim()) {
+      const err = new Error(`Gemini 生图返回空响应（状态 ${r.status}，content-type=${ct || "缺失"}）`);
+      err.status = r.status; err.raw = ""; err.bodyKind = "empty"; throw err;
+    }
+    let j;
+    try { j = JSON.parse(txt); } catch (_) {
+      const sample = txt.slice(0, 200);
+      const err = new Error(`Gemini 响应不是合法 JSON（状态 ${r.status}）：${sample}`);
+      err.status = r.status; err.raw = txt; throw err;
+    }
+    // Google 原生格式：candidates[].content.parts[].{text|inlineData{mimeType,data}}
+    const candidates = j.candidates || [];
+    const arr = [];
+    let revisedPrompt = "";
+    for (const cand of candidates) {
+      const parts = cand?.content?.parts || [];
+      for (const part of parts) {
+        const inline = part.inlineData || part.inline_data;
+        if (inline?.data) {
+          const mime = inline.mimeType || inline.mime_type || "image/png";
+          arr.push({ dataUrl: `data:${mime};base64,${inline.data}`, revisedPrompt: "" });
+        } else if (typeof part.text === "string" && !revisedPrompt) {
+          revisedPrompt = part.text.slice(0, 500);
+        }
+      }
+    }
+    // 把 revisedPrompt 套到第一张图上（更像 OpenAI 的语义）
+    if (revisedPrompt && arr[0]) arr[0].revisedPrompt = revisedPrompt;
+    if (!arr.length) {
+      // 上游可能因为 promptFeedback / blockReason 拒绝
+      const reason = j.promptFeedback?.blockReason || j.candidates?.[0]?.finishReason || "";
+      const err = new Error(`Gemini 没有返回图片${reason ? "（" + reason + "）" : ""}。${revisedPrompt ? "模型只回了文字：" + revisedPrompt : "提示词可能被安全过滤拦截，调整一下再试。"}`);
+      err.status = r.status; err.raw = txt; throw err;
+    }
+    return arr;
+  }
+
+  async function imageRequest({ provider, model, prompt, size, quality, n, signal }) {
+    // Gemini 原生分支：检测到 gemini-*-image-* 走 /v1beta/models/{model}:generateContent
+    if (isGeminiImageModel(model)) {
+      const requested = Math.max(1, Math.min(8, +n || 1));
+      // Google 原生 generateContent 一次只产一张（candidateCount 视模型而定，保守做法是循环调用）
+      if (requested === 1) {
+        return await imageRequestGemini({ provider, model, prompt, size, quality, signal });
+      }
+      const all = [];
+      for (let i = 0; i < requested; i++) {
+        if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+        const one = await imageRequestGemini({ provider, model, prompt, size, quality, signal });
+        all.push(...one);
+      }
+      return all;
+    }
+    // OpenAI 兼容分支（gpt-image-* / dall-e-* / imagen-* / flux-* 等）
+    const t = buildFetchTarget(provider, "images/generations");
+    const body = {
+      model,
+      prompt: String(prompt || "").slice(0, 4000),
+      n: Math.max(1, Math.min(10, +n || 1)),
+    };
+    if (size && size !== "auto") body.size = size;
+    if (quality && quality !== "auto") body.quality = quality;
+    // gpt-image-1 默认就是 b64_json 返回；DALL·E 默认 url。我们让服务端自己决定，但兜底用 b64
+    body.response_format = "b64_json";
+    const r = await fetch(t.url, {
+      method: "POST",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...t.headers,
+      },
+      body: JSON.stringify(body),
+    });
+    const txt = await r.text().catch(() => "");
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    if (!r.ok) throw buildHttpError(r.status, txt);
+    // 上游返回了 200 OK 但 body 完全空白：基本上是中转配错或反代截断了响应。
+    if (!txt.trim()) {
+      const err = new Error(`上游返回空响应（状态 ${r.status}，content-type=${ct || "缺失"}）。可能是中转把请求路由到了一个不返回数据的后端，或者反向代理在转发时丢了 body。`);
+      err.status = r.status; err.raw = ""; err.bodyKind = "empty"; throw err;
+    }
+    let j;
+    try { j = JSON.parse(txt); } catch (_) {
+      const looksHtml = /<html|<!doctype|<body/i.test(txt);
+      const sample = txt.slice(0, 200);
+      const err = looksHtml
+        ? new Error(`上游返回了 HTML 而不是 JSON（状态 ${r.status}）。基本是被中转/防火墙的登录页或错误页拦了。片段：${sample}`)
+        : new Error(`生图响应不是合法 JSON（状态 ${r.status}, content-type=${ct || "缺失"}）。片段：${sample}`);
+      err.status = r.status; err.raw = txt; err.bodyKind = looksHtml ? "html" : "text"; throw err;
+    }
+    const arr = (j.data || j.images || []).map((d) => {
+      if (!d) return null;
+      if (d.b64_json) return { dataUrl: "data:image/png;base64," + d.b64_json, revisedPrompt: d.revised_prompt };
+      if (d.url)      return { url: d.url, revisedPrompt: d.revised_prompt };
+      // 一些中转直接返回 base64 裸串
+      if (typeof d === "string" && /^[A-Za-z0-9+/=]+$/.test(d)) return { dataUrl: "data:image/png;base64," + d };
+      return null;
+    }).filter(Boolean);
+    if (!arr.length) {
+      const err = new Error("生图返回为空（也许中转把图片放进了非标准字段）");
+      err.status = r.status; err.raw = txt; throw err;
+    }
+    return arr;
   }
 
   // ===================== 消息构造 =====================
@@ -505,9 +1249,9 @@
       .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
       .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>");
 
-    // 5. 图片 ![alt](url) —— 放在链接之前
-    s = s.replace(/!\[([^\]]*)\]\((https?:[^\s)]+)\)/g, (_, t, u) =>
-      `<img class="ai-inline-img" alt="${t}" src="${u}" loading="lazy" />`);
+    // 5. 图片 ![alt](url) —— 放在链接之前；同时支持 data:image/ 的 base64 直链
+    s = s.replace(/!\[([^\]]*)\]\(((?:https?:|data:image\/)[^\s)]+)\)/g, (_, t, u) =>
+      imageHTML(u, t));
     // 6. 链接 [text](url)
     s = s.replace(/\[([^\]]+)\]\(((?:https?|mailto):[^\s)]+)\)/g, (_, t, u) =>
       `<a href="${u}" target="_blank" rel="noopener">${t}</a>`);
@@ -554,10 +1298,14 @@
     return s;
   }
 
+  // 常见 AI 图片生成 / 图床域名（无扩展名也按图片处理）
+  const IMG_HOST_RE = /(oaidalleapiprodscus\.blob\.core\.windows\.net|files\.oaiusercontent\.com|cdn\.openai\.com|image\.pollinations\.ai|images\.unsplash\.com|cdn\.discordapp\.com\/attachments|replicate\.delivery|cdn\.midjourney\.com|imagedelivery\.net|gateway\.ai\.cloudflare\.com\/.+\/image|api\.siliconflow\.cn\/.+\/image)/i;
+
   function linkifyMedia(url) {
     const clean = url.replace(/[.,;:!?]+$/, "");
-    if (/\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(clean)) {
-      return `<a href="${clean}" target="_blank" rel="noopener" class="ai-media-link"><img class="ai-inline-img" src="${clean}" loading="lazy" alt="" /></a>`;
+    if (/^data:image\//i.test(clean)) return imageHTML(clean, "");
+    if (/\.(png|jpe?g|gif|webp|bmp|svg)(\?|$|#)/i.test(clean) || IMG_HOST_RE.test(clean)) {
+      return imageHTML(clean, "");
     }
     if (/\.(mp4|webm|mov)(\?|$)/i.test(clean)) {
       return `<video class="ai-inline-video" src="${clean}" controls preload="metadata"></video>`;
@@ -566,6 +1314,20 @@
       return `<audio class="ai-inline-audio" src="${clean}" controls></audio>`;
     }
     return `<a href="${clean}" target="_blank" rel="noopener">${clean}</a>`;
+  }
+
+  /** 渲染单张可预览/下载的内联图。点击图片 → 灯箱；右上角悬浮按钮可直接下载。 */
+  function imageHTML(src, alt) {
+    const a = alt || "";
+    return (
+      `<figure class="ai-img-figure">` +
+        `<img class="ai-inline-img" src="${src}" alt="${a}" loading="lazy" referrerpolicy="no-referrer" />` +
+        `<div class="ai-img-tools">` +
+          `<button type="button" class="ai-img-btn" data-img-act="open" title="新窗口打开">↗</button>` +
+          `<button type="button" class="ai-img-btn" data-img-act="download" title="下载">⬇</button>` +
+        `</div>` +
+      `</figure>`
+    );
   }
 
   // ===================== 文件 → 消息附件 =====================
@@ -590,11 +1352,32 @@
     DEFAULT_PERSONAS,
     fetchModels,
     chat,
+    generateImage,
+    isGeminiImageModel,
+    formatImageErrorMessage,
+    IMAGE_SIZES,
+    IMAGE_QUALITIES,
     buildMessages,
     parseActions,
     applyActions,
     renderMarkdown,
     fileToAttachment,
+    isCooldownError,
+    isGatewayError,
+    cooldownSeconds,
+    recordCooldown,
+    recordProbeOk,
+    recordProbeError,
+    getModelStatus,
+    rankModels,
+    probeModel,
+    findAvailableModel,
+    /** key = `${providerId}::${uiModel}` 或 `upstream::${provider}::${model}`，value = 冷却到期 Date.now() ms */
+    cooldownLedger: Object.create(null),
+    /** key = `${providerId}::${uiModel}`, value = `upstream::${provider}::${model}` */
+    upstreamMap: Object.create(null),
+    /** key = `${providerId}::${uiModel}`, value = { kind:"ok"|"error", ts:ms, msg? } */
+    probeStatus: Object.create(null),
     uid: () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
   };
 })();

@@ -453,6 +453,148 @@ app.post("/api/import", auth, importUpload.single("file"), (req, res) => {
   }
 });
 
+/**
+ * AI 反代（绕过浏览器 → 第三方 OpenAI 兼容端点的 CORS 拦截）
+ *   浏览器 → POST /api/ai-proxy/<sub-path>   带 X-Sakura-Target-Base 头
+ *   服务端 → POST <X-Sakura-Target-Base>/<sub-path>   把 X-Sakura-Target-Auth 当 Authorization 转发
+ *   流式响应一边读一边写回，body 不缓冲，整个链路对图片/SSE 都透明。
+ *
+ * 不挂 auth：用户的 API Key 通过 X-Sakura-Target-Auth 自己带上来，不存在我们这里。
+ * 风险提示：如果你把 18080 暴露到公网，这就是个开放代理；建议只在内网/本机使用。
+ */
+app.all(/^\/api\/ai-proxy(\/.*)?$/, async (req, res) => {
+  const targetBase = String(req.headers["x-sakura-target-base"] || "").trim();
+  const targetAuth = String(req.headers["x-sakura-target-auth"] || "").trim();
+  // 探测请求：GET，或 path 以 __probe / __ping 结尾，没带 target → 直接 200 回执，让前端能用 200 OK 判定端点存在，
+  // 控制台不会出现红色 4xx。
+  const subRawProbe = (req.params[0] || "").replace(/^\/+/, "");
+  if (!targetBase) {
+    if (req.method === "GET" || /(?:^|\/)(?:__probe|__ping)$/i.test(subRawProbe)) {
+      return res.json({ ok: true, kind: "sakura-nav-ai-proxy" });
+    }
+    return res.status(400).json({ error: "缺少 X-Sakura-Target-Base 头，或不是 http(s) URL" });
+  }
+  if (!/^https?:\/\//i.test(targetBase)) {
+    return res.status(400).json({ error: "X-Sakura-Target-Base 必须是 http(s) URL" });
+  }
+  const upstreamUrl = targetBase.replace(/\/+$/, "") + "/" + subRawProbe;
+
+  // Cloudflare 等中转会按 UA / 头规范判 bot，Node 默认 fetch 的 "undici/x.x" UA 经常被拒。
+  // 这里默认把请求伪装成主流浏览器；同时透传一些原始浏览器请求里有用的语义头，但排除 Origin/Referer/Cookie 等会泄密或乱跨域的。
+  const BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+  const upstreamHeaders = {
+    "user-agent": req.headers["user-agent"] || BROWSER_UA,
+    "accept": req.headers["accept"] || "application/json, text/event-stream, */*",
+    "accept-language": req.headers["accept-language"] || "zh-CN,zh;q=0.9,en;q=0.8",
+  };
+  const ct = req.headers["content-type"];
+  if (ct) upstreamHeaders["content-type"] = ct;
+  if (targetAuth) upstreamHeaders["authorization"] = targetAuth;
+  // 不转发：origin / referer / cookie / accept-encoding（会让 undici 自动解压打乱 content-length）
+
+  let body;
+  if (req.method !== "GET" && req.method !== "HEAD" && req.body != null) {
+    body = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+  }
+
+  // 上游硬超时：
+  //   普通对话：100s（跟 Cloudflare 自然超时同步）
+  //   生图接口（含 OpenAI /images/generations 和 Gemini :generateContent）：默认 480s（8 分钟），4K + thinking 模型常需 3-5 分钟
+  // 可以用环境变量 AI_PROXY_TIMEOUT_MS / AI_PROXY_IMAGE_TIMEOUT_MS 覆盖
+  const isImageGen = /\/images\/(generations|edits)\b/.test(subRawProbe)
+                  || /:generateContent\b/.test(subRawProbe)
+                  || /:streamGenerateContent\b/.test(subRawProbe);
+  const defaultTimeoutMs = isImageGen
+    ? (+process.env.AI_PROXY_IMAGE_TIMEOUT_MS || 480_000)
+    : (+process.env.AI_PROXY_TIMEOUT_MS || 100_000);
+  const timeoutMs = defaultTimeoutMs;
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => ctrl.abort(new Error("upstream timeout")), timeoutMs);
+  // 客户端主动断开 / 取消按钮 → 立刻 abort 上游 fetch，避免 zombie
+  // 必须用 res.on("close")：req 流在 body 解析完就会 emit 'close'（Node Readable 语义），
+  // 用 req.on("close") 会在每次正常请求里都误报"客户端断开"而提前 abort 上游。
+  const onClientClose = () => {
+    if (!res.writableEnded) {
+      try { ctrl.abort(new Error("client closed")); } catch (_) {}
+    }
+  };
+  res.on("close", onClientClose);
+
+  const startedAt = Date.now();
+  console.log(`[ai-proxy] → ${req.method} ${upstreamUrl}  body=${body ? body.length + "B" : "-"}  auth=${targetAuth ? "yes" : "no"}  timeout=${timeoutMs}ms`);
+
+  let upstream;
+  try {
+    upstream = await fetch(upstreamUrl, {
+      method: req.method,
+      headers: upstreamHeaders,
+      body,
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    clearTimeout(timeoutId);
+    res.off("close", onClientClose);
+    const ms = Date.now() - startedAt;
+    const isTimeout = ctrl.signal.aborted && /timeout/i.test(String(e?.message || ""));
+    const isClientClose = ctrl.signal.aborted && /client closed/i.test(String(e?.message || ""));
+    console.warn(`[ai-proxy] ✗ ${isTimeout ? "超时" : isClientClose ? "客户端断开" : "转发失败"} (${ms}ms): ${e?.message || e}`);
+    if (res.headersSent) { try { res.end(); } catch (_) {} return; }
+    if (isTimeout) {
+      return res.status(504).json({
+        error: `上游响应超时（已等待 ${Math.round(timeoutMs / 1000)}s 仍未返回）`,
+        target: upstreamUrl,
+      });
+    }
+    if (isClientClose) {
+      try { res.end(); } catch (_) {}
+      return;
+    }
+    return res.status(502).json({
+      error: "代理请求失败：" + (e?.message || String(e)),
+      target: upstreamUrl,
+    });
+  }
+  clearTimeout(timeoutId);
+  res.off("close", onClientClose);
+  const ms = Date.now() - startedAt;
+  const upCt = upstream.headers.get("content-type") || "(无)";
+  const upLen = upstream.headers.get("content-length") || "?";
+  console.log(`[ai-proxy] ← ${upstream.status} ${upstream.statusText || ""}  (${ms}ms)  content-type=${upCt}  content-length=${upLen}`);
+
+  res.status(upstream.status);
+  upstream.headers.forEach((v, k) => {
+    const lk = k.toLowerCase();
+    // 跳过会和 Node http 自动写入冲突的头
+    if (lk === "transfer-encoding" || lk === "connection" || lk === "content-encoding" || lk === "content-length") return;
+    try { res.setHeader(k, v); } catch (_) {}
+  });
+
+  if (!upstream.body) {
+    console.log(`[ai-proxy]   (上游 body=null，直接 end)`);
+    return res.end();
+  }
+  let streamedBytes = 0;
+  try {
+    const reader = upstream.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      streamedBytes += value.length;
+      const ok = res.write(Buffer.from(value));
+      if (!ok) await new Promise((r) => res.once("drain", r));
+    }
+  } catch (e) {
+    // 流被中途打断（客户端断开 / 上游 reset）：直接结束响应
+    console.warn(`[ai-proxy]   (流中断 streamed=${streamedBytes}B): ${e?.message || e}`);
+  }
+  if (streamedBytes === 0) {
+    console.warn(`[ai-proxy]   ⚠ 上游 body 流为 0 字节 —— 这会让前端看到"生图响应不是 JSON：" 错误`);
+  } else {
+    console.log(`[ai-proxy]   streamed=${streamedBytes}B`);
+  }
+  res.end();
+});
+
 if (SERVE_STATIC) {
   const root = path.resolve(STATIC_ROOT);
   if (!fs.existsSync(root)) {

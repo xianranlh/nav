@@ -101,6 +101,13 @@
 
     const set = (k, v) => {
       if (v === undefined) return;
+      // bundle 里空字段会被序列化成 null（见 collect() 里 || "null" 的兜底）；
+      // 直接 setItem 会写成字面量字符串 "null"，下游 JSON.parse 出来又变 null，污染期望是数组/对象的字段。
+      // 这里改成 null 时把 key 整个删掉，让消费方走默认值。
+      if (v === null) {
+        try { localStorage.removeItem(k); } catch (_) {}
+        return;
+      }
       localStorage.setItem(k, JSON.stringify(v));
     };
     if ("nav" in data) set("sakura_nav_v1", data.nav);

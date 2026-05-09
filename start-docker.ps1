@@ -11,5 +11,5 @@ docker compose up -d --build
 
 $port = if ($env:HOST_PORT) { $env:HOST_PORT } else { "18080" }
 Write-Host "已启动。浏览器访问：http://127.0.0.1:$port" -ForegroundColor Green
-Write-Host "查看日志：docker compose logs -f sakura-nav" -ForegroundColor DarkGray
+Write-Host "查看日志：docker compose logs -f xianran-nav" -ForegroundColor DarkGray
 Write-Host "停止服务：docker compose down" -ForegroundColor DarkGray

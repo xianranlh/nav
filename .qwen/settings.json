@@ -5,7 +5,13 @@
       "Bash(docker compose down)",
       "Bash(docker compose restart)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(npm install)",
+      "Bash(npm run *)",
+      "Bash(npm start)",
+      "Bash(lsof *)",
+      "Bash(kill *)",
+      "Bash(sleep *)"
     ]
   },
   "$version": 3

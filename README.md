@@ -5,6 +5,73 @@
 - **🐳 Docker / Node 部署**（推荐）：自带 Node + SQLite 服务端，**业务数据存在服务器**，多浏览器 / 多机器访问同一地址看到的就是同一份数据
 - **🌐 纯静态打开**：仅用于查看静态资源；没有同源 `/api/data` 时应用会停止进入主界面，避免把业务数据写入浏览器
 
+> 当前版本：**v1.18.4** · 最近更新见下方"📅 更新汇总"
+
+---
+
+## 📅 更新汇总（v1.17 → v1.18）
+
+### v1.18.x — AI 助手大改 + 整体 UI 视觉统一
+
+🚀 **AI 反代（解决 CORS / 524 / Cloudflare 拦截）**
+- 服务端新增 `/api/ai-proxy/*` 端点，浏览器 → 本机 Node → 上游 AI（同源，无 CORS 顾虑）
+- 自动判定：本机有 ai-proxy 端点就默认走反代；纯静态部署回落到直连
+- 转发时伪装成主流 Chrome UA，避开 Cloudflare 对 `undici/x` 的 bot 拦截
+- 上游硬超时 480s（生图）/ 100s（对话），可用 `AI_PROXY_IMAGE_TIMEOUT_MS` 调
+- 504 不重试（避免双倍 100s 等待），仅对 502/503/520-523 重试
+
+🎨 **Gemini 原生生图分支**
+- 自动识别 `gemini-*-image-*` 模型，路由到 `/v1beta/models/{model}:generateContent`
+- 解析 Google 原生 `candidates[].content.parts[].inlineData` 格式
+- gpt-image-* / dall-e-* / imagen-* / flux-* 仍走 `/v1/images/generations`，自动选路
+- 实测：4K + 高质量，gpt-image-2 / gemini-3-pro-image-preview / gemini-3.1-flash-image-preview 三模型均通
+
+🖼 **生图结果卡片化**（借鉴 ChatGpt-Image-Studio 设计）
+- 顶部胶囊：模型 / 尺寸 / 张数 / 已等待时间
+- 图片网格（1 张占满 / 多张 2 列）
+- 操作按钮：⬇ 下载 / ✎ 复制提示词 / ↻ 再生成
+- 失败态用玫瑰色配重试按钮，加载态带 spinner + "已等待 Xs"
+- 4K 选择时自动出现"⏱ 4K 渲染通常需要 3-5 分钟"提示横幅
+
+🔬 **模型可用性台账**
+- 模型下拉每条选项前显示 `✓ 可用 / ❄ 冷却中 / ⚠ 出错 / · 未测` 前缀
+- chat / generateImage 完成后自动更新台账
+- 探测按钮（🔍）逐个发 1-token 探针扫一遍模型列表
+- 30 秒自动衰减"X 分钟前"等相对时间
+
+🪟 **AI 面板可拖动 + 可调大小**
+- 标题栏拖动 → 改 top/left
+- 右下角原生 `resize: both` 手柄 → 改宽高
+- 几何 (top/left/width/height) 持久化到 localStorage
+- 右键标题栏可复位
+- 移动端自动回退到全屏占位
+
+🎭 **整体 UI 视觉统一**
+- 头部按钮全部改成"图标+中文胶囊"，移动端 ≤480px 自动隐藏文字
+- 气泡圆角节奏：assistant 18px+左下尖角 6px、user 18px+右下尖角，user 用 accent 渐变 + 阴影
+- 思考动画移入气泡（三点跳动），不再占顶部 tip 行
+- 数据管理面板从挤压表格改成卡片行布局
+- 主页空状态引导卡（无分组时）：📚 + 4 个引导按钮 + kbd 风格快捷键提示
+- 主页底部快捷键 hint 包成玻璃胶囊 + `<kbd>` 样式
+
+🛟 **错误翻译表**
+- "An error occurred while processing your request" → "提示词内容过多 / 分辨率太高，请..."
+- "no images generated... model may have refused" → "模型检测到敏感内容拒绝了请求"
+- "not supported model for image generation" → "上游不接受当前模型用于图片生成，建议切到..."
+- "上游返回空响应" / "上游返回了 HTML" → 中转配错或被前置拦截
+- 错误消息会从当前 provider 的 models 列表里挑出"看起来像图片专用模型"的候选给用户选
+
+🏷 **可编辑站点标题**
+- 设置 → 🏷️ 站点信息 → 自定义"页面标题"
+- 同步更新浏览器 tab 标题和登录页大标题
+- 留空恢复默认 "樱 · 个人导航"
+
+🔒 **localStorage 防御**
+- bundle 被序列化成 `null` 后 apply 时不再写字面量字符串 `"null"` 污染 localStorage
+- AI Store load 严格校验 messages 必须是数组，避免被坏数据顶成 null 引发崩溃
+
+---
+
 ![preview](https://dummyimage.com/900x500/ffd6e6/ffffff&text=Sakura+Nav)
 
 ---
@@ -40,14 +107,17 @@
   - 双击卡片编辑、右键快速菜单
 - 🔐 **登录保护**：7 天免登录，token 带防篡改指纹。
 
-### 🤖 AI 助手（新！）
+### 🤖 AI 助手
 - 🔌 **多供应商管理**：兼容任意 **OpenAI Chat Completions** 协议的服务
   - 内置预设：**OpenAI / DeepSeek / Kimi / Ollama（本地）**
   - 一键 **自动拉取可用模型列表**，随时在聊天面板下拉切换
   - 每个供应商独立保存 API Key / Base URL / 默认模型
+- 🛡 **本机 AI 反代**（v1.18+）：服务端 `/api/ai-proxy/*` 转发上游请求，浏览器 → 同源代理 → 上游，**绕开 CORS / 524 / Cloudflare 拦截**；自动判定，纯静态部署自动回落直连
+- 🎨 **OpenAI + Gemini 双协议**（v1.18+）：模型名匹配 `gemini-*-image-*` 自动改走 Google 原生 `/v1beta/models/{model}:generateContent`，其它走 OpenAI `/v1/images/generations`
+- 🔬 **模型可用性台账**（v1.18+）：模型下拉每条前缀 `✓/❄/⚠/·` 显示最近一次状态；🔍 探测按钮逐个发 1-token 探针扫一遍
 - 🎭 **角色/人设系统**：内置"导航管家 / 技术导师 / 自由聊天"，支持无限添加自定义 System Prompt
 - 🪪 **个人签名**：可在 AI 设置里填你的身份 / TG 链接 / 联系方式，自动附加到每次对话
-- 💬 **流式输出**：逐字打印，随时 ■ 中止
+- 💬 **流式输出**：逐字打印，随时 ■ 中止；assistant 气泡里有动态思考动画
 - 🖼 **Vision 图片输入**：上传 / 粘贴 / 拖拽图片给 AI 分析（自动转 base64）
 - 📄 **文本文件附件**：`.txt / .json / .md / .html / .csv` 自动随消息上传（含书签 HTML 让 AI 帮你分类）
 - 📐 **Markdown 渲染** + **内联预览**：AI 回复中的 `https://xxx.png/.mp4` 等链接自动渲染为可点击放大的图片 / 视频播放器 / 音频播放器
@@ -55,6 +125,15 @@
   - 示例：上传一份书签截图，AI 读图 → 输出一组 `add_link` 指令 → 点一下"应用"就自动分类到导航页
 - 💾 **会话持久化**：最近 200 条消息本地保存，刷新不丢
 - 🌈 **建议气泡**：面板空态下一键发送常用指令
+- 🪟 **可拖动可调大小面板**（v1.18+）：标题栏拖动改位置，右下角原生 resize 手柄改宽高，位置/尺寸 localStorage 持久化，右键标题栏复位
+
+### 🎨 AI 生图
+- 🎨 **生图模式**：点头部 🎨 按钮切换，请求改走 `/images/generations` 或 Gemini 原生路径
+- 📐 **预设尺寸 + 自定义**：1024×1024 / 1024×1536 / 2048×2048 / 3840×2160 (4K) / 任意 W×H
+- 🎚 **质量档位**：auto / low / medium / high / standard / hd
+- 🃏 **卡片化结果**（v1.18+）：胶囊元数据（模型 / 尺寸 / 耗时）+ 图片网格 + 下载/复制提示词/再生成 操作
+- ⏱ **4K 提示**：选 ≥2K 自动出现"4K 渲染通常需要 3-5 分钟"提示横幅；server proxy 上游超时 480s
+- ❌ **错误友好翻译**：常见错误（不支持的模型 / 提示词过多 / 触发安全过滤 / 配额不足 / 网关超时）翻译成可操作中文，并自动从 provider 模型列表里推荐合适候选
 
 ### 📅 日历 & 任务（新！）
 - 🗓 **月视图** + **列表视图**（未来 3 个月按天分组）+ 当日任务侧栏
@@ -204,8 +283,8 @@
 
 ```bash
 # 克隆项目（或自行放到服务器任意目录）
-git clone <your-repo-url> sakura-nav
-cd sakura-nav
+git clone <your-repo-url> xianran-nav
+cd xianran-nav
 
 # 一键启动（后台运行）
 docker compose up -d
@@ -219,21 +298,21 @@ curl http://localhost:18080      # 或浏览器打开
 常用指令：
 
 ```bash
-docker compose logs -f sakura-nav     # 查看日志
+docker compose logs -f xianran-nav     # 查看日志
 docker compose down                   # 停止并移除容器
 docker compose up -d --build          # 代码更新后重新构建
-docker compose restart sakura-nav     # 只重启
+docker compose restart xianran-nav     # 只重启
 ```
 
 ### 方式二：纯 docker 命令
 
 ```bash
-docker build -t sakura-nav:latest .
+docker build -t xianran-nav:latest .
 docker run -d \
-  --name sakura-nav \
+  --name xianran-nav \
   --restart unless-stopped \
   -p 18080:80 \
-  sakura-nav:latest
+  xianran-nav:latest
 ```
 
 ### 方式三：开发模式（挂载源码热更新）
@@ -243,7 +322,7 @@ docker run -d \
 ```yaml
 volumes:
   - .:/usr/share/nginx/html:ro
-  - ./nginx.conf:/etc/nginx/conf.d/sakura-nav.conf:ro
+  - ./nginx.conf:/etc/nginx/conf.d/xianran-nav.conf:ro
 ```
 
 然后 `docker compose up -d`，改 `app.js` / `styles.css` 等直接保存就生效。
@@ -256,7 +335,7 @@ volumes:
 2. 确保服务器 `80` / `443` 端口对公网开放
 3. 编辑 `docker-compose.yml`：
    - 取消 `caddy` 服务段的注释
-   - 把 `sakura-nav` 服务的 `ports` 改成只监听内部（例如删掉 `ports` 部分，让 Caddy 反代即可）
+   - 把 `xianran-nav` 服务的 `ports` 改成只监听内部（例如删掉 `ports` 部分，让 Caddy 反代即可）
    - 设置 `DOMAIN=nav.example.com` 和 `EMAIL=you@example.com`
 4. `docker compose up -d`
 
@@ -286,25 +365,58 @@ volumes:
 
 ```text
 nav/
-├── index.html      # 页面骨架
-├── styles.css      # 玻璃 / 樱花 / 背景层 / 布局
-├── sakura.js       # 樱花 Canvas 粒子系统
-├── bookmarks.js    # 书签解析 / favicon 多级回退
-├── auth.js         # 登录鉴权 / 7 天会话 token
-├── ai.js           # AI 助手（供应商 / 流式 / 指令解析 / Markdown 渲染）
-├── blog.js         # 博客系统（数据模型 + CRUD）
-├── calendar.js     # 日历 & 重复任务（规则引擎 / 倒计时 / 通知 / iCal / 统计）
-├── sync.js         # 多端同步（WebDAV + GitHub Gist + 本地备份）
-├── weather.js      # 天气（Open-Meteo + IP/浏览器定位）
-├── suggest.js      # 搜索下拉联想（本地 + DuckDuckGo + 百度 JSONP）
-├── exporter.js     # 博客 RSS + 静态站 + 无依赖 ZIP 打包器
-├── idb.js          # 浏览器遗留 IndexedDB 迁移 / 清理助手
-├── music.js        # 音乐播放器（服务端媒体 + LRC + Web Audio 频谱）
-├── app.js          # 主应用（数据、渲染、设置、背景、一言、过滤、拖拽、AI/Blog/Cal/Weather/Sync/Music/Voice/Suggest/Recent UI 粘合）
-├── manifest.json   # PWA 元数据（可安装为桌面应用）
-├── sw.js           # Service Worker（离线缓存）
+├── index.html              # 页面骨架
+├── styles.css              # 玻璃 / 樱花 / 背景层 / 布局 / AI 面板视觉统一层
+├── sakura.js               # 樱花 Canvas 粒子系统
+├── bookmarks.js            # 书签解析 / favicon 多级回退
+├── auth.js                 # 登录鉴权 / 7 天会话 token
+├── ai.js                   # AI 助手核心（供应商 / 流式 / 指令解析 / Markdown 渲染 / 双协议生图）
+├── blog.js                 # 博客系统（数据模型 + CRUD）
+├── calendar.js             # 日历 & 重复任务（规则引擎 / 倒计时 / 通知 / iCal / 统计）
+├── sync.js                 # 多端同步（WebDAV + GitHub Gist + 本地备份）
+├── weather.js              # 天气（Open-Meteo + IP/浏览器定位）
+├── suggest.js              # 搜索下拉联想（本地 + DuckDuckGo + 百度 JSONP）
+├── exporter.js             # 博客 RSS + 静态站 + 无依赖 ZIP 打包器
+├── idb.js                  # 浏览器遗留 IndexedDB 迁移 / 清理助手
+├── music.js                # 音乐播放器（服务端媒体 + LRC + Web Audio 频谱）
+├── homepage-theme.js       # 视觉主题注册表（樱粉 / Q 二次元 / 暗夜 / 复古纸质…）
+├── homepage-layout.js      # 首页布局规则
+├── storage-inspector.js    # 设置 → 数据管理面板（SQLite key + 媒体 + 遗留 localStorage）
+├── sakura-remote.js        # 服务端模式状态控制 / 浏览器 localStorage hook
+├── sakura-media.js         # 媒体上传客户端（背景 / 音乐 / 歌词 → /api/media）
+├── progress.js             # 通用进度面板（NavProgress）
+├── app.js                  # 主应用（数据、渲染、设置、背景、一言、过滤、拖拽、AI/Blog/Cal/Weather/Sync/Music/Voice/Suggest/Recent UI 粘合）
+├── server/
+│   ├── index.js            # Node API（业务 SQLite + 媒体上传 + AI 反代）
+│   ├── database.js         # better-sqlite3 封装：app_data / media_files / ai_settings 三张表
+│   └── package.json
+├── data/                   # 部署后由 Node / Docker 自动创建
+│   ├── sakura.db           # SQLite 主库
+│   └── media/{bg,music,lrc} # 上传的媒体文件
+├── restart.command         # 一键重启脚本（kill 18080 占用 → ./start-all.sh）
+├── start-all.sh / .ps1     # 本地开发启动
+├── manifest.json           # PWA 元数据（可安装为桌面应用）
+├── sw.js                   # Service Worker（离线缓存）
 └── README.md
 ```
+
+### 🛡 服务端 API 概览（`server/index.js`）
+
+| 端点 | 作用 |
+| --- | --- |
+| `GET /api/data` / `PUT /api/data` | 业务 bundle 整包读写（导航/设置/博客/日历/AI/音乐/天气/同步） |
+| `GET /api/ai-settings` / `PUT /api/ai-settings` | AI 配置独立存储（不进 bundle） |
+| `GET /api/inventory` / `GET /api/storage-stats` | 数据管理面板用的存储清单与统计 |
+| `GET /api/data/key/:key` / `DELETE /api/data/key/:key` | 单个 bundle key 的下载与删除 |
+| `POST /api/media/{bg,music,lrc}` | 媒体文件上传（multer） |
+| `GET /api/media/file/:cat/:filename` | 媒体文件直链读取 |
+| `DELETE /api/media/file/:cat/:filename` | 媒体文件删除 |
+| `GET /api/export` / `POST /api/import` | 整包 ZIP 备份导出 / 一键导入 |
+| `* /api/ai-proxy/*` | **AI 反代**（v1.18+）：浏览器 → 同源 → 上游 AI |
+
+`/api/ai-proxy/*` 通过 `X-Sakura-Target-Base` / `X-Sakura-Target-Auth` 头指定上游和鉴权，
+带 Chrome UA + accept-language 转发，超时 100s（对话）/ 480s（生图），
+监听 `res.on("close")` 自动 abort 上游避免 zombie。
 
 ---
 
@@ -316,7 +428,7 @@ nav/
 
 只要访问的页面同源能命中 `/api/data`（见 `docker-compose.yml` + `nginx.conf.template`），前端会启用服务端模式：所有业务数据都存到服务端 SQLite，不再进浏览器 `localStorage`。这意味着不同浏览器、不同机器访问同一个部署地址，看到的是同一份数据。
 
-- 业务数据库：`<DATA_DIR>/sakura.db`（默认 `./data/sakura-nav/sakura.db`，宿主可见）
+- 业务数据库：`<DATA_DIR>/sakura.db`（默认 `./data/xianran-nav/sakura.db`，宿主可见）
   - 表 `app_data`：整包 JSON（导航 / 设置 / 博客 / 日历 / AI 配置 / 聊天记录 / 天气 / 音乐元数据 / 同步配置）
   - 表 `media_files`：已上传媒体元数据
 - 媒体文件：`<DATA_DIR>/media/bg/*`、`<DATA_DIR>/media/music/*`（背景图 / 音乐走服务端，刷新/换浏览器均可见）
@@ -367,8 +479,17 @@ nav/
 - [x] **服务端音乐播放器（媒体上传 + LRC 同步歌词 + 频谱可视化）**
 - [x] **服务端上传背景（支持图片 / GIF / 视频，走 media 目录）**
 - [x] **多主题首页：樱粉 / Q 版二次元 / 暗夜极简 / 复古纸质**
+- [x] **AI 反代（绕过 CORS / 524 / Cloudflare 拦截）**
+- [x] **Gemini 原生生图（自动判定 OpenAI vs Google 协议）**
+- [x] **生图卡片化（胶囊元数据 + 操作按钮 + 4K 提示）**
+- [x] **模型可用性台账（下拉前缀 ✓/❄/⚠/·）**
+- [x] **AI 面板可拖动 + 可调大小 + 位置记忆**
+- [x] **可编辑站点标题**
+- [x] **首次使用空状态引导卡**
 - [ ] 从浏览器地址栏拖拽即添加
 - [ ] 智能命中排序（按 `clickCount` 自动置顶热门）
 - [ ] 聚合仪表盘（天气 + 今日任务 + 一言 + 最近博客）
+- [ ] 生图选区局部重绘（借鉴 ChatGpt-Image-Studio 的 inpaint）
+- [ ] 多张图同时生成（n=2/3/4，目前 Gemini 是循环调用）
 
 欢迎继续告诉我你想要的，持续迭代 🌸
