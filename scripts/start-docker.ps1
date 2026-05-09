@@ -1,6 +1,7 @@
 # 樱 · 使用 Docker Compose 构建并启动（与 start-all 二选一）
 $ErrorActionPreference = "Stop"
-Set-Location $PSScriptRoot
+# 脚本在 scripts/ 子目录里；docker-compose.yml 在项目根，所以 cd 到上一级
+Set-Location (Join-Path $PSScriptRoot "..")
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   Write-Host "未检测到 Docker，请先安装 Docker Desktop 或 Docker Engine。" -ForegroundColor Red

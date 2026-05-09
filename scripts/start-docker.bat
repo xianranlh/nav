@@ -1,6 +1,7 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0"
+REM 脚本在 scripts/ 子目录里，先 cd 到上一级（项目根），docker compose 才能找到 docker-compose.yml
+cd /d "%~dp0.."
 
 where docker >nul 2>&1
 if errorlevel 1 (

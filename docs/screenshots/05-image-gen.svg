@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff5f8"/>
+      <stop offset="100%" stop-color="#fce8ef"/>
+    </linearGradient>
+    <linearGradient id="img1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff9a9e"/>
+      <stop offset="50%" stop-color="#a18cd1"/>
+      <stop offset="100%" stop-color="#fbc2eb"/>
+    </linearGradient>
+    <linearGradient id="img2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#84fab0"/>
+      <stop offset="100%" stop-color="#8fd3f4"/>
+    </linearGradient>
+    <linearGradient id="img3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbc7d4"/>
+      <stop offset="100%" stop-color="#9796f0"/>
+    </linearGradient>
+    <linearGradient id="img4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd89b"/>
+      <stop offset="100%" stop-color="#19547b"/>
+    </linearGradient>
+    <filter id="shadow5" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="720" height="480" fill="url(#bg5)" rx="16"/>
+
+  <!-- 头 -->
+  <text x="32" y="36" font-size="14" font-weight="600" fill="#444">🎨 AI 生图卡片</text>
+  <text x="32" y="56" font-size="11" fill="#888" font-style="italic">提示词：星空下的樱花树，吉卜力风格，柔和灯光</text>
+
+  <!-- 胶囊条 -->
+  <g transform="translate(32, 78)" font-size="10">
+    <rect width="160" height="22" rx="11" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="80" y="15" text-anchor="middle" fill="#666">gemini-3-pro-image-preview</text>
+
+    <rect x="170" width="76" height="22" rx="11" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="208" y="15" text-anchor="middle" fill="#666">3840×2160</text>
+
+    <rect x="256" width="68" height="22" rx="11" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="290" y="15" text-anchor="middle" fill="#666">质量 high</text>
+
+    <rect x="334" width="50" height="22" rx="11" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="359" y="15" text-anchor="middle" fill="#666">4 张</text>
+
+    <rect x="394" width="80" height="22" rx="11" fill="rgba(58,166,110,0.10)" stroke="rgba(58,166,110,0.30)"/>
+    <text x="434" y="15" text-anchor="middle" fill="#3aa66e">耗时 47s</text>
+  </g>
+
+  <!-- 图片网格 4 张 -->
+  <g transform="translate(32, 116)">
+    <rect width="156" height="156" rx="12" fill="url(#img1)" filter="url(#shadow5)"/>
+    <rect x="172" width="156" height="156" rx="12" fill="url(#img2)" filter="url(#shadow5)"/>
+    <rect x="344" width="156" height="156" rx="12" fill="url(#img3)" filter="url(#shadow5)"/>
+    <rect x="516" width="156" height="156" rx="12" fill="url(#img4)" filter="url(#shadow5)"/>
+    <!-- 樱花光斑 -->
+    <circle cx="40" cy="40" r="8" fill="#fff" opacity="0.4"/>
+    <circle cx="120" cy="100" r="5" fill="#fff" opacity="0.4"/>
+    <circle cx="220" cy="60" r="6" fill="#fff" opacity="0.4"/>
+    <circle cx="290" cy="120" r="4" fill="#fff" opacity="0.4"/>
+    <circle cx="400" cy="80" r="7" fill="#fff" opacity="0.4"/>
+    <circle cx="600" cy="50" r="5" fill="#fff" opacity="0.4"/>
+  </g>
+
+  <!-- 操作按钮（每张图下面一组） -->
+  <g transform="translate(32, 286)" font-size="10">
+    <g>
+      <rect width="48" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="24" y="15" text-anchor="middle" fill="#555">⬇ 下载</text>
+      <rect x="52" width="56" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="80" y="15" text-anchor="middle" fill="#555">✎ 复制</text>
+      <rect x="112" width="44" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="134" y="15" text-anchor="middle" fill="#555">↻ 再生</text>
+    </g>
+    <g transform="translate(172, 0)">
+      <rect width="48" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="24" y="15" text-anchor="middle" fill="#555">⬇ 下载</text>
+      <rect x="52" width="56" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="80" y="15" text-anchor="middle" fill="#555">✎ 复制</text>
+      <rect x="112" width="44" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="134" y="15" text-anchor="middle" fill="#555">↻ 再生</text>
+    </g>
+    <g transform="translate(344, 0)">
+      <rect width="48" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="24" y="15" text-anchor="middle" fill="#555">⬇ 下载</text>
+      <rect x="52" width="56" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="80" y="15" text-anchor="middle" fill="#555">✎ 复制</text>
+      <rect x="112" width="44" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="134" y="15" text-anchor="middle" fill="#555">↻ 再生</text>
+    </g>
+    <g transform="translate(516, 0)">
+      <rect width="48" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="24" y="15" text-anchor="middle" fill="#555">⬇ 下载</text>
+      <rect x="52" width="56" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="80" y="15" text-anchor="middle" fill="#555">✎ 复制</text>
+      <rect x="112" width="44" height="22" rx="6" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+      <text x="134" y="15" text-anchor="middle" fill="#555">↻ 再生</text>
+    </g>
+  </g>
+
+  <!-- 4K 提示横幅 -->
+  <g transform="translate(32, 326)">
+    <rect width="656" height="32" rx="8" fill="rgba(255,107,138,0.10)" stroke="rgba(255,107,138,0.30)"/>
+    <text x="328" y="20" text-anchor="middle" font-size="11" fill="#ff6b8a">⏱ 4K 渲染通常需要 3-5 分钟，期间请保持耐心 · server proxy 上游超时 480s</text>
+  </g>
+
+  <!-- 双协议示意 -->
+  <g transform="translate(32, 380)" font-size="11">
+    <rect width="320" height="80" rx="10" fill="rgba(255,255,255,0.85)" stroke="rgba(0,0,0,0.06)"/>
+    <text x="16" y="22" font-weight="600" fill="#444">OpenAI 协议</text>
+    <text x="16" y="42" fill="#666" font-family="ui-monospace, Menlo, monospace" font-size="10">POST /v1/images/generations</text>
+    <text x="16" y="60" fill="#888" font-size="10">gpt-image-2 / dall-e-* / imagen-* / flux-*</text>
+    <text x="16" y="74" fill="#888" font-size="10">通过 /api/ai-proxy/* 转发</text>
+
+    <g transform="translate(336, 0)">
+      <rect width="320" height="80" rx="10" fill="rgba(255,255,255,0.85)" stroke="rgba(0,0,0,0.06)"/>
+      <text x="16" y="22" font-weight="600" fill="#444">Google 原生协议</text>
+      <text x="16" y="42" fill="#666" font-family="ui-monospace, Menlo, monospace" font-size="10">POST /v1beta/models/{model}:generateContent</text>
+      <text x="16" y="60" fill="#888" font-size="10">gemini-*-image-preview 自动识别</text>
+      <text x="16" y="74" fill="#888" font-size="10">解析 candidates[].content.parts[].inlineData</text>
+    </g>
+  </g>
+</svg>

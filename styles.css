@@ -1606,6 +1606,9 @@ body.pre-auth #upcoming-card { display: none !important; }
   z-index: 600;
   border-radius: var(--radius-lg);
   animation: ai-slide 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* 容器查询：让顶栏按钮根据自己面板宽度而不是视口宽度做响应 */
+  container-type: inline-size;
+  container-name: aipanel;
 }
 .ai-panel[hidden] { display: none; }
 /* 标题栏鼠标悬浮时变"移动"光标，但点击区是按钮 / select / input 不要变 */
@@ -5503,6 +5506,9 @@ html[data-hero-mode="hidden"] .header-bar .clock {
   outline-offset: 2px;
 }
 
+.shortcuts-dialog {
+  max-width: 600px;
+}
 .shortcuts-dialog form {
   width: min(560px, 92vw);
   max-height: 85vh;
@@ -5619,4 +5625,450 @@ html[data-hero-mode="hidden"] .header-bar .clock {
 @media (max-width: 540px) {
   #offline-banner { font-size: 11.5px; padding: 7px 10px; }
   #offline-banner .ob-close { display: none; }
+}
+
+/* ===================================================================
+ * v1.18.7 页面显示优化补丁
+ *  · AI 顶栏按钮按面板自身宽度自动收起文字（容器查询）
+ *  · 离线横幅可见时给主页腾出空间，避免遮挡顶栏
+ *  · 快捷键弹窗：标题与底部按钮区做 sticky，长内容滚动更顺畅
+ *  · 生图卡片在窄面板下避免横向溢出
+ *  · 通用：dialog footer 增加上分隔线 + 更稳定的按钮间距
+ * ===================================================================*/
+
+/* AI 面板按钮：用容器查询代替之前固定 480px 视口断点。
+   panel 默认 420px，所以默认就走"窄"分支：仅图标 + 紧凑边距。
+   用户拉宽到 ≥ 560px 时再展开成图标 + 文字。 */
+@container aipanel (max-width: 559px) {
+  .ai-head-right .ai-tool-txt { display: none; }
+  .ai-head-right .ai-tool-btn {
+    padding: 0 8px;
+    min-width: 30px;
+    justify-content: center;
+  }
+  .ai-head-right .ai-tool-ico { font-size: 13px; }
+  /* 模型下拉同样收紧 */
+  .ai-head-right select#ai-model-select { max-width: 130px; }
+}
+/* 容器查询不支持的兜底：保持原有视口断点行为 */
+@supports not (container-type: inline-size) {
+  @media (max-width: 720px) {
+    .ai-head-right .ai-tool-txt { display: none; }
+    .ai-head-right .ai-tool-btn { padding: 0 8px; min-width: 30px; justify-content: center; }
+  }
+}
+
+/* 离线横幅出现时：让主内容腾出 38px，避免顶栏按钮被压在横幅下面 */
+body.has-offline-banner #app-root,
+body.has-offline-banner main.app {
+  padding-top: 42px;
+  transition: padding-top 0.30s ease;
+}
+body.has-offline-banner #ai-panel { top: 56px; }
+
+/* 快捷键弹窗：滚动时标题/底部按钮区粘住，体验更稳 */
+.shortcuts-dialog form {
+  display: flex;
+  flex-direction: column;
+}
+.shortcuts-dialog .dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--glass-bg, rgba(255,255,255,0.85));
+  backdrop-filter: blur(8px);
+}
+.shortcuts-dialog .dialog-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--glass-bg, rgba(255,255,255,0.85));
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(0,0,0,0.06);
+  padding: 12px 22px;
+  margin-top: 4px;
+}
+[data-theme="dark"] .shortcuts-dialog .dialog-header,
+[data-theme="dark"] .shortcuts-dialog .dialog-actions {
+  background: rgba(28,28,32,0.85);
+  border-color: rgba(255,255,255,0.08);
+}
+/* 让两栏在极窄屏自然换行 */
+@media (max-width: 480px) {
+  .shortcut-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .shortcut-row .shortcut-keys { order: 2; }
+  .shortcut-row .shortcut-desc { order: 1; font-size: 12.5px; }
+}
+
+/* 生图卡片：图片网格在窄面板下用更小的最小尺寸，避免被裁 */
+@container aipanel (max-width: 480px) {
+  .ai-img-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+    gap: 6px;
+  }
+  .ai-img-card-wrap .ai-img-pill { font-size: 10.5px; padding: 1px 6px; }
+}
+
+/* 通用 dialog-actions 加柔和分隔线（之前有几个弹窗按钮直接贴在内容上） */
+.glass-dialog .dialog-actions {
+  border-top: 1px solid rgba(0,0,0,0.05);
+  padding-top: 12px;
+}
+[data-theme="dark"] .glass-dialog .dialog-actions {
+  border-top-color: rgba(255,255,255,0.08);
+}
+
+/* 底部 footer hotkey hint 在悬浮时阴影更明显，反馈感更强 */
+#footer-hotkey-hint:hover {
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.18);
+}
+
+/* 主页 topbar 按钮：聚焦/激活态 outline 与按钮主题色一致 */
+.topbar-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ai-tool-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ===================================================================
+ * v1.19.0 🍵 茶话会模式 — 多代理对话
+ * ===================================================================*/
+/* ---- 弹窗滚动穿透防护（v1.19.3） ----
+   .glass-dialog 的 form 自身有 max-height + overflow:hidden；body 才滚。
+   overscroll-behavior: contain 让 body 滚到顶/底时不把滚动事件传递给 document。 */
+.glass-dialog .dialog-body {
+  overscroll-behavior: contain;
+}
+
+/* ---- "添加网址" 弹窗的"更多设置"折叠区（v1.19.1） ---- */
+.link-more {
+  margin-top: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: rgba(0,0,0,0.02);
+  padding: 6px 12px 4px;
+  transition: background 0.15s, border-color 0.15s;
+}
+[data-theme="dark"] .link-more {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.08);
+}
+.link-more > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.link-more > summary::-webkit-details-marker { display: none; }
+.link-more > summary::after {
+  content: "▾";
+  font-size: 11px;
+  margin-left: auto;
+  color: var(--text-soft);
+  transition: transform 0.18s ease;
+}
+.link-more[open] > summary::after { transform: rotate(180deg); }
+.link-more > summary:hover {
+  background: rgba(var(--accent-rgb), 0.06);
+  border-radius: 8px;
+}
+.link-more > summary .hint-inline {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.link-more[open] > summary {
+  border-bottom: 1px dashed rgba(0,0,0,0.06);
+  margin-bottom: 8px;
+}
+[data-theme="dark"] .link-more[open] > summary {
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+.link-more > label,
+.link-more > details { margin-top: 8px; }
+.link-more > label:first-of-type { margin-top: 4px; }
+
+/* 茶话会按钮激活态 */
+.ai-tool-btn#ai-council.is-active {
+  background: linear-gradient(135deg, rgba(255,107,138,0.18), rgba(124,131,250,0.18));
+  border-color: rgba(255,107,138,0.45);
+  color: var(--text);
+  box-shadow: 0 0 0 1px rgba(255,107,138,0.20) inset, 0 4px 10px rgba(255,107,138,0.18);
+}
+/* 茶话会启用时，单代理的模型/角色下拉变灰显示"被茶话会接管" */
+.ai-head select.council-overridden {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: repeating-linear-gradient(135deg, rgba(255,107,138,0.06), rgba(255,107,138,0.06) 6px, transparent 6px, transparent 12px);
+}
+.ai-head select.council-overridden:hover {
+  border-color: rgba(255,107,138,0.30);
+}
+
+/* ---- 配置弹窗 ---- */
+.council-dialog { max-width: 640px; }
+.council-dialog form {
+  width: min(620px, 92vw);
+  max-height: 90vh;
+}
+.council-dialog .dialog-body {
+  padding: 18px 22px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* 父规则 .glass-dialog label 强制 flex-direction: column；这里要横排，提高一级特异性 */
+.glass-dialog label.council-toggle,
+.council-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  cursor: pointer;
+  font-size: 13px;
+}
+.council-toggle span { flex: 1; }
+.council-toggle input { flex: 0 0 16px; }
+.council-toggle input { width: 16px; height: 16px; flex: 0 0 16px; accent-color: var(--accent); }
+.council-toggle b { color: var(--accent); }
+
+/* 模式选择卡片 */
+.council-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.council-tab {
+  padding: 10px 10px 12px;
+  border-radius: 11px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.55);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.council-tab:hover {
+  background: rgba(var(--accent-rgb), 0.10);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  transform: translateY(-1px);
+}
+.council-tab.is-active {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),0.18), rgba(var(--accent-rgb),0.08));
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.20);
+}
+.council-tab .ico { font-size: 22px; line-height: 1; }
+.council-tab .ttl { font-weight: 600; font-size: 13px; color: var(--text); }
+.council-tab .sub { font-size: 11px; color: var(--text-soft); line-height: 1.4; }
+[data-theme="dark"] .council-tab { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.10); }
+[data-theme="dark"] .council-tab:hover { background: rgba(var(--accent-rgb), 0.16); }
+
+/* 模式提示 */
+.council-mode-row {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.03);
+  border: 1px dashed rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* hidden 属性兜底：自定义 display 会覆盖浏览器默认的 [hidden]{display:none}，必须显式还原 */
+.council-mode-row[hidden],
+.council-section[hidden],
+.council-members-list[hidden],
+#offline-banner[hidden] { display: none !important; }
+[data-theme="dark"] .council-mode-row { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.10); }
+.council-mode-row .council-tip { margin: 0; font-size: 11.5px; color: var(--text-soft); line-height: 1.5; }
+.council-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-soft); }
+.council-field input, .council-field select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.85);
+  font-size: 13px;
+  color: var(--text);
+}
+[data-theme="dark"] .council-field input,
+[data-theme="dark"] .council-field select {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* 成员区 */
+.council-section { display: flex; flex-direction: column; gap: 8px; }
+.council-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+.council-sec-head h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+.council-members-list { display: flex; flex-direction: column; gap: 8px; }
+
+.council-member-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 32px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 10px 10px 6px;
+  border-radius: 11px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-left: 4px solid var(--member-color, #ff6b8a);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.council-member-row:hover {
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .council-member-row {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.10);
+}
+.council-member-color {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: var(--member-color, #ff6b8a);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.council-member-color:hover { transform: scale(1.05); box-shadow: 0 4px 10px var(--member-color, rgba(0,0,0,0.20)); }
+
+.council-member-fields { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.council-member-label {
+  width: 100%;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.85);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+[data-theme="dark"] .council-member-label { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.10); }
+.council-member-row2 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.council-mini-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.council-mini-field span { font-size: 10.5px; color: var(--text-soft); padding-left: 2px; letter-spacing: 0.04em; }
+.council-mini-field select {
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.85);
+  font-size: 11.5px;
+  color: var(--text);
+  text-overflow: ellipsis;
+}
+[data-theme="dark"] .council-mini-field select { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+
+.council-member-del {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.council-member-del:hover { background: rgba(220,38,38,0.10); color: #dc2626; border-color: rgba(220,38,38,0.30); }
+
+/* ---- 茶话会消息气泡（多代理回答） ---- */
+.ai-msg.assistant.is-council {
+  /* 父消息容器与普通 assistant 一致，但 avatar/bubble 用成员色覆盖 */
+}
+.ai-msg.is-council .ai-avatar {
+  background: var(--member-color, #ff6b8a);
+  color: #fff;
+  font-size: 16px;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.50), 0 2px 6px var(--member-color, rgba(0,0,0,0.25));
+}
+[data-theme="dark"] .ai-msg.is-council .ai-avatar {
+  box-shadow: 0 0 0 2px rgba(28,28,32,0.50), 0 2px 6px var(--member-color, rgba(0,0,0,0.40));
+}
+.ai-msg.is-council .ai-bubble {
+  border-left: 3px solid var(--member-color, #ff6b8a);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--member-color, #ff6b8a) 8%, var(--bubble-bg, rgba(255,255,255,0.65))), var(--bubble-bg, rgba(255,255,255,0.55)));
+  position: relative;
+}
+.ai-council-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--member-color, #ff6b8a);
+  letter-spacing: 0.02em;
+}
+.ai-council-tag .acl-meta {
+  font-weight: 400;
+  opacity: 0.85;
+  font-size: 10.5px;
+}
+.ai-council-round-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 4px 8px;
+  font-size: 11px;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.ai-msg-divider { display: block !important; padding: 0 !important; }
+.ai-msg-divider .ai-avatar { display: none; }
+.ai-council-round-divider::before,
+.ai-council-round-divider::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.10), transparent);
+}
+[data-theme="dark"] .ai-council-round-divider::before,
+[data-theme="dark"] .ai-council-round-divider::after {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent);
+}
+
+@media (max-width: 540px) {
+  .council-mode-tabs { grid-template-columns: 1fr; }
+  .council-member-row2 { grid-template-columns: 1fr; }
+  .council-member-row { grid-template-columns: 40px 1fr 28px; }
 }

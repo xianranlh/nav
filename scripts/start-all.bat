@@ -1,6 +1,7 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0"
+REM 脚本在 scripts/ 子目录里；npm run dev 要在项目根跑
+cd /d "%~dp0.."
 
 where node >nul 2>&1
 if errorlevel 1 (

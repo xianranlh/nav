@@ -1,4 +1,4 @@
-/* 樱 · AI 助手模块  (build: v1.18.6 · 2026-05-09 · sync 重试 + 快捷键帮助)
+/* 樱 · AI 助手模块  (build: v1.19.0 · 2026-05-09 · 🍵 茶话会模式 · 多代理对话)
  * 兼容 OpenAI Chat Completions 协议：
  *   POST  {baseUrl}/chat/completions   (流式 stream: true)
  *   GET   {baseUrl}/models              (列出模型)
@@ -17,7 +17,7 @@
   "use strict";
 
   // —— 启动标记：刷新后在 DevTools Console 应该能看到这一行；看不到说明浏览器还在跑旧版本 ai.js
-  try { console.log("%c[sakura-nav][ai.js] build v1.18.6 · 2026-05-09 · 数据同步重试 + 快捷键帮助 + 离线提示", "color:#d6336c;font-weight:bold"); } catch (_) {}
+  try { console.log("%c[sakura-nav][ai.js] build v1.19.0 · 2026-05-09 · 🍵 茶话会模式（广播 / 辩论 / 圆桌 三模式 multi-agent）", "color:#d6336c;font-weight:bold"); } catch (_) {}
 
   const AI_KEY = "sakura_nav_ai_v1";
   const CHAT_KEY = "sakura_nav_chat_v1";
@@ -86,6 +86,20 @@
         customW: 3840,
         customH: 2160,
       },
+      /** 🍵 茶话会模式（多代理并行/辩论/圆桌对话，类似 Grok Heavy 的 multi-agent council）
+       *  - mode: "broadcast" 并行独立回答 / "debate" 两轮辩论综合 / "roundtable" 轮流接龙
+       *  - members: 每个成员是 (persona × provider × model) 的组合，自带 label/emoji/color
+       *  - moderatorMemberId: 仅 debate 模式：第二轮综合者，空 = 并行综合（所有成员各自综合一次）
+       *  - rounds / speakerOrder: 仅 roundtable 模式
+       *  默认 enabled=false，老用户升级也无感。 */
+      council: {
+        enabled: false,
+        mode: "broadcast",
+        members: [],
+        moderatorMemberId: "",
+        rounds: 1,
+        speakerOrder: "configured",
+      },
     },
     messages: [],           // [{ role, content, ts, attachments?: [{type,name,url/data}] }]
     serverMode: false,
@@ -116,6 +130,12 @@
       if (!Array.isArray(this.data.personas) || !this.data.personas.length) {
         this.data.personas = DEFAULT_PERSONAS.slice();
       }
+      // 老存档兜底：补齐 council 默认结构
+      if (!this.data.council || typeof this.data.council !== "object") {
+        this.data.council = { enabled: false, mode: "broadcast", members: [], moderatorMemberId: "", rounds: 1, speakerOrder: "configured" };
+      }
+      if (!Array.isArray(this.data.council.members)) this.data.council.members = [];
+      if (!["broadcast", "debate", "roundtable"].includes(this.data.council.mode)) this.data.council.mode = "broadcast";
       // 并行：服务端 hydrate 和反代 probe 一起走，整体阻塞的时间是两个里更长的那个
       await Promise.all([this._hydrateFromServer(), this._probeProxy()]);
     },
@@ -1021,7 +1041,17 @@
 
     const history = AIStore.messages
       .slice(-20)
-      .map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content : (m.content?.text || "") }));
+      // 茶话会消息（多代理回答）扁平化成 [代理名]: 内容；普通消息保留 role
+      .filter((m) => !m.councilHidden)
+      .map((m) => {
+        if (m.councilMember) {
+          return {
+            role: m.role,
+            content: `[${m.councilMember.label}]: ${typeof m.content === "string" ? m.content : (m.content?.text || "")}`,
+          };
+        }
+        return { role: m.role, content: typeof m.content === "string" ? m.content : (m.content?.text || "") };
+      });
 
     // 当前用户消息
     let content;
@@ -1038,6 +1068,54 @@
         for (const a of texts) content += "\n--- " + a.name + " ---\n" + a.text + "\n";
       }
     }
+
+    return [
+      { role: "system", content: system },
+      ...history,
+      { role: "user", content },
+    ];
+  }
+
+  /** 茶话会模式：为某个成员构造 messages；
+   *  - 用成员自己的 persona 而不是 AIStore.currentPersona
+   *  - 系统提示尾部加 "你的代理名：xxx"，让模型知道自己的身份
+   *  - extraSystem：可选的额外指令（辩论第二轮的"综合反驳"prompt 就走这里） */
+  async function buildMessagesForMember(member, userText, attachments, opts = {}) {
+    const personaList = AIStore.data.personas || [];
+    const persona = personaList.find((p) => p.id === member.personaId)
+      || personaList[0]
+      || DEFAULT_PERSONAS[0];
+    let system = persona.prompt || "";
+    if (AIStore.data.customSignature) system += "\n\n【用户的签名/资料】\n" + AIStore.data.customSignature;
+    const navCtx = buildNavContext();
+    system += "\n\n" + navCtx + NAV_ACTION_SPEC;
+    system += `\n\n【茶话会身份】你是"${member.label}"。回答时不需要在开头自报名字（前端会自动加标签）。`;
+    if (opts.extraSystem) system += "\n\n" + opts.extraSystem;
+
+    const history = AIStore.messages
+      .slice(-20)
+      .filter((m) => !m.councilHidden)
+      .map((m) => {
+        if (m.councilMember) {
+          return { role: m.role, content: `[${m.councilMember.label}]: ${typeof m.content === "string" ? m.content : (m.content?.text || "")}` };
+        }
+        return { role: m.role, content: typeof m.content === "string" ? m.content : (m.content?.text || "") };
+      });
+
+    let content;
+    const imgs = (attachments || []).filter((a) => a.type === "image" && a.dataUrl);
+    if (imgs.length) {
+      content = [{ type: "text", text: userText || "（请分析图片）" }];
+      for (const a of imgs) content.push({ type: "image_url", image_url: { url: a.dataUrl } });
+    } else {
+      content = userText || "";
+      const texts = (attachments || []).filter((a) => a.type === "text" && a.text);
+      if (texts.length) {
+        content += "\n\n【附件内容】\n";
+        for (const a of texts) content += "\n--- " + a.name + " ---\n" + a.text + "\n";
+      }
+    }
+    if (opts.extraUser) content = (typeof content === "string" ? content : (content[0]?.text || "")) + "\n\n" + opts.extraUser;
 
     return [
       { role: "system", content: system },
@@ -1398,6 +1476,7 @@
     IMAGE_SIZES,
     IMAGE_QUALITIES,
     buildMessages,
+    buildMessagesForMember,
     parseActions,
     applyActions,
     renderMarkdown,
@@ -1411,6 +1490,32 @@
     getModelStatus,
     pruneStaleStatus,
     rankModels,
+    /** 创建一个茶话会成员模板。providerId / model 默认沿用当前；persona 默认 nav。 */
+    makeCouncilMember(opts = {}) {
+      const provider = opts.providerId
+        ? AIStore.data.providers.find((p) => p.id === opts.providerId)
+        : AIStore.currentProvider();
+      const persona = opts.personaId
+        ? AIStore.data.personas.find((p) => p.id === opts.personaId)
+        : (AIStore.data.personas[0] || DEFAULT_PERSONAS[0]);
+      const palette = ["#ff6b8a", "#7c83fa", "#3aa66e", "#ff9d4a", "#ad6dff", "#ec4899", "#0ea5e9", "#f59e0b"];
+      const used = (AIStore.data.council?.members || []).map((m) => m.color);
+      const color = opts.color || palette.find((c) => !used.includes(c)) || palette[Math.floor(Math.random() * palette.length)];
+      // persona name 形如 "🌸 导航管家"：第一段是 emoji，其余是文字；对没有空格的兜底为整名
+      const personaName = persona?.name || "代理";
+      const firstSpace = personaName.indexOf(" ");
+      const emojiPart = firstSpace > 0 ? personaName.slice(0, firstSpace) : "🌸";
+      const namePart = firstSpace > 0 ? personaName.slice(firstSpace + 1) : personaName;
+      return {
+        id: opts.id || ("mem-" + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3)),
+        label: opts.label || (namePart + (used.length + 1)),
+        emoji: opts.emoji || emojiPart,
+        color,
+        personaId: persona?.id || "",
+        providerId: provider?.id || "",
+        model: opts.model || provider?.defaultModel || "",
+      };
+    },
     probeModel,
     findAvailableModel,
     /** key = `${providerId}::${uiModel}` 或 `upstream::${provider}::${model}`，value = 冷却到期 Date.now() ms */

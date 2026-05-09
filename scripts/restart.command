@@ -3,7 +3,9 @@
 # 故意不用 set -u，避免空变量在不同 macOS bash 版本里的不一致行为
 set -o pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 脚本在 scripts/ 子目录里，ROOT 是它的上一级（项目根）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 
 echo "==> 检查 18080 端口占用..."
@@ -27,6 +29,6 @@ pkill -f "node .*server/index\.js" 2>/dev/null || true
 pkill -f "npm run dev" 2>/dev/null || true
 sleep 1
 
-echo "==> 启动 start-all.sh"
-chmod +x start-all.sh 2>/dev/null || true
-exec ./start-all.sh
+echo "==> 启动 scripts/start-all.sh"
+chmod +x scripts/start-all.sh 2>/dev/null || true
+exec scripts/start-all.sh

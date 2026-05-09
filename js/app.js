@@ -979,9 +979,31 @@
     formLink.dataset.prevBgUrl = link && link.bg && link.bg.url ? link.bg.url : "";
     updateIconPreview(formLink.icon.value);
     if (linkBgEditor) linkBgEditor.setValue(link ? link.bg : null);
+
+    // "更多设置"折叠区：编辑时若有非默认字段（图标 / 描述 / 背景）→ 展开；新建时收起
+    const moreDetails = formLink.querySelector("details.link-more");
+    if (moreDetails) {
+      const hasMore = !!link && (
+        (link.icon && link.icon.length) ||
+        (link.desc && link.desc.length) ||
+        (link.bg && link.bg.url)
+      );
+      moreDetails.open = !!hasMore;
+      // 内嵌的 details（卡片背景媒体）：与外层"更多设置"同步展开/收起，省一次点击
+      const bgDetails = moreDetails.querySelector("details.bg-editor");
+      if (bgDetails) bgDetails.open = moreDetails.open;
+    }
+
     dlgLink.showModal();
-    setTimeout(() => formLink.name.focus(), 50);
+    setTimeout(() => formLink.url.focus(), 50);
   }
+
+  // "更多设置" toggle 时同步展开 / 收起里面所有内嵌 details —— 一次点击就能看到全部
+  document.addEventListener("toggle", (e) => {
+    const t = e.target;
+    if (!t || !t.classList || !t.classList.contains("link-more")) return;
+    t.querySelectorAll(":scope > details").forEach((sub) => { sub.open = t.open; });
+  }, true);
 
   // 图标输入变化 → 实时预览
   $("#icon-url-input")?.addEventListener("input", (e) => {
@@ -2552,11 +2574,13 @@
     function show() {
       if (dismissed) return;
       banner.hidden = false;
+      document.body.classList.add("has-offline-banner");
       // 延迟一帧让 transform 动画生效
       requestAnimationFrame(() => banner.classList.add("is-visible"));
     }
     function hide() {
       banner.classList.remove("is-visible");
+      document.body.classList.remove("has-offline-banner");
       // 等动画完
       setTimeout(() => { banner.hidden = true; }, 320);
     }
@@ -2704,6 +2728,8 @@
     document.body.classList.remove("pre-auth");
     Store.load();
     await AI.AIStore.load();
+    // 茶话会按钮 + 模型/角色下拉的禁用态需要在 council 数据加载完成后再刷一次
+    try { window.__syncCouncilBtnState?.(); } catch (_) {}
     Blog.load();
     Cal.load();
     if (window.Sync) Sync.load();
@@ -3282,6 +3308,251 @@
     });
     fab.addEventListener("click", open);
 
+    // ============= 🍵 茶话会模式：按钮 + 配置弹窗 =============
+    const councilBtn = $("#ai-council");
+    const dlgCouncil = $("#dialog-council");
+
+    function syncCouncilBtnState() {
+      const cfg = AI.AIStore.data.council || {};
+      const on = !!cfg.enabled && (cfg.members || []).length > 0;
+      councilBtn?.setAttribute("aria-pressed", on ? "true" : "false");
+      councilBtn?.classList.toggle("is-active", on);
+      if (on) {
+        const modeText = cfg.mode === "broadcast" ? "广播" : cfg.mode === "debate" ? "辩论" : "圆桌";
+        councilBtn.title = `茶话会已开启 · ${modeText} · ${cfg.members.length} 位成员（点击重新配置）`;
+      } else {
+        councilBtn.title = "茶话会模式：多代理并行/辩论/圆桌对话";
+      }
+      // 茶话会启用时，单代理的"模型"和"角色"下拉变得无意义（每个成员有自己的）；
+      // 设为 disabled + 加 council-overridden 类，配合 CSS 显示一个简短提示
+      const modelSelect = $("#ai-model-select");
+      const personaSelect = $("#ai-persona-select");
+      if (modelSelect) {
+        modelSelect.disabled = on;
+        modelSelect.classList.toggle("council-overridden", on);
+        modelSelect.title = on
+          ? `茶话会模式 · ${cfg.members.length} 位成员各自的模型生效（在 🍵 弹窗里改）`
+          : "模型（每条选项前的 ✓/❄/⚠/· 表示最近一次状态）";
+      }
+      if (personaSelect) {
+        personaSelect.disabled = on;
+        personaSelect.classList.toggle("council-overridden", on);
+        personaSelect.title = on
+          ? `茶话会模式 · 每位成员有各自的角色（在 🍵 弹窗里改）`
+          : "角色";
+      }
+      // 茶话会和生图互斥；启用茶话会时关掉生图模式
+      if (on && AI.AIStore.data.imageMode) {
+        AI.AIStore.data.imageMode = false;
+        try { $("#ai-image-mode")?.setAttribute("aria-pressed", "false"); } catch (_) {}
+        try { $("#ai-image-mode")?.classList.remove("is-active"); } catch (_) {}
+        try { syncImageWarnState && syncImageWarnState(); } catch (_) {}
+      }
+    }
+
+    function renderCouncilMembers() {
+      const list = $("#council-members-list");
+      const empty = $("#council-members-empty");
+      const cfg = AI.AIStore.data.council;
+      list.innerHTML = "";
+      if (!cfg.members.length) {
+        empty.hidden = false;
+        renderCouncilModerator();
+        return;
+      }
+      empty.hidden = true;
+      cfg.members.forEach((m, idx) => {
+        const provider = AI.AIStore.data.providers.find((p) => p.id === m.providerId);
+        const personaList = AI.AIStore.data.personas;
+        const providerList = AI.AIStore.data.providers;
+        const modelList = provider?.models || [];
+
+        const row = document.createElement("div");
+        row.className = "council-member-row";
+        row.style.setProperty("--member-color", m.color || "#ff6b8a");
+        row.dataset.id = m.id;
+        row.innerHTML = `
+          <button type="button" class="council-member-color" data-act="color" title="点击换颜色">${escapeHtml(m.emoji || "🌸")}</button>
+          <div class="council-member-fields">
+            <input class="council-member-label" data-act="label" value="${escapeHtml(m.label || "")}" placeholder="代理名（如 严肃顾问 / 吐槽役）" />
+            <div class="council-member-row2">
+              <label class="council-mini-field">
+                <span>角色</span>
+                <select data-act="persona">
+                  <option value="">（不指定，用对话默认 prompt）</option>
+                  ${personaList.map((p) => `<option value="${p.id}" ${p.id === m.personaId ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}
+                </select>
+              </label>
+              <label class="council-mini-field">
+                <span>供应商</span>
+                <select data-act="provider">
+                  ${providerList.map((p) => `<option value="${p.id}" ${p.id === m.providerId ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}
+                </select>
+              </label>
+              <label class="council-mini-field">
+                <span>模型</span>
+                <select data-act="model">
+                  ${modelList.length === 0 ? `<option value="">（先到 AI 设置里拉取这个供应商的模型列表）</option>` : ""}
+                  ${modelList.map((m2) => `<option value="${m2}" ${m2 === m.model ? "selected" : ""}>${escapeHtml(m2)}</option>`).join("")}
+                </select>
+              </label>
+            </div>
+          </div>
+          <button type="button" class="council-member-del" data-act="del" title="移除">✕</button>
+        `;
+        list.appendChild(row);
+      });
+      renderCouncilModerator();
+    }
+
+    function renderCouncilModerator() {
+      const sel = $("#council-moderator");
+      if (!sel) return;
+      const cfg = AI.AIStore.data.council;
+      sel.innerHTML = `<option value="">并行综合（每个代理各自综合一次）</option>` +
+        cfg.members.map((m) => `<option value="${m.id}" ${m.id === cfg.moderatorMemberId ? "selected" : ""}>${escapeHtml(m.emoji || "🌸")} ${escapeHtml(m.label)}</option>`).join("");
+    }
+
+    function applyCouncilModeUI() {
+      const mode = AI.AIStore.data.council.mode;
+      dlgCouncil.querySelectorAll(".council-tab").forEach((b) => {
+        const on = b.dataset.mode === mode;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      dlgCouncil.querySelectorAll("[data-mode-only]").forEach((el) => {
+        el.hidden = el.dataset.modeOnly !== mode;
+      });
+    }
+
+    let councilSnapshot = null;
+    function openCouncilDialog() {
+      const cfg = AI.AIStore.data.council;
+      // 深拷贝快照，取消时回滚
+      councilSnapshot = JSON.parse(JSON.stringify(cfg));
+      $("#council-enabled").checked = !!cfg.enabled;
+      $("#council-rounds").value = cfg.rounds || 1;
+      $("#council-order").value = cfg.speakerOrder || "configured";
+      applyCouncilModeUI();
+      renderCouncilMembers();
+      if (typeof dlgCouncil.showModal === "function" && !dlgCouncil.open) dlgCouncil.showModal();
+      else dlgCouncil.setAttribute("open", "");
+    }
+    // 弹窗关闭时若没走 submit（用户点了取消 / X / Esc），把 in-memory state 回滚
+    dlgCouncil.addEventListener("close", () => {
+      if (councilSnapshot && dlgCouncil.returnValue !== "saved") {
+        AI.AIStore.data.council = councilSnapshot;
+        // 不需要 save() —— in-memory 已经回滚到与 localStorage 一致
+      }
+      councilSnapshot = null;
+    });
+
+    councilBtn?.addEventListener("click", openCouncilDialog);
+
+    // 模式切换
+    dlgCouncil.addEventListener("click", (e) => {
+      const tab = e.target.closest(".council-tab");
+      if (tab) {
+        AI.AIStore.data.council.mode = tab.dataset.mode;
+        applyCouncilModeUI();
+        return;
+      }
+      const memberBtn = e.target.closest(".council-member-row [data-act]");
+      if (memberBtn) {
+        const id = memberBtn.closest(".council-member-row").dataset.id;
+        const cfg = AI.AIStore.data.council;
+        const m = cfg.members.find((x) => x.id === id);
+        if (!m) return;
+        if (memberBtn.dataset.act === "del") {
+          cfg.members = cfg.members.filter((x) => x.id !== id);
+          renderCouncilMembers();
+        } else if (memberBtn.dataset.act === "color") {
+          // 循环换 emoji + 颜色
+          const palette = [
+            { emoji: "🌸", color: "#ff6b8a" },
+            { emoji: "🌊", color: "#0ea5e9" },
+            { emoji: "🌿", color: "#3aa66e" },
+            { emoji: "🔥", color: "#ff9d4a" },
+            { emoji: "💜", color: "#ad6dff" },
+            { emoji: "⭐", color: "#f59e0b" },
+            { emoji: "🌙", color: "#7c83fa" },
+            { emoji: "🍒", color: "#ec4899" },
+          ];
+          const cur = palette.findIndex((x) => x.emoji === m.emoji);
+          const nx = palette[(cur + 1) % palette.length];
+          m.emoji = nx.emoji;
+          m.color = nx.color;
+          renderCouncilMembers();
+        }
+      }
+    });
+
+    // input/change 写回
+    dlgCouncil.addEventListener("input", (e) => {
+      const row = e.target.closest(".council-member-row");
+      if (!row) return;
+      const m = AI.AIStore.data.council.members.find((x) => x.id === row.dataset.id);
+      if (!m) return;
+      const act = e.target.dataset.act;
+      if (act === "label") m.label = e.target.value;
+    });
+    dlgCouncil.addEventListener("change", (e) => {
+      const row = e.target.closest(".council-member-row");
+      if (row) {
+        const m = AI.AIStore.data.council.members.find((x) => x.id === row.dataset.id);
+        if (!m) return;
+        const act = e.target.dataset.act;
+        if (act === "persona") m.personaId = e.target.value;
+        else if (act === "provider") {
+          m.providerId = e.target.value;
+          // 切供应商时把 model 重置成新供应商的 default
+          const p = AI.AIStore.data.providers.find((x) => x.id === m.providerId);
+          m.model = p?.defaultModel || (p?.models || [])[0] || "";
+          renderCouncilMembers();
+        } else if (act === "model") m.model = e.target.value;
+        return;
+      }
+      // 模式选项
+      if (e.target.id === "council-rounds") AI.AIStore.data.council.rounds = Math.max(1, Math.min(3, +e.target.value || 1));
+      else if (e.target.id === "council-order") AI.AIStore.data.council.speakerOrder = e.target.value;
+      else if (e.target.id === "council-moderator") AI.AIStore.data.council.moderatorMemberId = e.target.value;
+      else if (e.target.id === "council-enabled") AI.AIStore.data.council.enabled = e.target.checked;
+    });
+
+    // + 添加成员
+    $("#council-add-member")?.addEventListener("click", () => {
+      const cfg = AI.AIStore.data.council;
+      if (!AI.AIStore.data.providers.length) { toast("请先到 AI 设置里添加供应商"); return; }
+      cfg.members.push(AI.makeCouncilMember());
+      renderCouncilMembers();
+    });
+
+    // 保存（form submit）
+    $("#form-council").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const cfg = AI.AIStore.data.council;
+      if (cfg.enabled && !cfg.members.length) {
+        toast("茶话会模式至少需要一位成员");
+        return;
+      }
+      // 校验每位成员有 provider + model
+      for (const m of cfg.members) {
+        if (!m.providerId || !m.model) {
+          toast(`成员"${m.label || "未命名"}"还没选供应商或模型`);
+          return;
+        }
+      }
+      AI.AIStore.save();
+      syncCouncilBtnState();
+      // 标记 returnValue=saved，让 close 监听器知道这次是保存而不是取消，不要回滚
+      dlgCouncil.close("saved");
+      toast(cfg.enabled ? `已开启茶话会 · ${cfg.members.length} 位成员` : "已保存（未启用）");
+    });
+
+    // 启动时初始化按钮状态；同时暴露给外部，让 bootApp 在 load() 完成后能再 sync 一次
+    syncCouncilBtnState();
+    window.__syncCouncilBtnState = syncCouncilBtnState;
+
     // 建议按钮
     messagesEl.addEventListener("click", (e) => {
       const b = e.target.closest("[data-ai-suggest]");
@@ -3334,19 +3605,267 @@
     sendBtn.addEventListener("click", send);
     stopBtn.addEventListener("click", () => { abortCtrl?.abort(); });
 
+    /** 茶话会模式总入口：根据 cfg.mode 分发到 broadcast / debate / roundtable。
+     *  调用前 userMsg 已经入栈。返回后所有成员的 assistant 消息都已经写好。 */
+    async function sendCouncil(userText, currentAttachments, cfg) {
+      const members = (cfg.members || []).slice();
+      if (!members.length) throw new Error("茶话会没有配置任何成员");
+
+      // 在每个 send 开头先写一条"轮次分隔"消息，让历史记录里看得出这是同一次提问
+      const startMarker = {
+        role: "system",
+        councilDivider: true,
+        content: cfg.mode === "broadcast" ? "🍵 广播" : cfg.mode === "debate" ? "🍵 辩论 · 第 1 轮" : "🍵 圆桌",
+        ts: Date.now(),
+        councilHidden: true, // 不送给模型
+      };
+      AI.AIStore.messages.push(startMarker);
+      renderMessages();
+
+      if (cfg.mode === "broadcast") {
+        await runCouncilBroadcast(members, userText, currentAttachments);
+        return;
+      }
+      if (cfg.mode === "debate") {
+        await runCouncilDebate(members, userText, currentAttachments, cfg);
+        return;
+      }
+      if (cfg.mode === "roundtable") {
+        await runCouncilRoundtable(members, userText, currentAttachments, cfg);
+        return;
+      }
+    }
+
+    /** 广播：所有成员并行发请求，每个有自己的 streaming bubble，互不见对方。 */
+    async function runCouncilBroadcast(members, userText, currentAttachments) {
+      // 先一次性创建好 N 个占位 assistant 消息（streaming），保证 UI 顺序稳定
+      const slots = members.map((m) => {
+        const msg = {
+          role: "assistant",
+          content: "",
+          ts: Date.now(),
+          streaming: true,
+          councilMember: { id: m.id, label: m.label, color: m.color, emoji: m.emoji },
+          councilTurn: { mode: "broadcast", round: 1 },
+        };
+        AI.AIStore.messages.push(msg);
+        return { member: m, msg };
+      });
+      AI.AIStore.saveMessages();
+      renderMessages();
+
+      // 并行发起；每个错误独立处理，不让一个失败拖垮整组
+      await Promise.all(slots.map(async ({ member, msg }) => {
+        const provider = AI.AIStore.data.providers.find((p) => p.id === member.providerId);
+        if (!provider) {
+          msg.streaming = false;
+          msg.content = `_供应商 ${member.providerId} 已不存在_`;
+          msg.error = true;
+          return;
+        }
+        try {
+          const msgs = await AI.buildMessagesForMember(member, userText, currentAttachments);
+          await AI.chat({
+            provider, model: member.model, messages: msgs,
+            signal: abortCtrl.signal,
+            retry: { maxAttempts: 2, delayMs: 1200 },
+            onDelta: (_d, full) => {
+              msg.content = full;
+              // 找到对应这条 msg 的 bubble 节点更新
+              updateCouncilBubble(msg);
+              scrollToBottom();
+            },
+          });
+        } catch (err) {
+          if (err?.name === "AbortError") {
+            msg.content += "\n\n_[已取消]_";
+          } else {
+            msg.content = formatAIError(err);
+            msg.error = true;
+          }
+        } finally {
+          msg.streaming = false;
+          AI.AIStore.saveMessages();
+          updateCouncilBubble(msg);
+        }
+      }));
+    }
+
+    /** 辩论：第 1 轮广播 → 第 2 轮把所有 R1 答案喂给主持人/全体 综合反驳。 */
+    async function runCouncilDebate(members, userText, currentAttachments, cfg) {
+      // R1
+      await runCouncilBroadcast(members, userText, currentAttachments);
+      if (abortCtrl?.signal.aborted) return;
+
+      // 综合摘要：把 R1 的所有 bubble 内容拼成"各代理初步回答"块
+      const r1Summary = members.map((m) => {
+        const msg = [...AI.AIStore.messages].reverse().find((x) => x.councilMember?.id === m.id && x.councilTurn?.round === 1);
+        const txt = (msg?.content || "_(无回答)_").slice(0, 1200);
+        return `### ${m.emoji || ""} ${m.label}\n${txt}`;
+      }).join("\n\n");
+
+      const debatePrompt =
+        "【辩论第 2 轮 · 综合反驳】以下是这一轮所有代理的第一轮初步回答。\n" +
+        "请你阅读后给出综合判断：\n" +
+        "1) 找出共识；\n" +
+        "2) 指出彼此分歧 / 错误 / 遗漏；\n" +
+        "3) 给出你最终的判断，必要时直接反驳前面某位代理的具体观点。\n" +
+        "答案要紧扣用户原始问题。\n\n" +
+        "原始问题：\n" + userText + "\n\n" +
+        "其他代理的初步回答：\n" + r1Summary;
+
+      // 决定 R2 的"综合者"：moderatorMemberId 指定一个，否则全员各自综合一次
+      const moderators = cfg.moderatorMemberId
+        ? members.filter((m) => m.id === cfg.moderatorMemberId)
+        : members;
+      if (!moderators.length) return;
+
+      // R2 分隔
+      AI.AIStore.messages.push({ role: "system", councilDivider: true, content: "🍵 辩论 · 第 2 轮（综合反驳）", ts: Date.now(), councilHidden: true });
+      renderMessages();
+
+      const r2Slots = moderators.map((m) => {
+        const msg = {
+          role: "assistant", content: "", ts: Date.now(), streaming: true,
+          councilMember: { id: m.id, label: m.label, color: m.color, emoji: m.emoji },
+          councilTurn: { mode: "debate", round: 2 },
+        };
+        AI.AIStore.messages.push(msg);
+        return { member: m, msg };
+      });
+      AI.AIStore.saveMessages();
+      renderMessages();
+
+      await Promise.all(r2Slots.map(async ({ member, msg }) => {
+        const provider = AI.AIStore.data.providers.find((p) => p.id === member.providerId);
+        try {
+          const msgs = await AI.buildMessagesForMember(member, userText, currentAttachments, { extraSystem: debatePrompt });
+          await AI.chat({
+            provider, model: member.model, messages: msgs,
+            signal: abortCtrl.signal,
+            retry: { maxAttempts: 2, delayMs: 1200 },
+            onDelta: (_d, full) => { msg.content = full; updateCouncilBubble(msg); scrollToBottom(); },
+          });
+        } catch (err) {
+          if (err?.name === "AbortError") msg.content += "\n\n_[已取消]_";
+          else { msg.content = formatAIError(err); msg.error = true; }
+        } finally {
+          msg.streaming = false;
+          AI.AIStore.saveMessages();
+          updateCouncilBubble(msg);
+        }
+      }));
+    }
+
+    /** 圆桌：每个成员轮流发言，能看见前面所有人的发言（同一轮 + 上一轮）。
+     *  通过把 history 里的 [代理名]: 内容 当作 assistant 历史送回。 */
+    async function runCouncilRoundtable(members, userText, currentAttachments, cfg) {
+      const rounds = Math.max(1, Math.min(3, cfg.rounds || 1));
+      let order = members.slice();
+      for (let r = 1; r <= rounds; r++) {
+        if (cfg.speakerOrder === "random") {
+          // 简易 Fisher-Yates
+          for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [order[i], order[j]] = [order[j], order[i]];
+          }
+        }
+        if (r > 1) {
+          AI.AIStore.messages.push({ role: "system", councilDivider: true, content: `🍵 圆桌 · 第 ${r} 轮`, ts: Date.now(), councilHidden: true });
+          renderMessages();
+        }
+        for (const member of order) {
+          if (abortCtrl?.signal.aborted) return;
+          const provider = AI.AIStore.data.providers.find((p) => p.id === member.providerId);
+          const msg = {
+            role: "assistant", content: "", ts: Date.now(), streaming: true,
+            councilMember: { id: member.id, label: member.label, color: member.color, emoji: member.emoji },
+            councilTurn: { mode: "roundtable", round: r },
+          };
+          AI.AIStore.messages.push(msg);
+          AI.AIStore.saveMessages();
+          renderMessages();
+
+          try {
+            // buildMessagesForMember 已经把历史中的茶话会消息扁平化成 [代理名]: 内容 → 当前成员能看到前面的发言
+            const extraUser = r === 1 && order[0]?.id === member.id ? "" : "请你简洁地回应（或反驳 / 补充）前面已经发言的代理；如果是第一个发言就直接给观点。";
+            const msgs = await AI.buildMessagesForMember(member, userText, currentAttachments, { extraUser });
+            await AI.chat({
+              provider, model: member.model, messages: msgs,
+              signal: abortCtrl.signal,
+              retry: { maxAttempts: 2, delayMs: 1200 },
+              onDelta: (_d, full) => { msg.content = full; updateCouncilBubble(msg); scrollToBottom(); },
+            });
+          } catch (err) {
+            if (err?.name === "AbortError") { msg.content += "\n\n_[已取消]_"; msg.streaming = false; AI.AIStore.saveMessages(); updateCouncilBubble(msg); return; }
+            else { msg.content = formatAIError(err); msg.error = true; }
+          } finally {
+            msg.streaming = false;
+            AI.AIStore.saveMessages();
+            updateCouncilBubble(msg);
+          }
+        }
+      }
+    }
+
+    /** 局部更新某条茶话会 bubble 的 DOM，避免整列表 rerender 抢焦点 */
+    function updateCouncilBubble(msg) {
+      // 找到这条消息在 AIStore.messages 中的索引
+      const idx = AI.AIStore.messages.indexOf(msg);
+      if (idx < 0) return;
+      const el = messagesEl.querySelectorAll(".ai-msg")[idx];
+      if (!el) return;
+      const bubble = el.querySelector(".ai-bubble");
+      if (!bubble) return;
+      bubble.innerHTML = renderCouncilBubble(msg);
+    }
+
+    function renderCouncilBubble(msg) {
+      const m = msg.councilMember || {};
+      const turn = msg.councilTurn || {};
+      const meta = turn.mode === "debate" && turn.round === 2 ? "综合 · 第 2 轮"
+        : turn.mode === "roundtable" ? `圆桌 · 第 ${turn.round} 轮`
+        : "";
+      const tag = `<div class="ai-council-tag" style="--member-color:${m.color || "#ff6b8a"}">
+        <span>${escapeHtml(m.emoji || "🌸")}</span>
+        <span>${escapeHtml(m.label || "代理")}</span>
+        ${meta ? `<span class="acl-meta">· ${meta}</span>` : ""}
+      </div>`;
+      return tag + renderAssistantContent(msg.content || "", msg);
+    }
+
     async function send() {
       const text = input.value.trim();
       if (!text && !attachments.length) return;
-      const provider = AI.AIStore.currentProvider();
-      if (!provider) {
-        tipEl.classList.add("err");
-        tipEl.textContent = "请先在 AI 设置中添加供应商";
-        setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 3500);
-        return;
+      const councilCfg = AI.AIStore.data.council;
+      const councilOn = !!councilCfg?.enabled && (councilCfg.members || []).length > 0;
+      // 茶话会模式不需要 currentProvider/currentModel；每个成员有自己的
+      let provider = null;
+      let model = "";
+      if (!councilOn) {
+        provider = AI.AIStore.currentProvider();
+        if (!provider) {
+          tipEl.classList.add("err");
+          tipEl.textContent = "请先在 AI 设置中添加供应商";
+          setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 3500);
+          return;
+        }
+        model = AI.AIStore.data.currentModel || provider.defaultModel;
+        if (!model) { toast("请先选择模型"); return; }
+      } else {
+        // 茶话会模式预校验：每个成员都得有 provider+model，且 provider 还存在
+        const stale = (councilCfg.members || []).filter((m) => {
+          const p = AI.AIStore.data.providers.find((pp) => pp.id === m.providerId);
+          return !p || !m.model;
+        });
+        if (stale.length) {
+          tipEl.classList.add("err");
+          tipEl.textContent = `茶话会有 ${stale.length} 位成员的供应商或模型已失效，请在配置里重新选`;
+          setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 4500);
+          return;
+        }
       }
-      const model = AI.AIStore.data.currentModel || provider.defaultModel;
-      if (!model) { toast("请先选择模型"); return; }
-      const imageMode = !!AI.AIStore.data.imageMode;
+      const imageMode = !!AI.AIStore.data.imageMode && !councilOn; // 茶话会和生图互斥
 
       const userMsg = {
         role: "user",
@@ -3359,22 +3878,41 @@
       AI.AIStore.messages.push(userMsg);
       AI.AIStore.saveMessages();
 
-      const asstMsg = { role: "assistant", content: "", ts: Date.now(), streaming: true };
-      AI.AIStore.messages.push(asstMsg);
-      renderMessages();
-
       const currentAttachments = attachments.slice();
       input.value = "";
       attachments = [];
       renderAttachments();
       autoResize();
-
       stopBtn.hidden = false;
       sendBtn.hidden = true;
+      abortCtrl = new AbortController();
+
+      // ========== 🍵 茶话会分支 ==========
+      if (councilOn) {
+        try {
+          await sendCouncil(text, currentAttachments, councilCfg);
+        } catch (err) {
+          if (err?.name !== "AbortError") {
+            tipEl.classList.add("err");
+            tipEl.textContent = (err.message || "茶话会出错").replace(/\s+/g, " ").slice(0, 160);
+            setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 6000);
+          }
+        } finally {
+          abortCtrl = null;
+          stopBtn.hidden = true;
+          sendBtn.hidden = false;
+          try { refreshModelStatus(); } catch (_) {}
+          try { syncCouncilBtnState(); } catch (_) {}
+        }
+        return;
+      }
+
+      const asstMsg = { role: "assistant", content: "", ts: Date.now(), streaming: true };
+      AI.AIStore.messages.push(asstMsg);
+      renderMessages();
+
       // 思考状态已经移到气泡里的动画指示器；tipEl 只在生图时仍给一句文字
       tipEl.textContent = imageMode ? "正在生成图片…" : "";
-
-      abortCtrl = new AbortController();
 
       // ========== 🎨 生图分支 ==========
       if (imageMode) {
@@ -3622,15 +4160,43 @@
       }
       messagesEl.innerHTML = "";
       ms.forEach((m, idx) => {
+        // 茶话会轮次分隔线（system + councilDivider）
+        if (m.councilDivider) {
+          const div = document.createElement("div");
+          div.className = "ai-council-round-divider";
+          div.innerHTML = `<span>${escapeHtml(m.content || "")}</span>`;
+          // 用空 div 占位以保持 idx 与 messages 对齐（updateCouncilBubble 用 querySelectorAll(.ai-msg)[idx] 查不能错位）
+          const wrap = document.createElement("div");
+          wrap.className = "ai-msg ai-msg-divider";
+          wrap.appendChild(div);
+          messagesEl.appendChild(wrap);
+          return;
+        }
+        const isCouncil = !!m.councilMember;
         const el = document.createElement("div");
-        el.className = "ai-msg " + m.role;
+        el.className = "ai-msg " + m.role + (isCouncil ? " is-council" : "");
+        if (isCouncil) el.style.setProperty("--member-color", m.councilMember.color || "#ff6b8a");
         el.innerHTML = `
-          <div class="ai-avatar">${m.role === "user" ? "我" : "🌸"}</div>
+          <div class="ai-avatar">${m.role === "user" ? "我" : (isCouncil ? escapeHtml(m.councilMember.emoji || "🌸") : "🌸")}</div>
           <div class="ai-bubble"></div>
         `;
         const bubble = el.querySelector(".ai-bubble");
         if (m.role === "user") {
           bubble.innerHTML = renderUserContent(m);
+        } else if (isCouncil) {
+          bubble.innerHTML = renderCouncilBubble(m);
+          if (m.content && !m.streaming) {
+            const tts = document.createElement("button");
+            tts.className = "tts-btn";
+            tts.type = "button";
+            tts.title = `朗读 ${m.councilMember.label || ""} 的这条回复`;
+            tts.innerHTML = '<span class="ai-tool-ico">🔊</span><span class="ai-tool-txt">朗读</span>';
+            tts.addEventListener("click", (e) => {
+              e.stopPropagation();
+              window.AITts.speak(m.content, tts);
+            });
+            bubble.appendChild(tts);
+          }
         } else {
           bubble.innerHTML = renderAssistantContent(m.content, m);
           if (m.content && !m.streaming) {

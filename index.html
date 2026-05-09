@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.18.6" />
+  <link rel="stylesheet" href="styles.css?v=v1.19.3" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -179,8 +179,9 @@
       </div>
 
       <div class="dialog-body">
-        <label>名称 <input name="name" required maxlength="60" placeholder="网站名称" /></label>
-        <label>网址 <input name="url" type="url" required placeholder="https://..." /></label>
+        <!-- 简化版：默认只显示 网址 + 名称 + 分组 这三项；其余字段折叠在"更多设置"里 -->
+        <label>网址 <input name="url" type="url" required placeholder="https://..." autocomplete="off" /></label>
+        <label>名称 <input name="name" maxlength="60" placeholder="留空自动用站点域名" /></label>
         <div class="link-group-field">
           <label for="link-group-select">所属分组</label>
           <div class="input-with-btn">
@@ -194,56 +195,60 @@
             <button type="button" class="btn-secondary btn-inline" id="link-inline-group-cancel">取消</button>
           </div>
         </div>
-        <label>
-          <span>图标设置 <small class="hint-inline">留空自动抓取站点 favicon</small></span>
-          <div class="icon-picker" id="icon-picker">
-            <div class="icon-picker-preview" id="icon-picker-preview">
-              <span class="icon-picker-placeholder">AUTO</span>
-            </div>
-            <div class="icon-picker-controls">
-              <input name="icon" id="icon-url-input" placeholder="图标 URL / data URL" />
-              <div class="icon-picker-actions">
-                <label class="mini-btn" title="从本地选择图片">
-                  📁 本地图片
-                  <input type="file" id="icon-file-input" accept="image/*" hidden />
-                </label>
-                <button type="button" class="mini-btn" id="icon-clear-btn">清除</button>
-              </div>
-            </div>
-          </div>
-        </label>
-        <label>描述备注 <input name="desc" maxlength="80" placeholder="可选，一句话介绍..." /></label>
 
-        <details class="sec bg-editor" data-target="link">
-          <summary>🖼 卡片背景媒体</summary>
-          <p class="hint" style="font-size:11px;margin:4px 0 10px">为单个卡片设置背景。服务端模式支持上传，静态模式支持外链。</p>
-          <div class="bg-editor-row">
-            <div class="bg-editor-preview" data-bg-preview>
-              <span class="hint">PREVIEW</span>
-            </div>
-            <div class="bg-editor-controls">
-              <div class="input-with-btn">
-                <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" />
-                <label class="btn-secondary btn-inline">
-                  📁 本地
-                  <input type="file" data-bg-file accept="image/*,video/*" hidden />
-                </label>
-                <button type="button" class="btn-secondary btn-inline" data-bg-clear>清除</button>
+        <details class="sec link-more">
+          <summary>⚙ 更多设置 <small class="hint-inline">图标 / 描述 / 背景媒体（可选）</small></summary>
+          <label>
+            <span>图标设置 <small class="hint-inline">留空自动抓取站点 favicon</small></span>
+            <div class="icon-picker" id="icon-picker">
+              <div class="icon-picker-preview" id="icon-picker-preview">
+                <span class="icon-picker-placeholder">AUTO</span>
               </div>
-              <label class="bg-slider">
-                <span>透明度 <b data-bg-opacity-val>100%</b></span>
-                <input type="range" data-bg-opacity min="0" max="100" step="1" value="100" />
-              </label>
-              <label class="bg-slider">
-                <span>模糊 <b data-bg-blur-val>0px</b></span>
-                <input type="range" data-bg-blur min="0" max="16" step="1" value="0" />
-              </label>
-              <label class="bg-slider">
-                <span>暗罩 <b data-bg-mask-val>0%</b></span>
-                <input type="range" data-bg-mask min="0" max="80" step="1" value="0" />
-              </label>
+              <div class="icon-picker-controls">
+                <input name="icon" id="icon-url-input" placeholder="图标 URL / data URL" />
+                <div class="icon-picker-actions">
+                  <label class="mini-btn" title="从本地选择图片">
+                    📁 本地图片
+                    <input type="file" id="icon-file-input" accept="image/*" hidden />
+                  </label>
+                  <button type="button" class="mini-btn" id="icon-clear-btn">清除</button>
+                </div>
+              </div>
             </div>
-          </div>
+          </label>
+          <label>描述备注 <input name="desc" maxlength="80" placeholder="可选，一句话介绍..." /></label>
+
+          <details class="sec bg-editor" data-target="link">
+            <summary>🖼 卡片背景媒体</summary>
+            <p class="hint" style="font-size:11px;margin:4px 0 10px">为单个卡片设置背景。服务端模式支持上传，静态模式支持外链。</p>
+            <div class="bg-editor-row">
+              <div class="bg-editor-preview" data-bg-preview>
+                <span class="hint">PREVIEW</span>
+              </div>
+              <div class="bg-editor-controls">
+                <div class="input-with-btn">
+                  <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" />
+                  <label class="btn-secondary btn-inline">
+                    📁 本地
+                    <input type="file" data-bg-file accept="image/*,video/*" hidden />
+                  </label>
+                  <button type="button" class="btn-secondary btn-inline" data-bg-clear>清除</button>
+                </div>
+                <label class="bg-slider">
+                  <span>透明度 <b data-bg-opacity-val>100%</b></span>
+                  <input type="range" data-bg-opacity min="0" max="100" step="1" value="100" />
+                </label>
+                <label class="bg-slider">
+                  <span>模糊 <b data-bg-blur-val>0px</b></span>
+                  <input type="range" data-bg-blur min="0" max="16" step="1" value="0" />
+                </label>
+                <label class="bg-slider">
+                  <span>暗罩 <b data-bg-mask-val>0%</b></span>
+                  <input type="range" data-bg-mask min="0" max="80" step="1" value="0" />
+                </label>
+              </div>
+            </div>
+          </details>
         </details>
       </div>
 
@@ -805,6 +810,7 @@
         <button class="ai-tool-btn" id="ai-refresh-models" title="重新拉取这个供应商的模型列表"><span class="ai-tool-ico">↻</span><span class="ai-tool-txt">刷新</span></button>
         <button class="ai-tool-btn" id="ai-find-model" title="逐个发 1-token 探针自动找一个能用的模型"><span class="ai-tool-ico">🔍</span><span class="ai-tool-txt">探测</span></button>
         <button class="ai-tool-btn" id="ai-image-mode" title="切换生图模式（请求改走 /v1/images/generations）" aria-pressed="false"><span class="ai-tool-ico">🎨</span><span class="ai-tool-txt">生图</span></button>
+        <button class="ai-tool-btn" id="ai-council" title="茶话会模式：多代理并行/辩论/圆桌对话" aria-pressed="false"><span class="ai-tool-ico">🍵</span><span class="ai-tool-txt">茶话会</span></button>
         <button class="ai-tool-btn" id="ai-export" title="导出当前对话为 Markdown 文件"><span class="ai-tool-ico">⤓</span><span class="ai-tool-txt">导出</span></button>
         <button class="ai-tool-btn" id="ai-clear" title="清空会话历史"><span class="ai-tool-ico">🗑</span><span class="ai-tool-txt">清空</span></button>
         <button class="ai-tool-btn" id="ai-open-settings" title="打开 AI 设置弹窗"><span class="ai-tool-ico">⚙</span><span class="ai-tool-txt">设置</span></button>
@@ -859,7 +865,7 @@
   <dialog id="dialog-ai" class="glass-dialog ai-dialog">
     <form method="dialog">
       <div class="dialog-header">
-        <h3><span>🤖</span> AI 助手设置 <small class="ai-build-tag" title="前端 ai.js 构建版本">v1.18.6</small></h3>
+        <h3><span>🤖</span> AI 助手设置 <small class="ai-build-tag" title="前端 ai.js 构建版本">v1.19.0</small></h3>
         <button type="button" class="close-btn" data-close title="关闭">&times;</button>
       </div>
 
@@ -946,6 +952,79 @@
       <div class="dialog-actions">
         <button type="button" class="btn-secondary" data-close>取消</button>
         <button value="ok" type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== 🍵 茶话会模式配置弹窗 ===== -->
+  <dialog id="dialog-council" class="glass-dialog council-dialog">
+    <form method="dialog" id="form-council">
+      <div class="dialog-header">
+        <h3><span>🍵</span> 茶话会模式 <small class="ai-build-tag" title="多代理并行/辩论/圆桌对话">v1.19.0</small></h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <label class="council-toggle">
+          <input type="checkbox" id="council-enabled" />
+          <span><b>启用茶话会模式</b> · 关闭后所有对话恢复成单代理</span>
+        </label>
+
+        <div class="council-mode-tabs" role="tablist" aria-label="对话模式">
+          <button type="button" class="council-tab" data-mode="broadcast" role="tab" aria-selected="true">
+            <span class="ico">📡</span><span class="ttl">广播</span>
+            <span class="sub">N 个代理并行回答，互不影响</span>
+          </button>
+          <button type="button" class="council-tab" data-mode="debate" role="tab" aria-selected="false">
+            <span class="ico">⚖️</span><span class="ttl">辩论</span>
+            <span class="sub">两轮：先并行回答，再综合反驳</span>
+          </button>
+          <button type="button" class="council-tab" data-mode="roundtable" role="tab" aria-selected="false">
+            <span class="ico">🎙</span><span class="ttl">圆桌</span>
+            <span class="sub">轮流接龙，后说的能看见前说的</span>
+          </button>
+        </div>
+
+        <div class="council-mode-options">
+          <div data-mode-only="debate" class="council-mode-row" hidden>
+            <label class="council-field">
+              <span>主持人（综合 / 反驳第二轮）</span>
+              <select id="council-moderator">
+                <option value="">并行综合（每个代理各自综合一次）</option>
+              </select>
+            </label>
+            <p class="council-tip">主持人能看到第一轮所有人的回答，给出最终综合答案；选"并行综合"时所有人都各自综合一次（更全面但更慢）。</p>
+          </div>
+          <div data-mode-only="roundtable" class="council-mode-row" hidden>
+            <label class="council-field">
+              <span>轮数</span>
+              <input type="number" id="council-rounds" min="1" max="3" value="1" />
+            </label>
+            <label class="council-field">
+              <span>顺序</span>
+              <select id="council-order">
+                <option value="configured">按配置顺序</option>
+                <option value="random">每次随机</option>
+              </select>
+            </label>
+            <p class="council-tip">轮数 ≥ 2 时所有成员会循环发言（n × rounds 次回答）；token 消耗会以等比增长。</p>
+          </div>
+          <div data-mode-only="broadcast" class="council-mode-row">
+            <p class="council-tip">广播模式：所有成员同时收到原始问题，并行回答、互不见对方的发言。延迟 ≈ 单代理；token 消耗 ≈ N × 单代理。</p>
+          </div>
+        </div>
+
+        <div class="council-section">
+          <div class="council-sec-head">
+            <h4>成员（建议 2-4 位）</h4>
+            <button type="button" class="mini-btn" id="council-add-member">+ 添加成员</button>
+          </div>
+          <div id="council-members-list" class="council-members-list"></div>
+          <p class="council-tip" id="council-members-empty" hidden>还没有成员，点 + 添加成员开始。</p>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" data-close>取消</button>
+        <button type="submit" class="btn-primary" id="council-save">保存</button>
       </div>
     </form>
   </dialog>
@@ -1210,24 +1289,24 @@
     </form>
   </dialog>
 
-  <script src="homepage-theme.js"></script>
-  <script src="homepage-layout.js"></script>
-  <script src="sakura.js"></script>
-  <script src="progress.js"></script>
-  <script src="bookmarks.js"></script>
-  <script src="auth.js"></script>
-  <script src="ai.js?v=v1.18.6"></script>
-  <script src="blog.js"></script>
-  <script src="calendar.js"></script>
-  <script src="sync.js"></script>
-  <script src="sakura-remote.js"></script>
-  <script src="sakura-media.js"></script>
-  <script src="weather.js"></script>
-  <script src="suggest.js"></script>
-  <script src="exporter.js"></script>
-  <script src="idb.js"></script>
-  <script src="music.js"></script>
-  <script src="storage-inspector.js"></script>
-  <script src="app.js?v=v1.18.6"></script>
+  <script src="js/homepage-theme.js"></script>
+  <script src="js/homepage-layout.js"></script>
+  <script src="js/sakura.js"></script>
+  <script src="js/progress.js"></script>
+  <script src="js/bookmarks.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/ai.js?v=v1.19.3"></script>
+  <script src="js/blog.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/sakura-remote.js"></script>
+  <script src="js/sakura-media.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/suggest.js"></script>
+  <script src="js/exporter.js"></script>
+  <script src="js/idb.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/storage-inspector.js"></script>
+  <script src="js/app.js?v=v1.19.3"></script>
 </body>
 </html>

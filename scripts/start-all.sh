@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # 樱 · 个人导航 — 本地一键启动（Node 静态站 + SQLite 数据 API）
-# 用法：chmod +x start-all.sh && ./start-all.sh
+# 用法：chmod +x scripts/start-all.sh && scripts/start-all.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 脚本在 scripts/ 子目录里，ROOT 是它的上一级（项目根）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 
 if ! command -v node >/dev/null 2>&1; then

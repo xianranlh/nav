@@ -5,11 +5,70 @@
 - **🐳 Docker / Node 部署**（推荐）：自带 Node + SQLite 服务端，**业务数据存在服务器**，多浏览器 / 多机器访问同一地址看到的就是同一份数据
 - **🌐 纯静态打开**：仅用于查看静态资源；没有同源 `/api/data` 时应用会停止进入主界面，避免把业务数据写入浏览器
 
-> 当前版本：**v1.18.4** · 最近更新见下方"📅 更新汇总"
+> 当前版本：**v1.19.3** · 最近更新见下方"📅 更新汇总"
 
 ---
 
-## 📅 更新汇总（v1.17 → v1.18）
+## 📅 更新汇总（v1.17 → v1.19）
+
+### v1.19.x — 🍵 茶话会多代理 + 体验细节打磨 + 项目重组
+
+![茶话会模式 — 三个代理同时回答，每个独立彩色气泡](docs/screenshots/02-ai-council.svg)
+
+🍵 **茶话会模式（v1.19.0）— 受 Grok Heavy / multi-agent debate 启发**
+- AI 顶栏新增 **🍵 茶话会** 按钮，点开后可配置多个代理（每个 = persona × provider × model）一起对话
+- **三种模式**：
+  - **广播**：N 个代理并行独立回答同一个问题（互不见对方），比对不同人设/模型对同一问题的看法
+  - **辩论**：第 1 轮广播 → 第 2 轮把所有 R1 答案塞进 prompt 让主持人（或全员各自）综合反驳
+  - **圆桌**：1-3 轮顺序接龙，后说的能看见前说的（真正的"茶话会"氛围）
+- 每条 council 消息独立气泡：彩色头像环 + 左侧 border + 顶部代理名 pill + 轮次标签
+- 一个成员失败不拖垮整组（独立 try/catch + 自己的占位）
+- 与生图模式互斥；启用茶话会会自动 disable 主下拉的"模型 / 角色"
+
+![快捷键速查弹窗 — 按 ? 键触发，分四组列出所有快捷键](docs/screenshots/04-shortcuts.svg)
+
+⌨ **快捷键速查弹窗（v1.18.6）**
+- 按 `?` 或点底部 hotkey hint，弹出按主题分类的快捷键速查（导航搜索 / 编辑添加 / AI 助手 / 页面级）
+- 标题与按钮区 sticky，长内容滚动不丢锚点
+
+🛜 **离线状态横幅（v1.18.6）**
+- 监听 `window.online/offline`，离线时顶部红黄渐变条提示数据同步与 AI 不可用
+- 网络恢复时主动触发 `SakuraRemote.pushNow()`，本地暂存的改动一次性推上去
+
+📥 **AI 对话导出 Markdown（v1.18.6）**
+- AI 面板顶栏 **⤓ 导出**：当前会话打包成 `.md` 文件，含生图卡片→图片链接、附件图片、模型/尺寸 metadata
+- 文件名 `ai-chat-YYYYMMDD-HHmm.md`
+
+🔁 **数据同步重试（v1.18.6）**
+- `/api/data` PUT 加 15s 单次超时 + 1s/3s/7s 指数退避三次重试，4xx（除 408/429）立刻放弃
+- 连续 ≥3 次失败才弹 toast；恢复连接后单独提示一次"已重新连接"
+- 页面卸载时 sendBeacon 兜底，最新数据不丢
+
+🧹 **失效台账自清（v1.18.6）**
+- `cooldownLedger` 过期键 / `probeStatus`（5 min error / 30 min ok）/ 孤儿 `upstreamMap` 每 5 min 自动清；页面切回前台再补一次
+
+🎨 **页面显示优化（v1.18.7）**
+- AI 顶栏 8 按钮在 420px 默认面板宽度下挤成两行 → 用容器查询 `@container aipanel`，按面板自身宽度（< 560px）自动收起文字、纯图标
+- 离线横幅出现时主页 / AI 面板自动让出 42-56px 顶栏空间
+- 弹窗标题 + 按钮区 sticky 固定（之前长内容滚动会丢锚点）
+- `.glass-dialog .dialog-actions` 加柔和顶分隔线、AI/topbar 按钮加 :focus-visible 主题色焦点环
+
+![添加网址简化弹窗 — 默认只显示 网址 / 名称 / 分组 三项](docs/screenshots/03-add-link.svg)
+
+➕ **添加网址简化（v1.19.1 / v1.19.3）**
+- 默认只显示 **网址 / 名称 / 分组** 3 项；图标、描述、卡片背景媒体收进"⚙ 更多设置"折叠区
+- 编辑现有网址且有图标/描述/背景时自动展开，新建时收起
+- 名称留空自动用 URL hostname 作为兜底（取消 required）
+- 点击"更多设置"会一并展开内嵌的"卡片背景媒体"，省一次点击
+- 弹窗 body 加 `overscroll-behavior: contain`，滚动到边界时不再传给主页
+
+📂 **项目目录整理（v1.19.2）— 根目录从 30+ 文件降到 12 个**
+- `js/` ← 19 个前端业务模块（app, ai, sakura, sync, auth, blog, calendar, music, weather, …）
+- `deploy/` ← Dockerfile / docker-entrypoint.sh / nginx.conf.template / Caddyfile
+- `scripts/` ← 启动 / 重启 / 提交脚本（start-all / start-docker / restart.command / _git-unlock-and-commit）
+- `docker-compose.yml` 仍在根（保持 `docker compose up` 用户习惯）；自动同步更新 index.html script src、sw.js CORE_FILES、Dockerfile COPY、docker-compose.yml dockerfile 路径、所有脚本的 ROOT 计算
+
+---
 
 ### v1.18.x — AI 助手大改 + 整体 UI 视觉统一
 
@@ -72,7 +131,8 @@
 
 ---
 
-![preview](https://dummyimage.com/900x500/ffd6e6/ffffff&text=Sakura+Nav)
+![首页 — 玻璃面板 + 樱花粒子 + 天气卡 + 即将到来 + 空状态引导](docs/screenshots/01-home.png)
+*🏠 首页：搜索栏 / 顶部工具按钮 / 天气卡 / 即将到来日历 / 还没有任何分组的引导卡 ·  Service Worker 缓存 + PWA 可装*
 
 ---
 
@@ -126,8 +186,18 @@
 - 💾 **会话持久化**：最近 200 条消息本地保存，刷新不丢
 - 🌈 **建议气泡**：面板空态下一键发送常用指令
 - 🪟 **可拖动可调大小面板**（v1.18+）：标题栏拖动改位置，右下角原生 resize 手柄改宽高，位置/尺寸 localStorage 持久化，右键标题栏复位
+- 🍵 **茶话会多代理对话**（v1.19+）：让多个代理（每个 = persona × provider × model）一起回答同一问题
+  - **广播模式**：N 个代理并行独立回答，互不见对方
+  - **辩论模式**：第一轮广播 → 第二轮综合反驳（参考 multi-agent debate 论文，准确性提升明显）
+  - **圆桌模式**：1-3 轮顺序接龙，后说的能看见前说的发言
+  - 每条 council 消息独立彩色气泡：头像 emoji + 左侧 border + 顶部代理名 pill + 轮次标签
+  - 一个成员失败不拖垮整组；与生图模式互斥
+- 📥 **AI 对话导出**（v1.18+）：⤓ 按钮一键打包当前会话成 Markdown 文件，含生图卡片图片链接、附件图片、模型/尺寸 metadata
 
 ### 🎨 AI 生图
+
+![生图卡片 — 模型/尺寸/质量/张数/耗时胶囊 + 4 张结果网格 + 下载/复制/再生 操作 + 双协议示意](docs/screenshots/05-image-gen.svg)
+
 - 🎨 **生图模式**：点头部 🎨 按钮切换，请求改走 `/images/generations` 或 Gemini 原生路径
 - 📐 **预设尺寸 + 自定义**：1024×1024 / 1024×1536 / 2048×2048 / 3840×2160 (4K) / 任意 W×H
 - 🎚 **质量档位**：auto / low / medium / high / standard / hd
@@ -363,41 +433,65 @@ volumes:
 
 ## 📂 项目结构
 
+> v1.19.2 起整理为分类目录：`js/` 业务模块、`deploy/` 部署文件、`scripts/` 启动脚本，根目录只保留入口与文档。
+
 ```text
 nav/
-├── index.html              # 页面骨架
+├── index.html              # 页面骨架（入口）
 ├── styles.css              # 玻璃 / 樱花 / 背景层 / 布局 / AI 面板视觉统一层
-├── sakura.js               # 樱花 Canvas 粒子系统
-├── bookmarks.js            # 书签解析 / favicon 多级回退
-├── auth.js                 # 登录鉴权 / 7 天会话 token
-├── ai.js                   # AI 助手核心（供应商 / 流式 / 指令解析 / Markdown 渲染 / 双协议生图）
-├── blog.js                 # 博客系统（数据模型 + CRUD）
-├── calendar.js             # 日历 & 重复任务（规则引擎 / 倒计时 / 通知 / iCal / 统计）
-├── sync.js                 # 多端同步（WebDAV + GitHub Gist + 本地备份）
-├── weather.js              # 天气（Open-Meteo + IP/浏览器定位）
-├── suggest.js              # 搜索下拉联想（本地 + DuckDuckGo + 百度 JSONP）
-├── exporter.js             # 博客 RSS + 静态站 + 无依赖 ZIP 打包器
-├── idb.js                  # 浏览器遗留 IndexedDB 迁移 / 清理助手
-├── music.js                # 音乐播放器（服务端媒体 + LRC + Web Audio 频谱）
-├── homepage-theme.js       # 视觉主题注册表（樱粉 / Q 二次元 / 暗夜 / 复古纸质…）
-├── homepage-layout.js      # 首页布局规则
-├── storage-inspector.js    # 设置 → 数据管理面板（SQLite key + 媒体 + 遗留 localStorage）
-├── sakura-remote.js        # 服务端模式状态控制 / 浏览器 localStorage hook
-├── sakura-media.js         # 媒体上传客户端（背景 / 音乐 / 歌词 → /api/media）
-├── progress.js             # 通用进度面板（NavProgress）
-├── app.js                  # 主应用（数据、渲染、设置、背景、一言、过滤、拖拽、AI/Blog/Cal/Weather/Sync/Music/Voice/Suggest/Recent UI 粘合）
-├── server/
-│   ├── index.js            # Node API（业务 SQLite + 媒体上传 + AI 反代）
-│   ├── database.js         # better-sqlite3 封装：app_data / media_files / ai_settings 三张表
-│   └── package.json
-├── data/                   # 部署后由 Node / Docker 自动创建
-│   ├── sakura.db           # SQLite 主库
-│   └── media/{bg,music,lrc} # 上传的媒体文件
-├── restart.command         # 一键重启脚本（kill 18080 占用 → ./start-all.sh）
-├── start-all.sh / .ps1     # 本地开发启动
+├── sw.js                   # Service Worker（离线缓存，必须根 scope）
 ├── manifest.json           # PWA 元数据（可安装为桌面应用）
-├── sw.js                   # Service Worker（离线缓存）
-└── README.md
+├── docker-compose.yml      # docker compose 入口（→ deploy/Dockerfile）
+├── package.json            # 仓库脚本别名（npm run dev / docker:up / test ...）
+├── README.md / LICENSE / .env.example / .gitignore
+│
+├── js/                     # 全部 19 个前端业务模块 ⭐
+│   ├── app.js              # 主应用（数据、渲染、设置、AI/Blog/Cal/Weather/Sync/Music UI 粘合）
+│   ├── ai.js               # AI 助手核心（供应商 / 流式 / 双协议生图 / 茶话会多代理）
+│   ├── sakura.js           # 樱花 Canvas 粒子系统
+│   ├── sakura-remote.js    # 服务端模式状态控制 + localStorage hook + 同步重试
+│   ├── sakura-media.js     # 媒体上传客户端（背景 / 音乐 / 歌词 → /api/media）
+│   ├── auth.js             # 登录鉴权 / 7 天会话 token
+│   ├── bookmarks.js        # 书签解析 / favicon 多级回退
+│   ├── blog.js             # 博客系统（数据模型 + CRUD）
+│   ├── calendar.js         # 日历 & 重复任务（规则引擎 / 倒计时 / 通知 / iCal）
+│   ├── music.js            # 音乐播放器（服务端媒体 + LRC + Web Audio 频谱）
+│   ├── weather.js          # 天气（Open-Meteo + IP/浏览器定位）
+│   ├── suggest.js          # 搜索下拉联想（本地 + DuckDuckGo + 百度 JSONP）
+│   ├── progress.js         # 通用进度面板（NavProgress）
+│   ├── exporter.js         # 博客 RSS + 静态站 + 无依赖 ZIP 打包器
+│   ├── idb.js              # 浏览器遗留 IndexedDB 迁移 / 清理助手
+│   ├── sync.js             # 多端同步（WebDAV + GitHub Gist + 本地备份）
+│   ├── homepage-theme.js   # 视觉主题注册表（樱粉 / Q 二次元 / 暗夜 / 复古纸质…）
+│   ├── homepage-layout.js  # 首页布局规则
+│   └── storage-inspector.js # 设置 → 数据管理面板
+│
+├── server/                 # Node API
+│   ├── index.js            # Express（业务 SQLite + 媒体上传 + AI 反代）
+│   ├── database.js         # better-sqlite3 封装：app_data / media_files / ai_settings
+│   └── package.json
+│
+├── themes/                 # 主题 CSS（sakura / q-anime / dark-minimal / paper）
+│
+├── deploy/                 # 部署文件 🐳
+│   ├── Dockerfile
+│   ├── docker-entrypoint.sh
+│   ├── nginx.conf.template
+│   └── Caddyfile           # 可选 HTTPS 反代
+│
+├── scripts/                # 一键启动 / 重启 / 提交脚本 🛠
+│   ├── start-all.sh        # macOS / Linux 本地开发
+│   ├── start-all.bat / .ps1 # Windows 本地开发
+│   ├── start-docker.bat / .ps1 # Windows 一键 docker compose up
+│   ├── restart.command     # macOS 一键重启（kill 18080 占用 → start-all.sh）
+│   ├── _git-unlock-and-commit.command  # 一键 commit + push（绕开 .git/index.lock 权限）
+│   └── _smoke.ps1          # 简易冒烟测试
+│
+├── tests/                  # node:test 单测
+├── docs/                   # 设计稿与历史决策
+└── data/                   # 部署后由 Node / Docker 自动创建（运行时）
+    ├── sakura.db           # SQLite 主库
+    └── media/{bg,music,lrc} # 上传的媒体文件
 ```
 
 ### 🛡 服务端 API 概览（`server/index.js`）

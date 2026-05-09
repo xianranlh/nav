@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f5edfa"/>
+      <stop offset="100%" stop-color="#fce8ef"/>
+    </linearGradient>
+    <filter id="shadow3" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      .kbd { font-family: ui-monospace, Menlo, monospace; font-size: 10px; fill: #444; }
+      .kbd-bg { fill: #fff; stroke: rgba(0,0,0,0.10); stroke-width: 1; }
+      .kbd-bg-bot { fill: rgba(0,0,0,0.04); stroke: rgba(0,0,0,0.08); }
+    </style>
+  </defs>
+  <rect width="720" height="480" fill="url(#bg3)" rx="16" opacity="0.55"/>
+
+  <g transform="translate(95, 35)">
+    <rect width="530" height="430" rx="16" fill="rgba(255,255,255,0.94)" stroke="rgba(0,0,0,0.06)" filter="url(#shadow3)"/>
+
+    <!-- header -->
+    <text x="22" y="34" font-size="15" font-weight="600" fill="#222">⌨️ 快捷键速查</text>
+    <text x="60" y="34" font-size="10" fill="#aaa">v1.19.3</text>
+    <text x="510" y="34" text-anchor="end" font-size="18" fill="#888">×</text>
+    <line x1="22" y1="48" x2="508" y2="48" stroke="rgba(0,0,0,0.06)"/>
+
+    <!-- section: 导航与搜索 -->
+    <rect x="22" y="60" width="486" height="76" rx="11" fill="rgba(255,107,138,0.06)" stroke="rgba(255,107,138,0.14)"/>
+    <text x="34" y="78" font-size="10" font-weight="600" fill="#ff6b8a" letter-spacing="1.5">导航与搜索</text>
+    <!-- row -->
+    <g transform="translate(34, 88)">
+      <rect class="kbd-bg" x="0" y="0" width="14" height="14" rx="3"/>
+      <text class="kbd" x="7" y="11" text-anchor="middle">/</text>
+      <text x="22" y="11" font-size="11" fill="#666">聚焦搜索框</text>
+    </g>
+    <g transform="translate(34, 108)">
+      <rect class="kbd-bg" x="0" y="0" width="14" height="14" rx="3"/>
+      <text class="kbd" x="7" y="11" text-anchor="middle">?</text>
+      <text x="22" y="11" font-size="11" fill="#666">打开本帮助</text>
+    </g>
+    <g transform="translate(220, 88)">
+      <rect class="kbd-bg" x="0" y="0" width="28" height="14" rx="3"/>
+      <text class="kbd" x="14" y="11" text-anchor="middle">Esc</text>
+      <text x="36" y="11" font-size="11" fill="#666">关闭弹窗 / 收起面板</text>
+    </g>
+
+    <!-- section: 编辑与添加 -->
+    <rect x="22" y="148" width="486" height="64" rx="11" fill="rgba(124,131,250,0.06)" stroke="rgba(124,131,250,0.14)"/>
+    <text x="34" y="166" font-size="10" font-weight="600" fill="#7c83fa" letter-spacing="1.5">编辑与添加</text>
+    <g transform="translate(34, 178)">
+      <rect class="kbd-bg" x="0" y="0" width="22" height="14" rx="3"/>
+      <text class="kbd" x="11" y="11" text-anchor="middle">Ctrl</text>
+      <text x="26" y="11" font-size="11" fill="#666">+</text>
+      <rect class="kbd-bg" x="34" y="0" width="14" height="14" rx="3"/>
+      <text class="kbd" x="41" y="11" text-anchor="middle">K</text>
+      <text x="56" y="11" font-size="11" fill="#666">添加网址</text>
+    </g>
+    <g transform="translate(220, 178)">
+      <rect class="kbd-bg" x="0" y="0" width="14" height="14" rx="3"/>
+      <text class="kbd" x="7" y="11" text-anchor="middle">E</text>
+      <text x="22" y="11" font-size="11" fill="#666">切换编辑模式</text>
+    </g>
+
+    <!-- section: AI 助手 -->
+    <rect x="22" y="224" width="486" height="76" rx="11" fill="rgba(58,166,110,0.06)" stroke="rgba(58,166,110,0.14)"/>
+    <text x="34" y="242" font-size="10" font-weight="600" fill="#3aa66e" letter-spacing="1.5">AI 助手</text>
+    <g transform="translate(34, 254)">
+      <rect class="kbd-bg" x="0" y="0" width="32" height="14" rx="3"/>
+      <text class="kbd" x="16" y="11" text-anchor="middle">Enter</text>
+      <text x="40" y="11" font-size="11" fill="#666">发送消息</text>
+    </g>
+    <g transform="translate(220, 254)">
+      <rect class="kbd-bg" x="0" y="0" width="32" height="14" rx="3"/>
+      <text class="kbd" x="16" y="11" text-anchor="middle">Shift</text>
+      <text x="34" y="11" font-size="11" fill="#666">+</text>
+      <rect class="kbd-bg" x="42" y="0" width="32" height="14" rx="3"/>
+      <text class="kbd" x="58" y="11" text-anchor="middle">Enter</text>
+      <text x="80" y="11" font-size="11" fill="#666">输入框换行</text>
+    </g>
+    <g transform="translate(34, 274)">
+      <rect class="kbd-bg" x="0" y="0" width="28" height="14" rx="3"/>
+      <text class="kbd" x="14" y="11" text-anchor="middle">Esc</text>
+      <text x="36" y="11" font-size="11" fill="#666">查找模型时取消探测</text>
+    </g>
+
+    <!-- section: 页面级 -->
+    <rect x="22" y="312" width="486" height="64" rx="11" fill="rgba(245,158,11,0.06)" stroke="rgba(245,158,11,0.14)"/>
+    <text x="34" y="330" font-size="10" font-weight="600" fill="#f59e0b" letter-spacing="1.5">页面级</text>
+    <g transform="translate(34, 342)">
+      <rect class="kbd-bg" x="0" y="0" width="22" height="14" rx="3"/>
+      <text class="kbd" x="11" y="11" text-anchor="middle">Ctrl</text>
+      <text x="26" y="11" font-size="11" fill="#666">+</text>
+      <rect class="kbd-bg" x="34" y="0" width="32" height="14" rx="3"/>
+      <text class="kbd" x="50" y="11" text-anchor="middle">Shift</text>
+      <text x="70" y="11" font-size="11" fill="#666">+</text>
+      <rect class="kbd-bg" x="78" y="0" width="14" height="14" rx="3"/>
+      <text class="kbd" x="85" y="11" text-anchor="middle">R</text>
+      <text x="100" y="11" font-size="11" fill="#666">硬刷新（绕开 SW 缓存）</text>
+    </g>
+    <g transform="translate(34, 358)">
+      <text x="0" y="11" font-size="11" fill="#666">右键 AI 面板顶栏 — 重置位置 / 大小</text>
+    </g>
+
+    <!-- footer -->
+    <line x1="0" y1="396" x2="530" y2="396" stroke="rgba(0,0,0,0.06)"/>
+    <text x="22" y="416" font-size="10" fill="#aaa" font-style="italic">提示：在输入框内时，单字快捷键不会触发，避免抢键。</text>
+    <rect x="438" y="402" width="70" height="22" rx="6" fill="#7c83fa"/>
+    <text x="473" y="416" text-anchor="middle" font-size="11" fill="#fff" font-weight="500">知道了</text>
+  </g>
+</svg>

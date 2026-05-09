@@ -4,7 +4,7 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.18.6";
+const VERSION = "v1.19.3";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
 
@@ -16,22 +16,22 @@ const CORE_FILES = [
   "./themes/q-anime.css",
   "./themes/dark-minimal.css",
   "./themes/paper.css",
-  "./homepage-theme.js",
-  "./homepage-layout.js",
-  "./sakura.js",
-  "./bookmarks.js",
-  "./auth.js",
-  "./ai.js",
-  "./blog.js",
-  "./calendar.js",
-  "./sync.js",
-  "./weather.js",
-  "./suggest.js",
-  "./exporter.js",
-  "./idb.js",
-  "./music.js",
-  "./storage-inspector.js",
-  `./app.js?v=${VERSION}`,
+  "./js/homepage-theme.js",
+  "./js/homepage-layout.js",
+  "./js/sakura.js",
+  "./js/bookmarks.js",
+  "./js/auth.js",
+  "./js/ai.js",
+  "./js/blog.js",
+  "./js/calendar.js",
+  "./js/sync.js",
+  "./js/weather.js",
+  "./js/suggest.js",
+  "./js/exporter.js",
+  "./js/idb.js",
+  "./js/music.js",
+  "./js/storage-inspector.js",
+  `./js/app.js?v=${VERSION}`,
   "./manifest.json",
 ];
 const CORE_PATHS = CORE_FILES.map((file) => new URL(file, location.href).pathname);

@@ -14,7 +14,7 @@ services:
   xianran-nav:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: deploy/Dockerfile
     image: xianran-nav:latest
     container_name: xianran-nav
     restart: unless-stopped
@@ -71,7 +71,7 @@ services:
   #     DOMAIN: ${DOMAIN:-nav.example.com}
   #     EMAIL:  ${EMAIL:-you@example.com}
   #   volumes:
-  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
   #     - caddy_data:/data
   #     - caddy_config:/config
 

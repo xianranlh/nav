@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff5f8"/>
+      <stop offset="100%" stop-color="#f0eaff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+  <rect width="720" height="480" fill="url(#bg)" rx="16"/>
+
+  <!-- 顶栏 -->
+  <rect x="16" y="16" width="688" height="44" rx="12" fill="rgba(255,255,255,0.7)" stroke="rgba(0,0,0,0.06)"/>
+  <text x="32" y="42" font-size="14" font-weight="600" fill="#444">🌸 AI 助手</text>
+  <rect x="120" y="24" width="92" height="28" rx="8" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+  <text x="166" y="42" text-anchor="middle" font-size="12" fill="#555">导航管家 ▾</text>
+  <!-- toolbar buttons (icon-only at narrow width) -->
+  <g transform="translate(360, 30)">
+    <rect width="34" height="22" rx="7" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="17" y="16" text-anchor="middle" font-size="12">↻</text>
+    <rect x="40" width="34" height="22" rx="7" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="57" y="16" text-anchor="middle" font-size="12">🔍</text>
+    <rect x="80" width="34" height="22" rx="7" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="97" y="16" text-anchor="middle" font-size="12">🎨</text>
+    <!-- 茶话会按钮：激活态 -->
+    <rect x="120" y="-1" width="34" height="24" rx="7" fill="rgba(255,107,138,0.18)" stroke="rgba(255,107,138,0.45)"/>
+    <text x="137" y="16" text-anchor="middle" font-size="12">🍵</text>
+    <rect x="160" width="34" height="22" rx="7" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="177" y="16" text-anchor="middle" font-size="12">⤓</text>
+    <rect x="200" width="34" height="22" rx="7" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="217" y="16" text-anchor="middle" font-size="12">⚙</text>
+    <rect x="240" width="34" height="22" rx="7" fill="#fff" stroke="rgba(0,0,0,0.08)"/>
+    <text x="257" y="16" text-anchor="middle" font-size="12">✕</text>
+  </g>
+
+  <!-- user 提问气泡 -->
+  <g transform="translate(0, 78)">
+    <rect x="350" y="0" width="354" height="40" rx="14" fill="#a78bfa" filter="url(#shadow)"/>
+    <text x="690" y="25" text-anchor="end" font-size="12" fill="#fff">用三句话告诉我：茶马古道是什么？</text>
+    <circle cx="700" cy="20" r="14" fill="#7c83fa"/>
+    <text x="700" y="25" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">我</text>
+  </g>
+
+  <!-- 茶话会分隔线 -->
+  <g transform="translate(0, 132)">
+    <line x1="180" y1="10" x2="320" y2="10" stroke="rgba(0,0,0,0.10)" stroke-dasharray="0"/>
+    <text x="360" y="14" text-anchor="middle" font-size="11" fill="#888" letter-spacing="2">🍵 广播</text>
+    <line x1="400" y1="10" x2="540" y2="10" stroke="rgba(0,0,0,0.10)"/>
+  </g>
+
+  <!-- 代理 1：导航管家（粉） -->
+  <g transform="translate(0, 154)">
+    <circle cx="38" cy="22" r="16" fill="#ff6b8a" stroke="#fff" stroke-width="2"/>
+    <text x="38" y="27" text-anchor="middle" font-size="14">🌸</text>
+    <rect x="62" y="0" width="380" height="76" rx="14" fill="rgba(255,107,138,0.06)" stroke="rgba(255,107,138,0.40)" stroke-width="0" filter="url(#shadow)"/>
+    <line x1="62" y1="0" x2="62" y2="76" stroke="#ff6b8a" stroke-width="3"/>
+    <rect x="74" y="8" width="84" height="18" rx="9" fill="#ff6b8a"/>
+    <text x="116" y="20" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">🌸 导航管家</text>
+    <text x="74" y="42" font-size="11" fill="#333">茶马古道是中国古代连接茶叶产地和马匹</text>
+    <text x="74" y="56" font-size="11" fill="#333">市场的重要贸易路线，主要在云南、四川、</text>
+    <text x="74" y="70" font-size="11" fill="#333">西藏一带，促进了汉藏经济文化交流。</text>
+  </g>
+
+  <!-- 代理 2：技术导师（紫） -->
+  <g transform="translate(0, 240)">
+    <circle cx="38" cy="22" r="16" fill="#7c83fa" stroke="#fff" stroke-width="2"/>
+    <text x="38" y="27" text-anchor="middle" font-size="14">📚</text>
+    <rect x="62" y="0" width="380" height="76" rx="14" fill="rgba(124,131,250,0.06)" filter="url(#shadow)"/>
+    <line x1="62" y1="0" x2="62" y2="76" stroke="#7c83fa" stroke-width="3"/>
+    <rect x="74" y="8" width="84" height="18" rx="9" fill="#7c83fa"/>
+    <text x="116" y="20" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">📚 技术导师</text>
+    <text x="74" y="42" font-size="11" fill="#333">茶马古道是古代中国西南地区以茶叶和马</text>
+    <text x="74" y="56" font-size="11" fill="#333">匹贸易为核心形成的交通商贸网络，连接</text>
+    <text x="74" y="70" font-size="11" fill="#333">汉、藏、彝、纳西等多民族地区。</text>
+  </g>
+
+  <!-- 代理 3：自由灵（绿） -->
+  <g transform="translate(0, 326)">
+    <circle cx="38" cy="22" r="16" fill="#3aa66e" stroke="#fff" stroke-width="2"/>
+    <text x="38" y="27" text-anchor="middle" font-size="14">💬</text>
+    <rect x="62" y="0" width="380" height="76" rx="14" fill="rgba(58,166,110,0.06)" filter="url(#shadow)"/>
+    <line x1="62" y1="0" x2="62" y2="76" stroke="#3aa66e" stroke-width="3"/>
+    <rect x="74" y="8" width="84" height="18" rx="9" fill="#3aa66e"/>
+    <text x="116" y="20" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">💬 自由灵</text>
+    <text x="74" y="42" font-size="11" fill="#333">同意补充一句：茶马古道是古代版的"丝</text>
+    <text x="74" y="56" font-size="11" fill="#333">绸之路"，但货物以茶叶和马匹为主，宗</text>
+    <text x="74" y="70" font-size="11" fill="#333">教文化也随商队一同流动。</text>
+  </g>
+
+  <!-- 右下角输入框 -->
+  <g transform="translate(0, 420)">
+    <rect x="16" y="0" width="688" height="44" rx="12" fill="rgba(255,255,255,0.7)" stroke="rgba(0,0,0,0.06)"/>
+    <rect x="32" y="10" width="60" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,0.10)"/>
+    <text x="62" y="26" text-anchor="middle" font-size="11" fill="#666">📎 附件</text>
+    <rect x="100" y="10" width="60" height="24" rx="8" fill="#fff" stroke="rgba(0,0,0,0.10)"/>
+    <text x="130" y="26" text-anchor="middle" font-size="11" fill="#666">🎤 语音</text>
+    <text x="190" y="26" font-size="11" fill="#aaa" font-style="italic">输入消息...</text>
+    <rect x="610" y="10" width="60" height="24" rx="8" fill="#7c83fa"/>
+    <text x="640" y="26" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">▶ 发送</text>
+  </g>
+</svg>
