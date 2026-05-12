@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.19.5" />
+  <link rel="stylesheet" href="styles.css?v=v1.20.0" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -1279,34 +1279,85 @@
     </form>
   </dialog>
 
-  <!-- ✅ 待办事项弹窗（v1.19.5） -->
-  <dialog id="dialog-todo" class="glass-dialog todo-dialog">
+  <!-- ✅ 提醒事项（Mac Reminders 风格，v1.20.0） -->
+  <dialog id="dialog-todo" class="glass-dialog reminders-dialog">
     <form method="dialog">
+      <div class="reminders-shell">
+        <!-- 侧边栏：搜索 + 智能列表 + 用户列表 -->
+        <aside class="rem-sidebar">
+          <div class="rem-sb-head">
+            <h3 class="rem-title">提醒事项</h3>
+            <button type="button" class="close-btn rem-close" data-close title="关闭">&times;</button>
+          </div>
+          <div class="rem-search">
+            <span class="rem-search-icon">🔍</span>
+            <input type="search" id="rem-search" placeholder="搜索" />
+          </div>
+
+          <div class="rem-smart-grid" id="rem-smart-grid"></div>
+
+          <div class="rem-sb-section">
+            <div class="rem-sb-section-head">
+              <span>我的列表</span>
+              <button type="button" class="rem-mini-btn" id="rem-add-list" title="新建列表">+</button>
+            </div>
+            <ul class="rem-list-nav" id="rem-list-nav"></ul>
+          </div>
+        </aside>
+
+        <!-- 主区：当前列表的提醒项 -->
+        <main class="rem-main">
+          <header class="rem-main-head">
+            <h2 class="rem-main-title" id="rem-main-title"><span class="rem-main-emoji">📅</span> <span class="rem-main-name">今天</span></h2>
+            <div class="rem-main-actions">
+              <button type="button" class="rem-mini-btn" id="rem-clear-done" title="清除已完成">🧹</button>
+              <button type="button" class="rem-mini-btn" id="rem-edit-list" title="编辑列表（重命名/换色/删除）" hidden>✎</button>
+            </div>
+          </header>
+
+          <div class="rem-add-row">
+            <span class="rem-add-plus">+</span>
+            <input type="text" id="rem-add-input" placeholder="添加提醒事项..." maxlength="200" />
+          </div>
+
+          <div class="rem-items" id="rem-items"></div>
+
+          <p class="rem-empty" id="rem-empty" hidden>这里还没有提醒事项 🌸</p>
+        </main>
+
+        <!-- 详情面板：点 ⓘ 后展开 -->
+        <aside class="rem-detail" id="rem-detail" hidden>
+          <header class="rem-detail-head">
+            <h3>详情</h3>
+            <button type="button" class="rem-mini-btn" id="rem-detail-close">×</button>
+          </header>
+          <div class="rem-detail-body" id="rem-detail-body">
+            <!-- 内容由 JS 填充 -->
+          </div>
+        </aside>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 列表编辑子弹窗（新建 / 重命名 / 删除 / 改色） -->
+  <dialog id="dialog-rem-list" class="glass-dialog ai-subdialog">
+    <form method="dialog" id="form-rem-list">
       <div class="dialog-header">
-        <h3><span>✅</span> 待办事项 <small class="todo-count" id="todo-count">0 项未完成</small></h3>
+        <h3 id="rem-list-edit-title">🗒 新建列表</h3>
         <button type="button" class="close-btn" data-close title="关闭">&times;</button>
       </div>
       <div class="dialog-body">
-        <!-- 新建栏 -->
-        <div class="todo-add-bar">
-          <input type="text" id="todo-add-input" placeholder="加一条待办，按 Enter 提交" maxlength="120" />
-          <input type="date" id="todo-add-due" title="截止日期（可选）" />
-          <label class="todo-sync-label" title="勾选后这条会作为一次性任务同步到日历">
-            <input type="checkbox" id="todo-add-sync" />
-            <span>📅 同步</span>
-          </label>
-          <button type="button" class="btn-primary btn-inline" id="todo-add-btn">+ 添加</button>
-        </div>
-
-        <!-- 列表 -->
-        <ul id="todo-list" class="todo-list"></ul>
-
-        <p class="todo-empty" id="todo-empty" hidden>暂无待办，添加第一条开始吧 🌸</p>
-        <p class="todo-tip">提示：勾选"📅 同步"后，这条待办会以"📝 [内容]"作为一次性任务出现在日历对应日期；从待办删除会一并清掉日历里的副本。</p>
+        <label>列表名 <input name="name" required maxlength="30" placeholder="如：购物、工作、阅读..." /></label>
+        <label>Emoji <input name="emoji" maxlength="4" placeholder="🌸" /></label>
+        <label>颜色
+          <div class="rem-list-colors" id="rem-list-colors"></div>
+          <input type="hidden" name="color" />
+        </label>
       </div>
       <div class="dialog-actions">
-        <button type="button" class="btn-secondary" id="todo-clear-done">清除已完成</button>
-        <button type="button" class="btn-primary" data-close>完成</button>
+        <button type="button" class="btn-secondary" id="rem-list-delete" hidden>删除列表</button>
+        <button type="button" class="btn-secondary" data-close>取消</button>
+        <button type="submit" class="btn-primary" value="ok">保存</button>
       </div>
     </form>
   </dialog>
@@ -1340,7 +1391,7 @@
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.19.5"></script>
+  <script src="js/ai.js?v=v1.20.0"></script>
   <script src="js/blog.js"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
@@ -1354,6 +1405,6 @@
   <script src="js/idb.js"></script>
   <script src="js/music.js"></script>
   <script src="js/storage-inspector.js"></script>
-  <script src="js/app.js?v=v1.19.5"></script>
+  <script src="js/app.js?v=v1.20.0"></script>
 </body>
 </html>
