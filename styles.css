@@ -3129,6 +3129,15 @@ body.pre-auth #upcoming-card { display: none !important; }
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* 防止内部滚到边界时把滚动事件穿透到主页 body */
+  overscroll-behavior: contain;
+}
+.calendar-panel *,
+.calendar-panel .cal-body,
+.calendar-panel .cal-grid,
+.calendar-panel .cal-day-list,
+.calendar-panel .cal-list-view {
+  overscroll-behavior: contain;
 }
 [data-theme="dark"] .calendar-panel { background: rgba(26, 15, 29, 0.78); }
 .calendar-panel[hidden] { display: none; }
@@ -3349,35 +3358,90 @@ body.pre-auth #upcoming-card { display: none !important; }
 }
 
 /* 任务编辑器 */
-.task-dialog { max-width: 480px; }
-.task-dialog form { gap: 10px; }
-.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.col-time > span { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-soft); margin-left: 8px; }
-
-.task-color-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.task-color-row label { position: relative; cursor: pointer; }
-.task-color-row input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
-.task-color-row span {
-  display: block; width: 28px; height: 28px; border-radius: 50%;
-  box-shadow: 0 0 0 2px transparent, 0 2px 4px rgba(0,0,0,0.1);
-  transition: 0.15s;
-}
-.task-color-row input:checked + span { box-shadow: 0 0 0 2px var(--text), 0 2px 4px rgba(0,0,0,0.1); transform: scale(1.1); }
-
-.repeat-box {
-  border: 1px dashed var(--glass-border);
-  border-radius: 12px;
-  padding: 12px 14px 8px;
+.task-dialog { max-width: 520px; }
+.task-dialog form { gap: 0; }
+.task-dialog .dialog-body {
+  padding: 18px 22px 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin: 4px 0;
+  gap: 14px;
+  overscroll-behavior: contain;
 }
-.repeat-box legend { padding: 0 6px; font-size: 12px; color: var(--text-soft); }
-.repeat-box .repeat-interval, .repeat-box .repeat-until { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.task-time-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.task-time-row input[type="time"] { flex: 1; min-width: 0; }
+.task-allday {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-soft);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.task-allday input { width: 14px; height: 14px; flex: 0 0 14px; accent-color: var(--accent); }
+
+.task-color-row { display: flex; gap: 10px; flex-wrap: wrap; padding: 4px 0; }
+.task-color-row label {
+  position: relative;
+  cursor: pointer;
+  display: inline-flex !important;
+  flex-direction: row !important;
+}
+.task-color-row input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.task-color-row span {
+  display: block; width: 32px; height: 32px; border-radius: 50%;
+  box-shadow: 0 0 0 2px transparent, 0 2px 6px rgba(0,0,0,0.10);
+  transition: 0.15s;
+}
+.task-color-row input:checked + span {
+  box-shadow: 0 0 0 2px var(--text), 0 4px 10px rgba(0,0,0,0.15);
+  transform: scale(1.10);
+}
+
+.repeat-box {
+  border: 1px dashed rgba(var(--accent-rgb), 0.30);
+  background: rgba(var(--accent-rgb), 0.04);
+  border-radius: 12px;
+  padding: 8px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+[data-theme="dark"] .repeat-box { background: rgba(255,255,255,0.03); }
+.repeat-box legend {
+  padding: 2px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  background: var(--glass-bg, rgba(255,255,255,0.85));
+  border-radius: 999px;
+}
+.repeat-box .repeat-interval,
+.repeat-box .repeat-until {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.repeat-box .repeat-interval input[type="number"] {
+  width: 70px;
+  text-align: center;
+  padding: 6px 8px;
+}
+.repeat-box .repeat-until input[type="date"] { flex: 1; min-width: 0; }
 .weekdays-picker {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 .weekdays-picker label {
@@ -3385,14 +3449,70 @@ body.pre-auth #upcoming-card { display: none !important; }
   width: 36px;
   text-align: center;
   border-radius: 8px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(0,0,0,0.10);
   cursor: pointer;
   font-size: 12px;
-  background: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.55);
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, transform 0.10s;
 }
-[data-theme="dark"] .weekdays-picker label { background: rgba(255,255,255,0.04); }
+.weekdays-picker label:hover { background: rgba(var(--accent-rgb), 0.10); border-color: rgba(var(--accent-rgb), 0.30); }
+[data-theme="dark"] .weekdays-picker label { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.10); }
 .weekdays-picker label input { display: none; }
-.weekdays-picker label:has(input:checked) { background: var(--accent); color: white; border-color: var(--accent); }
+.weekdays-picker label:has(input:checked) {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  box-shadow: 0 2px 6px rgba(var(--accent-rgb), 0.30);
+}
+/* 重复下拉前面"重复" label + select 横排，跟其它字段标签对齐 */
+.repeat-box > label:first-of-type {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px;
+}
+
+/* 任务弹窗中的输入框样式微调，与其他 dialog 一致 */
+.task-dialog .dialog-body input[type="text"],
+.task-dialog .dialog-body input[type="date"],
+.task-dialog .dialog-body input[type="time"],
+.task-dialog .dialog-body input[type="number"],
+.task-dialog .dialog-body select,
+.task-dialog .dialog-body textarea {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.85);
+  font-size: 13px;
+  color: var(--text);
+  width: 100%;
+  box-sizing: border-box;
+}
+[data-theme="dark"] .task-dialog .dialog-body input,
+[data-theme="dark"] .task-dialog .dialog-body select,
+[data-theme="dark"] .task-dialog .dialog-body textarea {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+}
+.task-dialog .input-with-voice {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.task-dialog .input-with-voice input { flex: 1; min-width: 0; }
+.task-dialog .input-with-voice .voice-btn {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.70);
+  cursor: pointer;
+  font-size: 15px;
+}
 
 @media (max-width: 640px) {
   .calendar-panel {
@@ -3652,6 +3772,115 @@ body.pre-auth #weather-card { display: none !important; }
   font-size: 12px;
   opacity: 0.8;
   pointer-events: none;
+}
+
+/* ===================== v1.19.4 节日 / 节假日 badge ===================== */
+.cal-cell-fest {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 2px 0 0;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  letter-spacing: 0.02em;
+  align-self: flex-start;
+}
+.cal-cell-fest.kind-cn-holiday {
+  background: linear-gradient(135deg, #ff6b8a, #ff8fab);
+  color: #fff;
+  border-color: rgba(255,107,138,0.50);
+  box-shadow: 0 1px 3px rgba(255,107,138,0.30);
+}
+.cal-cell-fest.kind-cn-traditional {
+  background: rgba(255,107,138,0.12);
+  color: #d93a6a;
+  border-color: rgba(255,107,138,0.30);
+}
+.cal-cell-fest.kind-cn {
+  background: rgba(14,165,233,0.10);
+  color: #0284c7;
+  border-color: rgba(14,165,233,0.25);
+}
+.cal-cell-fest.kind-west {
+  background: rgba(124,131,250,0.12);
+  color: #6366f1;
+  border-color: rgba(124,131,250,0.30);
+}
+[data-theme="dark"] .cal-cell-fest.kind-cn-traditional { background: rgba(255,107,138,0.18); color: #ffb3c6; }
+[data-theme="dark"] .cal-cell-fest.kind-cn { background: rgba(14,165,233,0.18); color: #93cefb; }
+[data-theme="dark"] .cal-cell-fest.kind-west { background: rgba(124,131,250,0.20); color: #c7caff; }
+
+/* 法定节假日的 cell 整体上色：日期数字变粉、背景柔和高光 */
+.cal-cell.has-holiday {
+  background: rgba(255,107,138,0.06);
+  border-color: rgba(255,107,138,0.20);
+}
+.cal-cell.has-holiday .day-num {
+  color: #d93a6a;
+  font-weight: 600;
+}
+[data-theme="dark"] .cal-cell.has-holiday {
+  background: rgba(255,107,138,0.12);
+  border-color: rgba(255,107,138,0.30);
+}
+[data-theme="dark"] .cal-cell.has-holiday .day-num { color: #ffb3c6; }
+
+/* 右栏当天节日横条 */
+.cal-day-fests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: linear-gradient(135deg, rgba(255,107,138,0.06), rgba(124,131,250,0.06));
+  border: 1px dashed rgba(255,107,138,0.25);
+  border-radius: 10px;
+}
+.cal-day-fest {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+.cal-day-fest.kind-cn-holiday {
+  background: linear-gradient(135deg, #ff6b8a, #ff8fab);
+  color: #fff;
+}
+.cal-day-fest.kind-cn-traditional {
+  background: rgba(255,107,138,0.15);
+  color: #d93a6a;
+  border-color: rgba(255,107,138,0.30);
+}
+.cal-day-fest.kind-cn {
+  background: rgba(14,165,233,0.12);
+  color: #0284c7;
+  border-color: rgba(14,165,233,0.25);
+}
+.cal-day-fest.kind-west {
+  background: rgba(124,131,250,0.14);
+  color: #6366f1;
+  border-color: rgba(124,131,250,0.28);
+}
+[data-theme="dark"] .cal-day-fests { background: linear-gradient(135deg, rgba(255,107,138,0.10), rgba(124,131,250,0.10)); }
+[data-theme="dark"] .cal-day-fest.kind-cn-traditional { background: rgba(255,107,138,0.20); color: #ffb3c6; }
+[data-theme="dark"] .cal-day-fest.kind-cn { background: rgba(14,165,233,0.22); color: #93cefb; }
+[data-theme="dark"] .cal-day-fest.kind-west { background: rgba(124,131,250,0.24); color: #c7caff; }
+
+/* 小屏窄 cell：节日 badge 字号更小，避免溢出 */
+@media (max-width: 900px) {
+  .cal-cell-fest { font-size: 9.5px; padding: 0 5px; }
 }
 
 /* ===================== 统计视图 ===================== */
@@ -5733,6 +5962,168 @@ body.has-offline-banner #ai-panel { top: 56px; }
 .ai-tool-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ===================================================================
+ * v1.19.5 ✅ 待办事项 (Todo)
+ * ===================================================================*/
+.todo-dialog { max-width: 600px; }
+.todo-dialog form { width: min(580px, 92vw); max-height: 88vh; }
+.todo-dialog .dialog-body {
+  padding: 18px 22px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overscroll-behavior: contain;
+}
+.todo-count {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+  margin-left: 6px;
+}
+.todo-add-bar {
+  display: grid;
+  grid-template-columns: 1fr 130px auto auto;
+  gap: 8px;
+  align-items: center;
+}
+.todo-add-bar input[type="text"],
+.todo-add-bar input[type="date"] {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.85);
+  font-size: 13px;
+  color: var(--text);
+}
+.todo-sync-label {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-soft);
+  user-select: none;
+  cursor: pointer;
+  padding: 0 6px;
+}
+.todo-sync-label input { width: 14px; height: 14px; flex: 0 0 14px; accent-color: var(--accent); }
+[data-theme="dark"] .todo-add-bar input[type="text"],
+[data-theme="dark"] .todo-add-bar input[type="date"] {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+}
+.todo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.todo-item {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.05);
+  cursor: grab;
+  transition: background 0.15s, border-color 0.15s, transform 0.10s;
+}
+.todo-item:hover { background: rgba(var(--accent-rgb), 0.06); border-color: rgba(var(--accent-rgb), 0.20); }
+.todo-item.is-dragging { opacity: 0.5; transform: scale(0.98); }
+[data-theme="dark"] .todo-item { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
+.todo-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  width: 20px; height: 20px;
+}
+.todo-check input {
+  position: absolute; inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+}
+.todo-check-box {
+  width: 18px; height: 18px;
+  border-radius: 6px;
+  border: 1.5px solid rgba(0,0,0,0.20);
+  background: rgba(255,255,255,0.80);
+  transition: background 0.15s, border-color 0.15s, transform 0.10s;
+  display: flex; align-items: center; justify-content: center;
+}
+.todo-check input:checked + .todo-check-box {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.todo-check input:checked + .todo-check-box::after {
+  content: "✓";
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.todo-text {
+  font-size: 14px;
+  color: var(--text);
+  word-break: break-word;
+  line-height: 1.5;
+  cursor: text;
+  outline: none;
+}
+.todo-item.is-done .todo-text {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+.todo-due {
+  font-size: 11px;
+  color: var(--text-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.04);
+  white-space: nowrap;
+}
+[data-theme="dark"] .todo-due { background: rgba(255,255,255,0.06); }
+.todo-item.is-overdue .todo-due {
+  background: rgba(220,38,38,0.12);
+  color: #dc2626;
+}
+.todo-btn {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.todo-btn:hover { background: rgba(var(--accent-rgb), 0.10); border-color: rgba(var(--accent-rgb), 0.30); color: var(--accent); }
+.todo-btn.is-on { background: rgba(var(--accent-rgb), 0.15); border-color: rgba(var(--accent-rgb), 0.40); color: var(--accent); }
+.todo-del:hover { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.30); color: #dc2626; }
+.todo-empty {
+  margin: 24px 0;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+.todo-tip {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  line-height: 1.6;
+}
+
+@media (max-width: 540px) {
+  .todo-add-bar { grid-template-columns: 1fr; }
+  .todo-item { grid-template-columns: 24px 1fr auto auto auto auto; gap: 6px; padding: 6px 8px; }
+  .todo-text { font-size: 13px; }
 }
 
 /* ===================================================================

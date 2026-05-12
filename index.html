@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.19.3" />
+  <link rel="stylesheet" href="styles.css?v=v1.19.5" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -104,6 +104,9 @@
       <div class="toolbar-right">
         <button class="topbar-btn" id="btn-calendar" title="打开日历面板查看任务和日程">
           <span class="topbar-ico calendar-icon">📅</span><span class="topbar-txt">日历</span><span class="icon-badge" id="cal-badge" hidden></span>
+        </button>
+        <button class="topbar-btn" id="btn-todo" title="打开待办事项（可选同步到日历）">
+          <span class="topbar-ico">✅</span><span class="topbar-txt">待办</span><span class="icon-badge" id="todo-badge" hidden></span>
         </button>
         <button class="topbar-btn" id="btn-blog" title="打开博客面板，写笔记和长文"><span class="topbar-ico">📝</span><span class="topbar-txt">博客</span></button>
         <button class="topbar-btn" id="btn-theme" title="切换亮色 / 暗色 / 跟随系统"><span class="topbar-ico">🌓</span><span class="topbar-txt">主题</span></button>
@@ -1133,71 +1136,81 @@
   <!-- ===== 任务编辑器 ===== -->
   <dialog id="dialog-task" class="glass-dialog task-dialog">
     <form method="dialog" id="form-task">
-      <h3 id="task-title-head">新建任务</h3>
-      <label>标题
-        <div class="input-with-voice">
-          <input name="title" required autocomplete="off" />
-          <button type="button" class="voice-btn inline" id="task-voice" title="语音输入">🎙</button>
-        </div>
-      </label>
-      <label>备注（可选）
-        <textarea name="desc" rows="2" placeholder="位置、备注、链接..."></textarea>
-      </label>
-      <div class="row-2">
-        <label>开始日期 <input type="date" name="date" required /></label>
-        <label class="col-time">时间
-          <input type="time" name="time" />
-          <span><input type="checkbox" name="allDay" /> 全天</span>
-        </label>
+      <div class="dialog-header">
+        <h3 id="task-title-head"><span>📅</span> 新建任务</h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
       </div>
-      <label>颜色
-        <div class="task-color-row">
-          <label><input type="radio" name="color" value="#ff8fab" checked /><span style="background:#ff8fab"></span></label>
-          <label><input type="radio" name="color" value="#a6e6c0" /><span style="background:#a6e6c0"></span></label>
-          <label><input type="radio" name="color" value="#ffd580" /><span style="background:#ffd580"></span></label>
-          <label><input type="radio" name="color" value="#a6c6ff" /><span style="background:#a6c6ff"></span></label>
-          <label><input type="radio" name="color" value="#d4b2ff" /><span style="background:#d4b2ff"></span></label>
-          <label><input type="radio" name="color" value="#ff6b9d" /><span style="background:#ff6b9d"></span></label>
-        </div>
-      </label>
 
-      <fieldset class="repeat-box">
-        <legend>重复</legend>
-        <label>
-          <select name="repeatType">
-            <option value="none">不重复</option>
-            <option value="daily">每天</option>
-            <option value="weekly">每周</option>
-            <option value="monthly">每月</option>
-            <option value="yearly">每年</option>
+      <div class="dialog-body">
+        <label>标题
+          <div class="input-with-voice">
+            <input name="title" required autocomplete="off" placeholder="例：和小张周三 14:00 喝咖啡" />
+            <button type="button" class="voice-btn inline" id="task-voice" title="语音输入">🎙</button>
+          </div>
+        </label>
+        <label>备注（可选）
+          <textarea name="desc" rows="2" placeholder="位置、备注、链接..."></textarea>
+        </label>
+
+        <div class="row-2">
+          <label>开始日期 <input type="date" name="date" required /></label>
+          <label class="col-time">时间
+            <div class="task-time-row">
+              <input type="time" name="time" />
+              <label class="task-allday"><input type="checkbox" name="allDay" /><span>全天</span></label>
+            </div>
+          </label>
+        </div>
+
+        <label>颜色
+          <div class="task-color-row">
+            <label><input type="radio" name="color" value="#ff8fab" checked /><span style="background:#ff8fab"></span></label>
+            <label><input type="radio" name="color" value="#a6e6c0" /><span style="background:#a6e6c0"></span></label>
+            <label><input type="radio" name="color" value="#ffd580" /><span style="background:#ffd580"></span></label>
+            <label><input type="radio" name="color" value="#a6c6ff" /><span style="background:#a6c6ff"></span></label>
+            <label><input type="radio" name="color" value="#d4b2ff" /><span style="background:#d4b2ff"></span></label>
+            <label><input type="radio" name="color" value="#ff6b9d" /><span style="background:#ff6b9d"></span></label>
+          </div>
+        </label>
+
+        <fieldset class="repeat-box">
+          <legend>重复</legend>
+          <label>
+            <select name="repeatType">
+              <option value="none">不重复</option>
+              <option value="daily">每天</option>
+              <option value="weekly">每周</option>
+              <option value="monthly">每月</option>
+              <option value="yearly">每年</option>
+            </select>
+          </label>
+          <label class="repeat-interval" hidden>每
+            <input type="number" name="interval" min="1" max="99" value="1" />
+            <span id="interval-unit">天</span>
+          </label>
+          <div class="weekdays-picker" hidden>
+            <label><input type="checkbox" name="wd" value="0" /><span>日</span></label>
+            <label><input type="checkbox" name="wd" value="1" /><span>一</span></label>
+            <label><input type="checkbox" name="wd" value="2" /><span>二</span></label>
+            <label><input type="checkbox" name="wd" value="3" /><span>三</span></label>
+            <label><input type="checkbox" name="wd" value="4" /><span>四</span></label>
+            <label><input type="checkbox" name="wd" value="5" /><span>五</span></label>
+            <label><input type="checkbox" name="wd" value="6" /><span>六</span></label>
+          </div>
+          <label class="repeat-until">结束日期（可选） <input type="date" name="until" /></label>
+        </fieldset>
+
+        <label>提前提醒
+          <select name="remindBefore">
+            <option value="0">不提醒</option>
+            <option value="5">提前 5 分钟</option>
+            <option value="15">提前 15 分钟</option>
+            <option value="30">提前 30 分钟</option>
+            <option value="60">提前 1 小时</option>
+            <option value="1440">提前 1 天</option>
           </select>
         </label>
-        <label class="repeat-interval" hidden>每
-          <input type="number" name="interval" min="1" max="99" value="1" style="width: 60px" />
-          <span id="interval-unit">天</span>
-        </label>
-        <div class="weekdays-picker" hidden>
-          <label><input type="checkbox" name="wd" value="0" />日</label>
-          <label><input type="checkbox" name="wd" value="1" />一</label>
-          <label><input type="checkbox" name="wd" value="2" />二</label>
-          <label><input type="checkbox" name="wd" value="3" />三</label>
-          <label><input type="checkbox" name="wd" value="4" />四</label>
-          <label><input type="checkbox" name="wd" value="5" />五</label>
-          <label><input type="checkbox" name="wd" value="6" />六</label>
-        </div>
-        <label class="repeat-until">结束日期（可选） <input type="date" name="until" /></label>
-      </fieldset>
-
-      <label>提前提醒
-        <select name="remindBefore">
-          <option value="0">不提醒</option>
-          <option value="5">提前 5 分钟</option>
-          <option value="15">提前 15 分钟</option>
-          <option value="30">提前 30 分钟</option>
-          <option value="60">提前 1 小时</option>
-          <option value="1440">提前 1 天</option>
-        </select>
-      </label>
+      </div>
 
       <div class="dialog-actions">
         <button type="button" class="btn-secondary" id="task-delete-btn" hidden>删除</button>
@@ -1266,6 +1279,38 @@
     </form>
   </dialog>
 
+  <!-- ✅ 待办事项弹窗（v1.19.5） -->
+  <dialog id="dialog-todo" class="glass-dialog todo-dialog">
+    <form method="dialog">
+      <div class="dialog-header">
+        <h3><span>✅</span> 待办事项 <small class="todo-count" id="todo-count">0 项未完成</small></h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <!-- 新建栏 -->
+        <div class="todo-add-bar">
+          <input type="text" id="todo-add-input" placeholder="加一条待办，按 Enter 提交" maxlength="120" />
+          <input type="date" id="todo-add-due" title="截止日期（可选）" />
+          <label class="todo-sync-label" title="勾选后这条会作为一次性任务同步到日历">
+            <input type="checkbox" id="todo-add-sync" />
+            <span>📅 同步</span>
+          </label>
+          <button type="button" class="btn-primary btn-inline" id="todo-add-btn">+ 添加</button>
+        </div>
+
+        <!-- 列表 -->
+        <ul id="todo-list" class="todo-list"></ul>
+
+        <p class="todo-empty" id="todo-empty" hidden>暂无待办，添加第一条开始吧 🌸</p>
+        <p class="todo-tip">提示：勾选"📅 同步"后，这条待办会以"📝 [内容]"作为一次性任务出现在日历对应日期；从待办删除会一并清掉日历里的副本。</p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" id="todo-clear-done">清除已完成</button>
+        <button type="button" class="btn-primary" data-close>完成</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="dialog-post" class="glass-dialog post-dialog">
     <form method="dialog" id="form-post">
       <h3 id="post-title-head">新建文章</h3>
@@ -1295,9 +1340,11 @@
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.19.3"></script>
+  <script src="js/ai.js?v=v1.19.5"></script>
   <script src="js/blog.js"></script>
+  <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
+  <script src="js/todo.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/sakura-remote.js"></script>
   <script src="js/sakura-media.js"></script>
@@ -1307,6 +1354,6 @@
   <script src="js/idb.js"></script>
   <script src="js/music.js"></script>
   <script src="js/storage-inspector.js"></script>
-  <script src="js/app.js?v=v1.19.3"></script>
+  <script src="js/app.js?v=v1.19.5"></script>
 </body>
 </html>

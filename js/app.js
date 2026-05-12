@@ -5147,6 +5147,160 @@
 
   $("#btn-blog").addEventListener("click", () => UIBlog.open());
 
+  // ===================== ✅ 待办事项 UI (v1.19.5) =====================
+  const UITodo = (() => {
+    const dlg = $("#dialog-todo");
+    const listEl = $("#todo-list");
+    const emptyEl = $("#todo-empty");
+    const countEl = $("#todo-count");
+    const badgeEl = $("#todo-badge");
+    const addInput = $("#todo-add-input");
+    const addDue = $("#todo-add-due");
+    const addSync = $("#todo-add-sync");
+
+    function open() {
+      if (!window.Todo) return;
+      if (!Todo.data.items.length && !Todo.__loaded) { Todo.load(); Todo.__loaded = true; }
+      render();
+      if (!dlg.open && typeof dlg.showModal === "function") dlg.showModal();
+      setTimeout(() => addInput?.focus(), 50);
+    }
+
+    function syncBadge() {
+      if (!window.Todo || !badgeEl) return;
+      const n = Todo.pendingCount();
+      if (n > 0) { badgeEl.hidden = false; badgeEl.textContent = n > 99 ? "99+" : String(n); }
+      else { badgeEl.hidden = true; }
+    }
+
+    function render() {
+      const items = Todo.sorted();
+      countEl.textContent = `${Todo.pendingCount()} 项未完成 · 共 ${Todo.data.items.length}`;
+      emptyEl.hidden = items.length > 0;
+      listEl.innerHTML = items.map((it) => renderItem(it)).join("");
+      syncBadge();
+    }
+
+    function renderItem(it) {
+      const dueLabel = it.dueDate ? `<span class="todo-due">${escapeHtml(it.dueDate)}${it.syncToCal ? " · 📅" : ""}</span>` : "";
+      const overdue = it.dueDate && !it.done && new Date(it.dueDate + "T00:00:00") < new Date(new Date().toDateString());
+      return `<li class="todo-item ${it.done ? "is-done" : ""} ${overdue ? "is-overdue" : ""}" data-id="${it.id}" draggable="true">
+        <label class="todo-check">
+          <input type="checkbox" ${it.done ? "checked" : ""} data-act="toggle" />
+          <span class="todo-check-box"></span>
+        </label>
+        <span class="todo-text" data-act="edit" tabindex="0" role="textbox">${escapeHtml(it.text)}</span>
+        ${dueLabel}
+        <button type="button" class="todo-btn" data-act="due" title="设置截止日期">📅</button>
+        <button type="button" class="todo-btn ${it.syncToCal ? "is-on" : ""}" data-act="sync" title="同步到日历">${it.syncToCal ? "🔗" : "🔓"}</button>
+        <button type="button" class="todo-btn todo-del" data-act="del" title="删除">×</button>
+      </li>`;
+    }
+
+    function commitAdd() {
+      const txt = addInput.value.trim();
+      if (!txt) return;
+      Todo.add(txt, {
+        dueDate: addDue.value || "",
+        syncToCal: addSync.checked,
+      });
+      addInput.value = "";
+      addDue.value = "";
+      addSync.checked = false;
+      render();
+      addInput.focus();
+    }
+
+    $("#btn-todo").addEventListener("click", open);
+    $("#todo-add-btn").addEventListener("click", commitAdd);
+    addInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); commitAdd(); }
+    });
+    $("#todo-clear-done").addEventListener("click", () => {
+      const doneIds = Todo.data.items.filter((x) => x.done).map((x) => x.id);
+      if (!doneIds.length) { toast("没有已完成的待办"); return; }
+      if (!confirm(`清除 ${doneIds.length} 条已完成的待办？`)) return;
+      doneIds.forEach((id) => Todo.remove(id));
+      render();
+    });
+
+    listEl.addEventListener("click", (e) => {
+      const li = e.target.closest("li.todo-item");
+      if (!li) return;
+      const id = li.dataset.id;
+      const act = e.target.dataset.act || e.target.closest("[data-act]")?.dataset.act;
+      if (act === "toggle") { Todo.toggleDone(id); render(); }
+      else if (act === "del") { Todo.remove(id); render(); }
+      else if (act === "sync") {
+        const it = Todo.data.items.find((x) => x.id === id);
+        if (!it) return;
+        if (!it.dueDate) {
+          const ymd = prompt("先设置截止日期 (YYYY-MM-DD)，才能同步到日历：");
+          if (!ymd) return;
+          Todo.update(id, { dueDate: ymd, syncToCal: true });
+        } else {
+          Todo.update(id, { syncToCal: !it.syncToCal });
+        }
+        render();
+      } else if (act === "due") {
+        const it = Todo.data.items.find((x) => x.id === id);
+        if (!it) return;
+        const ymd = prompt("截止日期 (YYYY-MM-DD)，留空清除：", it.dueDate || "");
+        if (ymd === null) return;
+        Todo.update(id, { dueDate: ymd.trim() });
+        render();
+      }
+    });
+
+    // 双击文本可改
+    listEl.addEventListener("dblclick", (e) => {
+      const span = e.target.closest(".todo-text");
+      if (!span) return;
+      const li = span.closest("li.todo-item");
+      const id = li.dataset.id;
+      const it = Todo.data.items.find((x) => x.id === id);
+      if (!it) return;
+      const next = prompt("修改待办内容：", it.text);
+      if (next === null) return;
+      Todo.update(id, { text: next.trim() || it.text });
+      render();
+    });
+
+    // 拖拽排序
+    let dragId = null;
+    listEl.addEventListener("dragstart", (e) => {
+      const li = e.target.closest("li.todo-item");
+      if (!li) return;
+      dragId = li.dataset.id;
+      li.classList.add("is-dragging");
+    });
+    listEl.addEventListener("dragend", (e) => {
+      const li = e.target.closest("li.todo-item");
+      li?.classList.remove("is-dragging");
+      dragId = null;
+    });
+    listEl.addEventListener("dragover", (e) => {
+      if (!dragId) return;
+      e.preventDefault();
+      const li = e.target.closest("li.todo-item");
+      if (!li || li.dataset.id === dragId) return;
+      const dragEl = listEl.querySelector(`li[data-id="${dragId}"]`);
+      const rect = li.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      li.parentNode.insertBefore(dragEl, before ? li : li.nextSibling);
+    });
+    listEl.addEventListener("drop", () => {
+      const ids = [...listEl.querySelectorAll("li.todo-item")].map((li) => li.dataset.id);
+      Todo.reorder(ids);
+      render();
+    });
+
+    // 启动时刷新 badge（即使 dialog 没打开）
+    if (window.Todo) { Todo.load(); Todo.__loaded = true; syncBadge(); }
+
+    return { open, syncBadge, render };
+  })();
+
   // ===================== 日历 UI =====================
   const UICal = (() => {
     const panel = $("#calendar-panel");
@@ -5198,6 +5352,11 @@
       const y = viewDate.getFullYear();
       const m = viewDate.getMonth();
       titleEl.textContent = `${y} 年 ${m + 1} 月`;
+      // 异步预拉当前年和前后年的节假日（本年硬编码兜底）
+      if (window.CalFestivals?.ensureYear) {
+        CalFestivals.ensureYear(y);
+        CalFestivals.ensureYear(y + 1);
+      }
       const cells = CalUtils.monthGrid(y, m, Cal.data.settings.firstDayOfWeek || 1);
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const rangeStart = cells[0].date.getTime();
@@ -5222,6 +5381,15 @@
         if (isToday) cls.push("today");
         if (isSel) cls.push("selected");
         const dayCls = weekday === 0 ? "sun" : weekday === 6 ? "sat" : "";
+
+        // 节日：取优先级最高的一个显示在 cell 里；存在法定节假日时给整 cell 加 has-holiday 类
+        const festivals = window.CalFestivals ? CalFestivals.getFestivalsForDate(c.date) : [];
+        const topFest = festivals[0];
+        if (topFest && topFest.kind === "cn-holiday") cls.push("has-holiday");
+        const festBadge = topFest
+          ? `<span class="cal-cell-fest kind-${topFest.kind}" title="${escapeHtml(festivals.map((f) => f.emoji + " " + f.name).join(" · "))}">${topFest.emoji} ${escapeHtml(topFest.name.replace(" · 放假", ""))}</span>`
+          : "";
+
         const MAX = 3;
         const shown = items.slice(0, MAX).map((it) => {
           const done = CalUtils.isDoneOccurrence?.(it.task, it.ts) ||
@@ -5241,6 +5409,7 @@
         return `<div class="${cls.join(" ")}" data-ts="${dayKey}" style="position:relative">
           <span class="day-num ${dayCls}">${c.date.getDate()}</span>
           ${wBadge}
+          ${festBadge}
           <div class="day-tasks">${shown}${more}</div>
         </div>`;
       }).join("");
@@ -5253,7 +5422,17 @@
       const from = d.getTime();
       const to = from + 86400000 - 1;
       const items = CalUtils.listInRange(from, to);
-      dayList.innerHTML = items.map((it) => renderDayItem(it.task, it.ts)).join("");
+
+      // 当天节日横条（在任务列表上方）
+      let festBanner = "";
+      const fests = window.CalFestivals ? CalFestivals.getFestivalsForDate(d) : [];
+      if (fests.length) {
+        festBanner = `<div class="cal-day-fests">` + fests.map((f) =>
+          `<span class="cal-day-fest kind-${f.kind}" title="${escapeHtml(f.name)}">${f.emoji} ${escapeHtml(f.name)}</span>`
+        ).join("") + `</div>`;
+      }
+
+      dayList.innerHTML = festBanner + items.map((it) => renderDayItem(it.task, it.ts)).join("");
     }
 
     function renderDayItem(task, ts) {
@@ -5445,6 +5624,11 @@
     $("#cal-new-task").addEventListener("click", () => openTaskDialog(null, selectedDate));
     $("#cal-day-add").addEventListener("click", () => openTaskDialog(null, selectedDate));
     $("#upcoming-expand").addEventListener("click", open);
+
+    // 节假日 API 拉到了 → 自动重渲染月视图，让新数据立刻生效
+    window.addEventListener("cal-holidays-updated", () => {
+      if (!panel.hidden && monthView && !monthView.hidden) renderMonth();
+    });
 
     const statsView = $("#cal-stats-view");
     $$(".cal-view-switch .chip").forEach((b) => {

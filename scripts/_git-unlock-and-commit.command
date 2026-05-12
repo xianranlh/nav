@@ -20,13 +20,12 @@ git status --short
 echo
 echo "==> commit (若已无变更会跳过)"
 git -c user.name="xianranlh" -c user.email="lh2206568981@gmail.com" commit \
-  -m "chore(v1.19.2): 项目目录整理 — js/ deploy/ scripts/" \
-  -m "把根目录 30+ 文件分类到三个子目录：" \
-  -m "1) js/ — 全部 19 个前端业务模块（app.js / ai.js / sakura.js / sync.js / auth.js / blog.js / bookmarks.js / calendar.js / music.js / weather.js / suggest.js / progress.js / exporter.js / idb.js / homepage-theme.js / homepage-layout.js / sakura-remote.js / sakura-media.js / storage-inspector.js）。" \
-  -m "2) deploy/ — Dockerfile / docker-entrypoint.sh / nginx.conf.template / Caddyfile（docker-compose.yml 仍在根，方便 docker compose 直接跑）。" \
-  -m "3) scripts/ — 启动重启 8 个本地脚本（start-all.sh/.ps1/.bat / start-docker.ps1/.bat / restart.command / _git-unlock-and-commit.command / _smoke.ps1）。" \
-  -m "同步更新引用：index.html script src 加 js/ 前缀；sw.js CORE_FILES 加 js/；Dockerfile 改为 COPY js/ + COPY deploy/nginx.conf.template；docker-compose.yml dockerfile=deploy/Dockerfile；start-all.sh / restart.command 重新计算 ROOT 为脚本上一级。" \
-  -m "本提交累积：v1.18.6（同步重试 / 快捷键 / 离线 / 导出 / 台账自清）+ v1.18.7（容器查询 / sticky / 焦点环）+ v1.19.0（🍵 茶话会模式：广播 / 辩论 / 圆桌）+ v1.19.1（添加网址简化）+ v1.19.2（目录整理）。" \
+  -m "feat(v1.19.5): 任务弹窗重整 + 节假日实时 API + 待办事项模块" \
+  -m "1) 任务弹窗 UI 重整：dialog-task 套用标准三段式（dialog-header / dialog-body / dialog-actions），修复内容紧贴边框；重复区改成胶囊 legend + 虚线粉框；color radio 大 32px 选中态加阴影；星期 picker 加 hover 高亮 & 选中 box-shadow；time + 全天 checkbox 用 task-time-row 横排；输入控件统一 padding 8px 12px + 8px 圆角。" \
+  -m "2) 节假日实时 API（方案一）：js/holidays.js 接入 timor.tech/api/holiday/year/{Y}，90 天 localStorage 缓存；renderMonth 异步预拉当前年 + 次年，cal-holidays-updated 事件触发重渲染；2026 硬编码兜底（含调休主日）；2027 及以后由 API 同步，每年 12 月国务院公告后 24h 内自动更新。" \
+  -m "3) 待办事项模块（新）：js/todo.js 极简 todo store（localStorage sakura_nav_todos_v1）+ 顶栏 ✅ 按钮 + 红点 badge 显示未完成数 + dialog-todo 弹窗。功能：勾选 / 内联截止日期 / 删除 / 双击文本编辑 / 拖拽排序 / 清除已完成 / 过期红色高亮。可选'📅 同步到日历'：勾选后 upsert 到 Cal.data.tasks 作为该日期一次性任务（标题加 📝 前缀），删除/取消同步会清掉日历副本，todo 勾选完成时日历副本同步打勾。" \
+  -m "4) 杂项：sw.js CORE_FILES 加 ./js/todo.js；index.html script src 注册；版本 v1.19.5。" \
+  -m "本提交累积：v1.18.6 + v1.18.7 + v1.19.0 (茶话会) + v1.19.1 (添加网址简化) + v1.19.2 (目录整理) + v1.19.3 (README 配图) + v1.19.4 (日历节日) + v1.19.5 (任务弹窗 + API + 待办)。" \
   || echo "（工作区无新变更，跳过 commit）"
 
 echo
