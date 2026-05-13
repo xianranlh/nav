@@ -20,6 +20,11 @@ git status --short
 echo
 echo "==> commit (若已无变更会跳过)"
 git -c user.name="xianranlh" -c user.email="lh2206568981@gmail.com" commit \
+  -m "fix(v1.20.2): 修待办事项数据未持久化到服务端的 bug" \
+  -m "根因：sync.js 的 SyncUtils.collect() 用了写死的 9 个 key 白名单（nav/settings/blog/calendar/ai/chat/weather/music/sync），新加的 sakura_nav_todos_v2 不在内。sakura-remote.js 拦截 setItem 后 schedulePush 调 SyncUtils.collect(false)，但 todos 字段从未进入 bundle，所以 PUT /api/data 写到 SQLite 的内容里也没有 todos —— 容器重建 / 跨设备访问看到的就是空待办。" \
+  -m "修：collect() 加 todos (v2) + todosV1（兼容老 v1 数据），apply() 也加上对应分支。这样 Todo.save() 之后 1s 防抖 PUT 就会把 sakura_nav_todos_v2 整个序列化进 bundle，落到 /data/xianran-nav/sakura.db 的 app_data 表，宿主机 ./data volume 持久化，docker compose down/up 不丢，跨浏览器/跨设备也同步。" \
+  -m "版本 v1.20.2，sw.js + index.html cache buster 同步升。" \
+  -m "原 v1.20.1：" \
   -m "polish(v1.20.1): 提醒详情面板从贴边 sidebar 改为独立居中 dialog" \
   -m "1) ⓘ 详情按钮从 opacity:0 + hover 才显，改为常显（28px 圆形、半透明灰底、hover 主题色高亮 + 1.05 scale）。整行 hover 也不再 fade in fade out。" \
   -m "2) 删除原嵌入式 .rem-detail 右侧 sidebar（280px 太窄、time picker popup 被裁、字号小）。新增独立 dialog-rem-detail（dialog.showModal()，居中浮起，540px 宽）。" \
