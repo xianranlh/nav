@@ -5186,6 +5186,10 @@
     function activeList() {
       const id = Todo.data.activeListId;
       if (id?.startsWith("smart-")) return Todo.SMART[id.slice(6)];
+      if (id?.startsWith("tag:")) {
+        const t = id.slice(4);
+        return { name: "#" + t.replace(/^#/, ""), emoji: "🏷", color: "#7c83fa" };
+      }
       return Todo.data.lists.find((l) => l.id === id) || Todo.SMART.today;
     }
 
@@ -5211,15 +5215,47 @@
       listNav.innerHTML = Todo.data.lists.map((l) => {
         const active = aid === l.id;
         const n = cs[l.id] || 0;
+        const prog = Todo.listProgress(l.id);
+        // 进度环：14×14 SVG，描边 2px，stroke-dasharray 控制完成弧
+        const C = 2 * Math.PI * 5; // 半径 5
+        const dash = `${(prog.pct * C).toFixed(1)} ${C}`;
+        const ring = prog.total > 0 ? `<svg class="rem-list-ring" width="14" height="14" viewBox="0 0 14 14">
+          <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-opacity="0.15" stroke-width="2"></circle>
+          <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-dasharray="${dash}" transform="rotate(-90 7 7)"></circle>
+        </svg>` : "";
         return `<li>
-          <button type="button" class="rem-list-row ${active ? "is-active" : ""}" data-list-id="${l.id}" style="--row-color:${l.color}">
+          <button type="button" class="rem-list-row ${active ? "is-active" : ""}" data-list-id="${l.id}" style="--row-color:${l.color}" title="${prog.total > 0 ? `已完成 ${prog.done}/${prog.total}（${Math.round(prog.pct * 100)}%）` : "暂无内容"}">
             <span class="rem-list-dot"></span>
             <span class="rem-list-emoji">${escapeHtml(l.emoji || "🗒")}</span>
             <span class="rem-list-name">${escapeHtml(l.name)}</span>
+            ${ring}
             ${n > 0 ? `<span class="rem-list-count">${n}</span>` : ""}
           </button>
         </li>`;
       }).join("");
+
+      // 标签区
+      const tagSec = $("#rem-tag-section");
+      const tagNav = $("#rem-tag-nav");
+      const tags = Todo.tagCounts();
+      if (tags.length) {
+        tagSec.hidden = false;
+        tagNav.innerHTML = tags.map(([t, n]) => {
+          const tagId = "tag:" + t;
+          const active = aid === tagId;
+          return `<li>
+            <button type="button" class="rem-tag-row ${active ? "is-active" : ""}" data-list-id="${escapeAttr(tagId)}">
+              <span class="rem-tag-hash">#</span>
+              <span class="rem-tag-name">${escapeHtml(t.replace(/^#/, ""))}</span>
+              <span class="rem-list-count">${n}</span>
+            </button>
+          </li>`;
+        }).join("");
+      } else {
+        tagSec.hidden = true;
+        tagNav.innerHTML = "";
+      }
     }
 
     function renderMain() {
@@ -5227,11 +5263,15 @@
       mainEmoji.textContent = a.emoji || "🗒";
       mainEmoji.style.color = a.color || "";
       mainName.textContent = a.name;
-      // 智能列表不显示编辑列表按钮，添加输入框对"已完成"也禁用
-      const isSmart = String(Todo.data.activeListId).startsWith("smart-");
-      editListBtn.hidden = isSmart;
-      addInput.disabled = (Todo.data.activeListId === "smart-completed");
-      addInput.placeholder = addInput.disabled ? "已完成列表不能直接添加" : "添加提醒事项...";
+      // 智能列表 / 标签视图不显示编辑列表按钮；添加输入框对"已完成"也禁用
+      const aid = String(Todo.data.activeListId);
+      const isSmart = aid.startsWith("smart-");
+      const isTag = aid.startsWith("tag:");
+      editListBtn.hidden = isSmart || isTag;
+      addInput.disabled = (aid === "smart-completed");
+      addInput.placeholder = addInput.disabled
+        ? "已完成列表不能直接添加"
+        : (isTag ? `添加到 ${activeList().name}（带 ${aid.slice(4)} 标签）...` : "添加提醒事项...");
 
       const items = Todo.activeItems();
       emptyEl.hidden = items.length > 0;
@@ -5473,6 +5513,99 @@
 
     // 新建列表
     $("#rem-add-list").addEventListener("click", () => openListEditor(null));
+
+    // 📋 从模板创建列表
+    const dlgTpl = $("#dialog-rem-tpl");
+    $("#rem-tpl").addEventListener("click", () => {
+      const grid = $("#rem-tpl-grid");
+      grid.innerHTML = Todo.TEMPLATES.map((t) => `
+        <button type="button" class="rem-tpl-card" data-tpl="${escapeAttr(t.id)}" style="--tpl-color:${t.color}">
+          <span class="rem-tpl-emoji">${escapeHtml(t.emoji)}</span>
+          <span class="rem-tpl-name">${escapeHtml(t.name)}</span>
+          <span class="rem-tpl-cnt">${t.items.length} 条预设</span>
+        </button>
+      `).join("");
+      grid.querySelectorAll(".rem-tpl-card").forEach((b) => b.addEventListener("click", () => {
+        const list = Todo.createFromTemplate(b.dataset.tpl);
+        dlgTpl.close();
+        render();
+        if (list) toast(`已从模板创建「${list.name}」`);
+      }));
+      if (typeof dlgTpl.showModal === "function" && !dlgTpl.open) dlgTpl.showModal();
+    });
+
+    // ✨ AI 一句话生成列表
+    const dlgAiGen = $("#dialog-rem-ai");
+    const aiPrompt = $("#rem-ai-prompt");
+    const aiStatus = $("#rem-ai-status");
+    $("#rem-ai-gen").addEventListener("click", () => {
+      if (!window.AI || !AI.AIStore?.currentProvider?.()) {
+        toast("请先到 AI 设置里配好供应商再用 ✨ AI 生成");
+        return;
+      }
+      aiPrompt.value = "";
+      aiStatus.hidden = true;
+      if (typeof dlgAiGen.showModal === "function" && !dlgAiGen.open) dlgAiGen.showModal();
+      setTimeout(() => aiPrompt.focus(), 50);
+    });
+    // 示例 chip 点击填入 prompt
+    dlgAiGen.addEventListener("click", (e) => {
+      const chip = e.target.closest(".rem-ai-chip");
+      if (chip) aiPrompt.value = chip.dataset.prompt;
+    });
+    $("#form-rem-ai").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = aiPrompt.value.trim();
+      if (!text) { toast("先描述一下要做什么"); return; }
+      const provider = AI.AIStore.currentProvider();
+      const model = AI.AIStore.data.currentModel || provider.defaultModel;
+      if (!model) { toast("当前供应商没有选模型"); return; }
+      const goBtn = $("#rem-ai-go");
+      goBtn.disabled = true;
+      aiStatus.hidden = false;
+      aiStatus.textContent = "AI 思考中…";
+
+      const sys = `你是任务规划助手。根据用户描述输出一个 JSON 对象，结构严格如下：
+{
+  "name": "列表名（5-10 字）",
+  "emoji": "1 个 emoji 表示主题",
+  "color": "颜色十六进制，从 [#ff6b8a, #ff9f0a, #ffd60a, #30d158, #0a84ff, #7c83fa, #bf5af2] 选一个",
+  "items": [{"text": "条目内容（10-30 字）", "priority": 0|1|2|3}]
+}
+priority: 0=无 1=低 2=中 3=高。items 6-12 条。只输出 JSON 对象本身，不要 markdown 围栏，不要前后任何说明文字。`;
+
+      try {
+        let full = "";
+        await AI.chat({
+          provider, model,
+          messages: [
+            { role: "system", content: sys },
+            { role: "user",   content: text },
+          ],
+          retry: { maxAttempts: 2, delayMs: 1200 },
+          onDelta: (_d, f) => { full = f; aiStatus.textContent = "AI 生成中… " + Math.min(full.length, 800) + " 字"; },
+        });
+        // 容错：抠出 { ... } 部分
+        const m = full.match(/\{[\s\S]*\}/);
+        if (!m) throw new Error("AI 返回不是 JSON 格式");
+        const parsed = JSON.parse(m[0]);
+        if (!parsed.name || !Array.isArray(parsed.items)) throw new Error("解析 JSON 失败");
+        const list = Todo.addList({
+          name: parsed.name,
+          emoji: parsed.emoji || "✨",
+          color: parsed.color || "#7c83fa",
+        });
+        Todo.addManyItems(list.id, parsed.items);
+        Todo.setActiveList(list.id);
+        dlgAiGen.close();
+        render();
+        toast(`✨ AI 已生成「${list.name}」· ${parsed.items.length} 条`);
+      } catch (err) {
+        aiStatus.textContent = "❌ " + (err.message || "生成失败");
+      } finally {
+        goBtn.disabled = false;
+      }
+    });
     // 编辑当前列表
     editListBtn.addEventListener("click", () => {
       if (!String(Todo.data.activeListId).startsWith("smart-")) openListEditor(Todo.data.activeListId);

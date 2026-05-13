@@ -20,6 +20,13 @@ git status --short
 echo
 echo "==> commit (若已无变更会跳过)"
 git -c user.name="xianranlh" -c user.email="lh2206568981@gmail.com" commit \
+  -m "feat(v1.20.3): 提醒侧栏丰富化（模板 / 标签归集 / AI 生成 / 进度环）" \
+  -m "1) 📋 6 个内置模板：购物清单 / 本周计划 / 旅行打包 / 健身周 / 项目 Sprint / 阅读清单。点侧栏 📋 弹模板选择 grid，一键创建带预设 emoji/color + 6-12 条预设 items（部分带优先级）的列表。Todo.TEMPLATES + createFromTemplate(id)。" \
+  -m "2) 🏷 标签归集区：侧栏底部自动出现 #tag 区，扫所有未完成 items 的 tags 字段、按使用次数 desc 排序。点 #购物 / #紧急 等横向归类、跨列表显示该标签下所有提醒；activeListId='tag:xxx' 走专门分支。Todo.tagCounts()。" \
+  -m "3) ✨ AI 一句话生成列表：侧栏 ✨ 按钮 → 弹 textarea，描述目标（如 \"下周日本出差准备\"），AI.chat 严格 JSON 输出 {name, emoji, color, items:[{text, priority}]}，解析后 addList + addManyItems。带 4 个示例 chip（搬家清单 / 露营 / 开发冲刺 / 健康习惯）。" \
+  -m "4) ⭕ 列表行进度环：每个用户列表名右侧加 14×14 SVG 进度环（stroke-dasharray 控制完成弧），半径 5 + 2px 描边 + linecap round，title 提示 \"已完成 X/Y（Z%）\"。listProgress(listId) 返回 {done,total,pct}。" \
+  -m "杂项：版本 v1.20.3，sync.js 在上一轮已加 todos 进 collect/apply 白名单，所以这一轮新数据持续持久化到 SQLite。" \
+  -m "原 v1.20.2：" \
   -m "fix(v1.20.2): 修待办事项数据未持久化到服务端的 bug" \
   -m "根因：sync.js 的 SyncUtils.collect() 用了写死的 9 个 key 白名单（nav/settings/blog/calendar/ai/chat/weather/music/sync），新加的 sakura_nav_todos_v2 不在内。sakura-remote.js 拦截 setItem 后 schedulePush 调 SyncUtils.collect(false)，但 todos 字段从未进入 bundle，所以 PUT /api/data 写到 SQLite 的内容里也没有 todos —— 容器重建 / 跨设备访问看到的就是空待办。" \
   -m "修：collect() 加 todos (v2) + todosV1（兼容老 v1 数据），apply() 也加上对应分支。这样 Todo.save() 之后 1s 防抖 PUT 就会把 sakura_nav_todos_v2 整个序列化进 bundle，落到 /data/xianran-nav/sakura.db 的 app_data 表，宿主机 ./data volume 持久化，docker compose down/up 不丢，跨浏览器/跨设备也同步。" \

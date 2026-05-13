@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.20.2" />
+  <link rel="stylesheet" href="styles.css?v=v1.20.3" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -1299,9 +1299,21 @@
           <div class="rem-sb-section">
             <div class="rem-sb-section-head">
               <span>我的列表</span>
-              <button type="button" class="rem-mini-btn" id="rem-add-list" title="新建列表">+</button>
+              <div class="rem-sb-actions">
+                <button type="button" class="rem-mini-btn" id="rem-tpl" title="从模板创建列表">📋</button>
+                <button type="button" class="rem-mini-btn" id="rem-ai-gen" title="让 AI 一句话生成一个列表">✨</button>
+                <button type="button" class="rem-mini-btn" id="rem-add-list" title="新建空白列表">+</button>
+              </div>
             </div>
             <ul class="rem-list-nav" id="rem-list-nav"></ul>
+          </div>
+
+          <!-- 标签归集区（自动从所有 #tag 扫出来） -->
+          <div class="rem-sb-section rem-tag-section" id="rem-tag-section" hidden>
+            <div class="rem-sb-section-head">
+              <span>标签</span>
+            </div>
+            <ul class="rem-tag-nav" id="rem-tag-nav"></ul>
           </div>
         </aside>
 
@@ -1342,6 +1354,48 @@
       <div class="dialog-actions">
         <button type="button" class="btn-secondary rem-d-danger" id="rem-d-del" title="删除这条提醒">🗑 删除提醒</button>
         <button type="button" class="btn-primary" data-close>完成</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 模板选择子弹窗 -->
+  <dialog id="dialog-rem-tpl" class="glass-dialog rem-tpl-dialog">
+    <form method="dialog">
+      <div class="dialog-header">
+        <h3><span>📋</span> 从模板创建列表</h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <p class="rem-tpl-tip">选一个模板，会自动创建一个带预设条目的列表，你可以接着自由编辑。</p>
+        <div class="rem-tpl-grid" id="rem-tpl-grid"></div>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- AI 生成列表子弹窗 -->
+  <dialog id="dialog-rem-ai" class="glass-dialog rem-ai-dialog">
+    <form method="dialog" id="form-rem-ai">
+      <div class="dialog-header">
+        <h3><span>✨</span> AI 一句话生成列表</h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <p class="rem-ai-tip">描述一句话目标，AI 会帮你拆成一个列表 + 多条提醒（自动加 emoji / 颜色 / 优先级）。</p>
+        <label class="rem-ai-field">
+          <span>你想做什么？</span>
+          <textarea id="rem-ai-prompt" rows="3" placeholder="例：下周去日本出差 3 天要准备什么 / 周末和闺蜜出去玩需要安排什么 / 准备读完《深度工作》整理一份学习计划"></textarea>
+        </label>
+        <div class="rem-ai-examples">
+          <span class="rem-ai-chip" data-prompt="下周一搬家需要准备的所有事情">📦 搬家清单</span>
+          <span class="rem-ai-chip" data-prompt="周末户外露营需要准备什么">⛺ 露营清单</span>
+          <span class="rem-ai-chip" data-prompt="即将开始的 1 周冲刺迭代，研发任务拆解">💻 开发冲刺</span>
+          <span class="rem-ai-chip" data-prompt="给 30 岁的我，未来 3 个月要养成的健康习惯">💪 健康习惯</span>
+        </div>
+        <p class="rem-ai-status" id="rem-ai-status" hidden></p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" data-close>取消</button>
+        <button type="submit" class="btn-primary" id="rem-ai-go">✨ 生成</button>
       </div>
     </form>
   </dialog>
@@ -1398,7 +1452,7 @@
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.20.2"></script>
+  <script src="js/ai.js?v=v1.20.3"></script>
   <script src="js/blog.js"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
@@ -1412,6 +1466,6 @@
   <script src="js/idb.js"></script>
   <script src="js/music.js"></script>
   <script src="js/storage-inspector.js"></script>
-  <script src="js/app.js?v=v1.20.2"></script>
+  <script src="js/app.js?v=v1.20.3"></script>
 </body>
 </html>

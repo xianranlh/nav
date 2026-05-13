@@ -6129,7 +6129,17 @@ body.has-offline-banner #ai-panel { top: 56px; }
 .rem-list-row.is-active { background: color-mix(in srgb, var(--row-color, var(--accent)) 16%, transparent); }
 .rem-list-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--row-color, var(--accent)); }
 .rem-list-emoji { font-size: 14px; }
-.rem-list-name { font-size: 13.5px; }
+.rem-list-name {
+  font-size: 13.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rem-list-ring {
+  flex: 0 0 14px;
+  color: var(--row-color, var(--accent));
+}
 .rem-list-count {
   font-size: 11px;
   color: var(--text-faint);
@@ -6140,6 +6150,139 @@ body.has-offline-banner #ai-panel { top: 56px; }
   display: inline-flex; align-items: center;
 }
 [data-theme="dark"] .rem-list-count { background: rgba(255,255,255,0.06); }
+
+/* 列表行多一列：dot / emoji / name / ring / count */
+.rem-list-row { grid-template-columns: 10px auto 1fr auto auto; }
+
+/* sidebar 多按钮 actions */
+.rem-sb-actions { display: inline-flex; gap: 2px; }
+
+/* 标签区 */
+.rem-tag-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.rem-tag-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  column-gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text);
+  text-align: left;
+}
+.rem-tag-row:hover { background: rgba(var(--accent-rgb), 0.08); }
+.rem-tag-row.is-active { background: rgba(124,131,250,0.16); }
+.rem-tag-hash { color: #7c83fa; font-weight: 600; }
+.rem-tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 模板选择弹窗 */
+.rem-tpl-dialog { max-width: 580px; }
+.rem-tpl-dialog form { width: min(560px, 92vw); }
+.rem-tpl-tip { margin: 0 0 8px; font-size: 12px; color: var(--text-soft); line-height: 1.6; }
+.rem-tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.rem-tpl-card {
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(0,0,0,0.06);
+  background: rgba(255,255,255,0.75);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.rem-tpl-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--tpl-color, var(--accent));
+  background: color-mix(in srgb, var(--tpl-color, var(--accent)) 10%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--tpl-color, var(--accent)) 25%, transparent);
+}
+.rem-tpl-emoji { font-size: 32px; line-height: 1; }
+.rem-tpl-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.rem-tpl-cnt { font-size: 11px; color: var(--text-soft); }
+[data-theme="dark"] .rem-tpl-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.10); }
+
+/* AI 生成弹窗 */
+.rem-ai-dialog { max-width: 560px; }
+.rem-ai-dialog form { width: min(540px, 92vw); }
+.rem-ai-tip { margin: 0; font-size: 12.5px; color: var(--text-soft); line-height: 1.6; }
+.rem-ai-field {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px;
+  margin-top: 8px;
+}
+.rem-ai-field > span { font-size: 12px; color: var(--text-soft); }
+.rem-ai-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.88);
+  font-size: 14px;
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+.rem-ai-field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+[data-theme="dark"] .rem-ai-field textarea {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.12);
+}
+.rem-ai-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.rem-ai-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.10);
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid rgba(var(--accent-rgb), 0.20);
+  transition: background 0.15s, transform 0.10s;
+}
+.rem-ai-chip:hover {
+  background: rgba(var(--accent-rgb), 0.18);
+  transform: translateY(-1px);
+}
+.rem-ai-status {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: rgba(var(--accent-rgb), 0.06);
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
 
 /* ---- Main ---- */
 .rem-main {

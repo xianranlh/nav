@@ -123,7 +123,7 @@
     },
 
     _listExists(id) {
-      return id.startsWith("smart-") || this.data.lists.some((l) => l.id === id);
+      return id.startsWith("smart-") || id.startsWith("tag:") || this.data.lists.some((l) => l.id === id);
     },
 
     save() {
@@ -267,7 +267,10 @@
       const filter = (this.data.activeFilter || "").trim().toLowerCase();
       const matchSearch = (it) => !filter || (it.text + " " + it.notes).toLowerCase().includes(filter);
       let pool;
-      if (id === "smart-today") {
+      if (id && id.startsWith("tag:")) {
+        const t = id.slice(4);
+        pool = this.data.items.filter((it) => !it.done && (it.tags || []).includes(t));
+      } else if (id === "smart-today") {
         const today = todayStr();
         pool = this.data.items.filter((it) => !it.done && it.dueDate && it.dueDate <= today);
       } else if (id === "smart-scheduled") {
@@ -313,6 +316,99 @@
         out[l.id] = items.filter((x) => x.listId === l.id && !x.done).length;
       }
       return out;
+    },
+
+    // -------- 模板（v1.20.3） --------
+    TEMPLATES: [
+      { id: "shopping",  name: "购物清单", emoji: "🛒", color: "#ff9f0a", items: [
+        "牛奶 / 酸奶", "鸡蛋 · 1 板", "全麦面包", "水果（苹果 / 香蕉）", "蔬菜（番茄 / 黄瓜）", "纸巾 / 抽纸",
+      ]},
+      { id: "week-plan", name: "本周计划", emoji: "📅", color: "#0a84ff", items: [
+        { text: "周一 · 设定目标", priority: 2 },
+        { text: "周三 · 中期复盘", priority: 1 },
+        { text: "周五 · 总结一周",  priority: 2 },
+        { text: "周末 · 放松 & 充电", priority: 0 },
+      ]},
+      { id: "travel-pack", name: "旅行打包", emoji: "🧳", color: "#bf5af2", items: [
+        { text: "护照 / 身份证", priority: 3 },
+        "充电器 + 转换头 + 充电宝",
+        "换洗衣物（按天数 +1）",
+        "洗漱用品 + 化妆品",
+        "常用药品（感冒 / 肠胃 / 创可贴）",
+        "旅行保险 + 行程单",
+        "现金 + 银行卡",
+        "雨伞 / 防晒霜",
+      ]},
+      { id: "fitness",   name: "健身周",   emoji: "🏃", color: "#30d158", items: [
+        "周一 · 胸 + 三头", "周二 · 有氧 30 min", "周三 · 背 + 二头",
+        "周四 · 腿", "周五 · 肩 + 核心", "周末 · 拉伸 & 恢复",
+      ]},
+      { id: "project",   name: "项目 Sprint", emoji: "💼", color: "#7c83fa", items: [
+        { text: "需求评审", priority: 2 },
+        { text: "技术方案",  priority: 2 },
+        { text: "拆任务",    priority: 1 },
+        "开发",
+        "联调",
+        "测试",
+        { text: "上线", priority: 3 },
+        "复盘",
+      ]},
+      { id: "reading",   name: "阅读清单", emoji: "📚", color: "#ff6b8a", items: [
+        "本月想读的书：", "推荐文章 / 收藏夹",
+      ]},
+    ],
+
+    /** 用模板创建一个列表 + 一堆 items；返回新建的 list */
+    createFromTemplate(tplId) {
+      const tpl = this.TEMPLATES.find((t) => t.id === tplId);
+      if (!tpl) return null;
+      const list = this.addList({ name: tpl.name, emoji: tpl.emoji, color: tpl.color });
+      for (const raw of tpl.items) {
+        const it = typeof raw === "string" ? { text: raw } : raw;
+        this.addItem({
+          listId: list.id,
+          text: it.text,
+          priority: it.priority || 0,
+          dueDate: it.dueDate || "",
+        });
+      }
+      this.setActiveList(list.id);
+      return list;
+    },
+
+    /** 当前所有 tags 的计数（按 use count desc） */
+    tagCounts() {
+      const map = new Map();
+      for (const it of this.data.items) {
+        if (it.done) continue;
+        for (const t of (it.tags || [])) {
+          map.set(t, (map.get(t) || 0) + 1);
+        }
+      }
+      return [...map.entries()].sort((a, b) => b[1] - a[1]);
+    },
+
+    /** 列表完成进度 0-1（已完成 / 总数）。智能列表用 activeItems 计算前忽略此函数 */
+    listProgress(listId) {
+      const all = this.data.items.filter((x) => x.listId === listId);
+      if (!all.length) return { done: 0, total: 0, pct: 0 };
+      const done = all.filter((x) => x.done).length;
+      return { done, total: all.length, pct: done / all.length };
+    },
+
+    /** 给已存在的列表批量加 items（AI 生成时用） */
+    addManyItems(listId, items) {
+      for (const raw of items || []) {
+        const it = typeof raw === "string" ? { text: raw } : raw;
+        if (!it.text) continue;
+        this.addItem({
+          listId,
+          text: it.text,
+          priority: it.priority || 0,
+          dueDate: it.dueDate || "",
+          syncToCal: !!it.syncToCal,
+        });
+      }
     },
 
     // -------- 与日历联动 --------
