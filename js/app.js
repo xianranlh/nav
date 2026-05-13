@@ -5161,7 +5161,7 @@
     const addInput = $("#rem-add-input");
     const searchInput = $("#rem-search");
     const badgeEl = $("#todo-badge");
-    const detailPanel = $("#rem-detail");
+    const detailDlg = $("#dialog-rem-detail");
     const detailBody = $("#rem-detail-body");
 
     const LIST_COLORS = ["#ff6b8a", "#ff9f0a", "#ffd60a", "#30d158", "#0a84ff", "#7c83fa", "#bf5af2", "#8e8e93"];
@@ -5296,81 +5296,94 @@
       const it = Todo.data.items.find((x) => x.id === id);
       if (!it) return;
       openDetailId = id;
-      detailPanel.hidden = false;
-      const list = Todo.data.lists.find((l) => l.id === it.listId);
       detailBody.innerHTML = `
-        <label class="rem-d-field">
-          <span>标题</span>
-          <input type="text" id="rem-d-text" value="${escapeAttr(it.text)}" maxlength="200" />
-        </label>
-        <label class="rem-d-field">
-          <span>备注</span>
-          <textarea id="rem-d-notes" rows="4" placeholder="备注 / 位置 / 想法...">${escapeHtml(it.notes || "")}</textarea>
-        </label>
-        <div class="rem-d-row">
+        <section class="rem-d-card">
           <label class="rem-d-field">
-            <span>截止日期</span>
-            <input type="date" id="rem-d-date" value="${escapeAttr(it.dueDate || "")}" />
+            <span>标题</span>
+            <input type="text" id="rem-d-text" value="${escapeAttr(it.text)}" maxlength="200" placeholder="提醒标题..." />
           </label>
           <label class="rem-d-field">
-            <span>时间</span>
-            <input type="time" id="rem-d-time" value="${escapeAttr(it.dueTime || "")}" />
+            <span>备注</span>
+            <textarea id="rem-d-notes" rows="3" placeholder="备注 / 位置 / 想法...">${escapeHtml(it.notes || "")}</textarea>
           </label>
-        </div>
-        <label class="rem-d-field">
-          <span>优先级</span>
-          <div class="rem-d-priority" data-cur="${it.priority || 0}">
-            ${[0, 1, 2, 3].map((p) => `<button type="button" class="rem-p ${p === (it.priority || 0) ? "is-on" : ""}" data-p="${p}">${["无", "低", "中", "高"][p]}</button>`).join("")}
+        </section>
+
+        <section class="rem-d-card">
+          <h4 class="rem-d-card-title">⏰ 时间</h4>
+          <div class="rem-d-row">
+            <label class="rem-d-field">
+              <span>截止日期</span>
+              <input type="date" id="rem-d-date" value="${escapeAttr(it.dueDate || "")}" />
+            </label>
+            <label class="rem-d-field">
+              <span>具体时间</span>
+              <input type="time" id="rem-d-time" value="${escapeAttr(it.dueTime || "")}" />
+            </label>
           </div>
-        </label>
-        <label class="rem-d-toggle">
-          <input type="checkbox" id="rem-d-flag" ${it.flagged ? "checked" : ""} />
-          <span>🚩 已标记</span>
-        </label>
-        <label class="rem-d-toggle">
-          <input type="checkbox" id="rem-d-sync" ${it.syncToCal ? "checked" : ""} />
-          <span>📅 同步到日历</span>
-        </label>
-        <label class="rem-d-field">
-          <span>URL</span>
-          <input type="url" id="rem-d-url" value="${escapeAttr(it.url || "")}" placeholder="https://..." />
-        </label>
-        <label class="rem-d-field">
-          <span>标签（空格分隔，#tag 格式）</span>
-          <input type="text" id="rem-d-tags" value="${escapeAttr((it.tags || []).join(" "))}" placeholder="#购物 #紧急" />
-        </label>
-        <div class="rem-d-field">
-          <span>所属列表</span>
-          <select id="rem-d-listid">
-            ${Todo.data.lists.map((l) => `<option value="${l.id}" ${l.id === it.listId ? "selected" : ""}>${escapeHtml(l.emoji || "🗒")} ${escapeHtml(l.name)}</option>`).join("")}
-          </select>
-        </div>
-        <div class="rem-d-actions">
-          <button type="button" class="btn-secondary" id="rem-d-del">删除提醒</button>
-        </div>
+        </section>
+
+        <section class="rem-d-card">
+          <h4 class="rem-d-card-title">⚡ 优先级</h4>
+          <div class="rem-d-priority">
+            ${[0, 1, 2, 3].map((p) => `<button type="button" class="rem-p p-${p} ${p === (it.priority || 0) ? "is-on" : ""}" data-p="${p}">${["无", "低", "中", "高"][p]}</button>`).join("")}
+          </div>
+        </section>
+
+        <section class="rem-d-card">
+          <h4 class="rem-d-card-title">🚩 标记 · 📅 同步</h4>
+          <div class="rem-d-toggles">
+            <label class="rem-d-toggle">
+              <input type="checkbox" id="rem-d-flag" ${it.flagged ? "checked" : ""} />
+              <span>🚩 标记为重要</span>
+            </label>
+            <label class="rem-d-toggle">
+              <input type="checkbox" id="rem-d-sync" ${it.syncToCal ? "checked" : ""} />
+              <span>📅 同步到日历</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="rem-d-card">
+          <h4 class="rem-d-card-title">🔗 链接与标签</h4>
+          <label class="rem-d-field">
+            <span>URL</span>
+            <input type="url" id="rem-d-url" value="${escapeAttr(it.url || "")}" placeholder="https://..." />
+          </label>
+          <label class="rem-d-field">
+            <span>标签（空格分隔）</span>
+            <input type="text" id="rem-d-tags" value="${escapeAttr((it.tags || []).join(" "))}" placeholder="#购物 #紧急" />
+          </label>
+        </section>
+
+        <section class="rem-d-card">
+          <h4 class="rem-d-card-title">📂 所属列表</h4>
+          <label class="rem-d-field">
+            <select id="rem-d-listid">
+              ${Todo.data.lists.map((l) => `<option value="${l.id}" ${l.id === it.listId ? "selected" : ""}>${escapeHtml(l.emoji || "🗒")}  ${escapeHtml(l.name)}</option>`).join("")}
+            </select>
+          </label>
+        </section>
       `;
-      // 绑定每个字段实时保存
-      detailBody.addEventListener("change", saveDetailFromDOM);
-      detailBody.addEventListener("input", saveDetailFromDOM);
+      // priority button click（事件委托）
       detailBody.querySelectorAll(".rem-p").forEach((b) => b.addEventListener("click", () => {
         const p = +b.dataset.p;
         detailBody.querySelectorAll(".rem-p").forEach((x) => x.classList.toggle("is-on", +x.dataset.p === p));
         Todo.update(openDetailId, { priority: p });
-        render();
+        renderMain();
+        renderSidebar();
       }));
-      $("#rem-d-del").addEventListener("click", () => {
-        if (!confirm("删除这条提醒？")) return;
-        Todo.remove(openDetailId);
-        closeDetail();
-        render();
-      });
+      if (typeof detailDlg.showModal === "function" && !detailDlg.open) detailDlg.showModal();
     }
+    // detailBody 上的 change/input：一次性绑定（事件委托），openDetailId 守门
+    detailBody.addEventListener("change", () => { if (openDetailId) saveDetailFromDOM(); });
+    detailBody.addEventListener("input", () => { if (openDetailId) saveDetailFromDOM(); });
 
     function closeDetail() {
-      detailPanel.hidden = true;
-      detailBody.innerHTML = "";
+      if (detailDlg.open) detailDlg.close();
       openDetailId = null;
     }
+    // 关闭时清理状态
+    detailDlg.addEventListener("close", () => { openDetailId = null; });
 
     function saveDetailFromDOM() {
       if (!openDetailId) return;
@@ -5529,8 +5542,14 @@
       }
     });
 
-    // 详情面板关闭
-    $("#rem-detail-close").addEventListener("click", closeDetail);
+    // 详情：删除按钮（在 dialog footer 里）
+    $("#rem-d-del").addEventListener("click", () => {
+      if (!openDetailId) return;
+      if (!confirm("删除这条提醒？")) return;
+      Todo.remove(openDetailId);
+      closeDetail();
+      render();
+    });
 
     // 清除已完成
     $("#rem-clear-done").addEventListener("click", () => {

@@ -20,8 +20,14 @@ git status --short
 echo
 echo "==> commit (若已无变更会跳过)"
 git -c user.name="xianranlh" -c user.email="lh2206568981@gmail.com" commit \
-  -m "feat(v1.20.0): 提醒事项重做为 Mac Reminders 风格" \
-  -m "重做 js/todo.js：双层数据 lists + items，items 字段扩到 notes / dueDate+dueTime / priority(0-3) / flagged / tags / url / subtasks / syncToCal / calTaskId。内置 5 个智能列表（今天 / 计划 / 全部 / 已标记 / 已完成）+ 用户自建列表，支持 addList / updateList / removeList，每个列表带 emoji 和颜色。v1 老数据自动迁移到 v2 schema。"  \
+  -m "polish(v1.20.1): 提醒详情面板从贴边 sidebar 改为独立居中 dialog" \
+  -m "1) ⓘ 详情按钮从 opacity:0 + hover 才显，改为常显（28px 圆形、半透明灰底、hover 主题色高亮 + 1.05 scale）。整行 hover 也不再 fade in fade out。" \
+  -m "2) 删除原嵌入式 .rem-detail 右侧 sidebar（280px 太窄、time picker popup 被裁、字号小）。新增独立 dialog-rem-detail（dialog.showModal()，居中浮起，540px 宽）。" \
+  -m "3) 详情内容分卡片组：基础信息（标题 + 备注）/ ⏰ 时间（日期 + 时间双栏，date/time popup 现在向下浮起不被裁）/ ⚡ 优先级（4 按钮带阴影激活态：低蓝 / 中橙 / 高红）/ 🚩 标记 · 📅 同步（toggle 卡片化）/ 🔗 链接与标签 / 📂 所属列表。每卡圆角 14px + 14px 字号 + 9px 圆角输入。" \
+  -m "4) 删除提醒按钮挪到 dialog footer 加红色 danger 样式。" \
+  -m "5) 杂项：sw.js v1.20.1，事件委托避免重复绑定。" \
+  -m "原 v1.20.0：" \
+  -m "重做 js/todo.js：双层数据 lists + items，5 智能列表，v1 老数据自动迁移。"  \
   -m "dialog-todo 重写为双栏 shell：左侧 sidebar（搜索框 + 智能列表 2×3 网格 + 用户列表 + + 新建列表按钮）+ 中间 main（大标题 + + 添加输入 + 项目列表 + 已完成区）+ 右侧详情面板（标题 / 备注 / 截止日期 时间 / 优先级 / 标记 / 同步日历 / URL / 标签 / 所属列表 / 删除）。" \
   -m "项目行 Mac 风格：圆形 radio（按 priority 染色 蓝/橙/红，勾选打钩动画）+ 标题 + 备注 + due（今天/明天/N 天后人话化）+ 🚩 + 列表小标 + 标签 + 链接 + ⓘ 详情按钮（hover 显)；点 ⓘ 弹右侧详情面板实时双向保存。" \
   -m "完整功能：智能列表自动归集 / 列表新建编辑删除（弹窗带 8 色 swatch）/ 子任务父项 done 自动级联子项 / 搜索（120ms debounce）/ 内联编辑标题（contenteditable）/ 智能列表上 + 添加自动填上下文（今天默认今天 due / 已标记自动 flagged） / 与日历联动保留（priority 决定颜色）。" \
