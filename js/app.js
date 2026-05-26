@@ -3433,6 +3433,8 @@
       $("#council-enabled").checked = !!cfg.enabled;
       $("#council-rounds").value = cfg.rounds || 1;
       $("#council-order").value = cfg.speakerOrder || "configured";
+      const concEl = $("#council-concurrency");
+      if (concEl) concEl.value = Math.max(1, Math.min(16, +cfg.concurrency || 4));
       applyCouncilModeUI();
       renderCouncilMembers();
       if (typeof dlgCouncil.showModal === "function" && !dlgCouncil.open) dlgCouncil.showModal();
@@ -3525,6 +3527,93 @@
       if (!AI.AIStore.data.providers.length) { toast("请先到 AI 设置里添加供应商"); return; }
       cfg.members.push(AI.makeCouncilMember());
       renderCouncilMembers();
+    });
+
+    // ⚡ 深度研究：借鉴 grok-4.20-multi-agent-xhigh，一键建 16 个差异化角色成员
+    $("#council-deep-research")?.addEventListener("click", () => {
+      const cfg = AI.AIStore.data.council;
+      const providers = AI.AIStore.data.providers || [];
+      if (!providers.length) { toast("请先到 AI 设置里添加供应商"); return; }
+
+      // 16 个差异化角色（emoji + label + 系统提示偏置），覆盖常见思维角度
+      const ROLES = [
+        { emoji: "🔬", label: "实证派",   bias: "你只看数据、引用与可验证事实，不接受空泛论断。" },
+        { emoji: "🎯", label: "聚焦者",   bias: "你只回答用户真正问的那一点，拒绝展开离题内容。" },
+        { emoji: "🛡️", label: "怀疑者",   bias: "你逐条挑战默认假设，追问\"为什么不会反过来\"。" },
+        { emoji: "🚀", label: "乐观派",   bias: "你优先发掘机会和上行空间，但不忽略关键风险。" },
+        { emoji: "⚠️", label: "风险官",   bias: "你列出所有可能失败的方式，按严重度排序。" },
+        { emoji: "🧮", label: "量化师",   bias: "尽可能给出数字、比例、量级，避免\"一些/很多\"。" },
+        { emoji: "🌍", label: "宏观视角", bias: "你从趋势、行业、长周期角度看问题，不陷入细节。" },
+        { emoji: "🔍", label: "细节控",   bias: "你专门挑别人会忽略的边角和实现细节。" },
+        { emoji: "🧑‍🎨", label: "创意者",  bias: "你给出 3 个非常规、跳出框架的方案。" },
+        { emoji: "⚖️", label: "权衡师",   bias: "你列出每个方案的取舍 (trade-off) 矩阵。" },
+        { emoji: "📚", label: "历史学者", bias: "你引用类似的历史先例或行业案例支撑判断。" },
+        { emoji: "🛠️", label: "实施派",   bias: "你只关心\"明天就能开始执行\"的具体步骤。" },
+        { emoji: "💰", label: "成本控",   bias: "你估算金钱 / 时间 / 注意力成本，优先低成本方案。" },
+        { emoji: "🧭", label: "战略官",   bias: "你从长期目标反推当前应该做的事。" },
+        { emoji: "🤝", label: "利益相关", bias: "你列出每一方的诉求与潜在冲突。" },
+        { emoji: "🪞", label: "反思者",   bias: "你复盘别人答案的盲点，给出更平衡的最终结论。" },
+      ];
+
+      // 配色：跟原 makeCouncilMember 一致的调色板，循环使用
+      const PALETTE = ["#ff6b8a", "#7c83fa", "#3aa66e", "#ff9d4a", "#ad6dff", "#ec4899", "#0ea5e9", "#f59e0b"];
+
+      // 模型选取：每个 provider 用 rankModels 取最优；多 provider 时轮询
+      const providerPicks = providers.map((p) => {
+        const all = (p.models || []).filter(Boolean);
+        const ranked = all.length ? AI.rankModels(p, all).ordered : [];
+        return {
+          provider: p,
+          // 给每个 provider 最多准备 4 个候选模型，循环用
+          models: ranked.slice(0, 4).length ? ranked.slice(0, 4) : [p.defaultModel].filter(Boolean),
+        };
+      }).filter((x) => x.models.length);
+
+      if (!providerPicks.length) {
+        toast("没有可用模型，请先到 AI 设置里加载模型列表");
+        return;
+      }
+
+      // 建 16 个成员
+      cfg.members = [];
+      for (let i = 0; i < ROLES.length; i++) {
+        const role = ROLES[i];
+        const pick = providerPicks[i % providerPicks.length];
+        const model = pick.models[Math.floor(i / providerPicks.length) % pick.models.length];
+        cfg.members.push({
+          id: "deep-" + i + "-" + Math.random().toString(36).slice(2, 6),
+          label: role.label,
+          emoji: role.emoji,
+          color: PALETTE[i % PALETTE.length],
+          personaId: "",      // 用空 persona，下面 systemPromptOverride 接管
+          providerId: pick.provider.id,
+          model,
+          systemPromptOverride: `你扮演"${role.label}"角色。${role.bias}\n回答控制在 200 字以内，紧扣用户原始问题，不重复别人会说的部分。`,
+        });
+      }
+
+      // 自动开启 + 广播模式 + 并发 4
+      cfg.enabled  = true;
+      cfg.mode     = "broadcast";
+      cfg.concurrency = Math.min(4, ROLES.length);
+
+      // 同步 UI 状态
+      $("#council-enabled") && ($("#council-enabled").checked = true);
+      $("#council-concurrency") && ($("#council-concurrency").value = cfg.concurrency);
+      $$(".council-tab").forEach((t) => t.setAttribute("aria-selected", t.dataset.mode === "broadcast" ? "true" : "false"));
+      $$(".council-mode-row").forEach((r) => {
+        const only = r.dataset.modeOnly;
+        r.hidden = only && only !== "broadcast";
+      });
+      renderCouncilMembers();
+      toast(`已生成 16 个差异化角色成员（并发 ${cfg.concurrency}）`);
+    });
+
+    // 并发上限输入
+    $("#council-concurrency")?.addEventListener("change", (e) => {
+      const v = Math.max(1, Math.min(16, +e.target.value || 4));
+      AI.AIStore.data.council.concurrency = v;
+      e.target.value = v;
     });
 
     // 保存（form submit）
@@ -3636,9 +3725,31 @@
       }
     }
 
-    /** 广播：所有成员并行发请求，每个有自己的 streaming bubble，互不见对方。 */
+    /** 广播：所有成员并行发请求，每个有自己的 streaming bubble，互不见对方。
+     *  借鉴 grok2api 多 agent 协同的三个思路：
+     *  - 并发上限信号量（默认 4，可通过 council.concurrency 调）：避免 16 成员同时炸
+     *  - 进度卡片：顶部 N/T 完成 · X 失败 · 平均耗时
+     *  - 单成员失败自动用 rankModels 选下一个备选模型重试一次（429/5xx 触发） */
     async function runCouncilBroadcast(members, userText, currentAttachments) {
-      // 先一次性创建好 N 个占位 assistant 消息（streaming），保证 UI 顺序稳定
+      const cfg = AI.AIStore.data.council || {};
+      const concurrency = Math.max(1, Math.min(16, +cfg.concurrency || 4));
+
+      // 进度卡片（一条独立的 system 消息，类型 councilProgress）
+      const progress = {
+        role: "system",
+        councilProgress: true,
+        total: members.length,
+        done: 0,
+        failed: 0,
+        retried: 0,
+        startTs: Date.now(),
+        latencies: [],
+        ts: Date.now(),
+        councilHidden: true, // 不送给模型
+      };
+      AI.AIStore.messages.push(progress);
+
+      // 占位 assistant 消息（保持 UI 顺序稳定）
       const slots = members.map((m) => {
         const msg = {
           role: "assistant",
@@ -3654,41 +3765,133 @@
       AI.AIStore.saveMessages();
       renderMessages();
 
-      // 并行发起；每个错误独立处理，不让一个失败拖垮整组
-      await Promise.all(slots.map(async ({ member, msg }) => {
+      const sem = AI.semaphore(concurrency);
+
+      // 失败是否可自动重试：429/5xx/Network 类（避开 401/403 等鉴权失败 + 用户取消）
+      const isRetriable = (err) => {
+        if (!err || err.name === "AbortError") return false;
+        const code = err.status || err.code || 0;
+        if (code === 429) return true;
+        if (code >= 500 && code < 600) return true;
+        // 没有 status 字段的网络层错误也认为可重试
+        if (!code && /(network|timeout|fetch|ECONN|ENOTFOUND)/i.test(err.message || "")) return true;
+        return false;
+      };
+
+      await Promise.all(slots.map(({ member, msg }) => sem.run(async () => {
+        if (abortCtrl?.signal.aborted) {
+          msg.streaming = false;
+          msg.content = "_[已取消]_";
+          updateCouncilBubble(msg);
+          progress.failed++;
+          updateCouncilProgressBubble(progress);
+          return;
+        }
+
         const provider = AI.AIStore.data.providers.find((p) => p.id === member.providerId);
         if (!provider) {
           msg.streaming = false;
           msg.content = `_供应商 ${member.providerId} 已不存在_`;
           msg.error = true;
+          updateCouncilBubble(msg);
+          progress.failed++;
+          updateCouncilProgressBubble(progress);
           return;
         }
-        try {
-          const msgs = await AI.buildMessagesForMember(member, userText, currentAttachments);
-          await AI.chat({
-            provider, model: member.model, messages: msgs,
-            signal: abortCtrl.signal,
-            retry: { maxAttempts: 2, delayMs: 1200 },
-            onDelta: (_d, full) => {
-              msg.content = full;
-              // 找到对应这条 msg 的 bubble 节点更新
-              updateCouncilBubble(msg);
-              scrollToBottom();
-            },
-          });
-        } catch (err) {
-          if (err?.name === "AbortError") {
+
+        const t0 = Date.now();
+        const tried = new Set();
+        let currentModel = member.model;
+        let lastErr = null;
+
+        // 最多 2 轮：原模型 + 一次自动备选
+        for (let attempt = 0; attempt < 2; attempt++) {
+          tried.add(currentModel);
+          // 重试时给气泡挂一个 "↻ 换模型重试" 元数据，方便 UI 标记
+          if (attempt > 0) {
+            msg.routedFrom = member.model;
+            msg.routedTo = currentModel;
+            progress.retried++;
+            updateCouncilProgressBubble(progress);
+          }
+          try {
+            const msgs = await AI.buildMessagesForMember(member, userText, currentAttachments);
+            await AI.chat({
+              provider, model: currentModel, messages: msgs,
+              signal: abortCtrl.signal,
+              retry: { maxAttempts: 2, delayMs: 1200 },
+              onDelta: (_d, full) => {
+                msg.content = full;
+                updateCouncilBubble(msg);
+                scrollToBottom();
+              },
+            });
+            lastErr = null;
+            break; // 成功，退出 attempt 循环
+          } catch (err) {
+            lastErr = err;
+            // 用户主动取消：直接退出
+            if (err?.name === "AbortError") break;
+            // 不可重试 / 已经是第二次尝试：直接失败
+            if (attempt === 1 || !isRetriable(err)) break;
+            // 选下一个备选模型
+            const next = AI.pickNextModelFor(provider, currentModel, tried);
+            if (!next) break;
+            currentModel = next;
+            msg.content = ""; // 清掉前一次的半成品内容，重新流
+          }
+        }
+
+        // 收尾：更新气泡 + 进度
+        if (lastErr) {
+          if (lastErr.name === "AbortError") {
             msg.content += "\n\n_[已取消]_";
           } else {
-            msg.content = formatAIError(err);
+            msg.content = formatAIError(lastErr);
             msg.error = true;
           }
-        } finally {
-          msg.streaming = false;
-          AI.AIStore.saveMessages();
-          updateCouncilBubble(msg);
+          progress.failed++;
+        } else {
+          progress.done++;
+          progress.latencies.push(Date.now() - t0);
         }
-      }));
+        msg.streaming = false;
+        AI.AIStore.saveMessages();
+        updateCouncilBubble(msg);
+        updateCouncilProgressBubble(progress);
+      })));
+
+      // 全部结束：标记进度卡完成
+      progress.finishedTs = Date.now();
+      AI.AIStore.saveMessages();
+      updateCouncilProgressBubble(progress);
+    }
+
+    /** 把进度卡渲染成一行紧凑的横向胶囊。 */
+    function renderCouncilProgress(p) {
+      const pct = p.total ? Math.round((p.done + p.failed) / p.total * 100) : 0;
+      const avgMs = p.latencies && p.latencies.length
+        ? Math.round(p.latencies.reduce((a, b) => a + b, 0) / p.latencies.length)
+        : 0;
+      const elapsed = Math.round(((p.finishedTs || Date.now()) - p.startTs) / 1000);
+      const running = !p.finishedTs;
+      return `<div class="ai-council-progress ${running ? "running" : "done"}">
+        <span class="acp-ico">${running ? "🍵" : (p.failed ? "⚠️" : "✅")}</span>
+        <div class="acp-bar"><div class="acp-bar-fill" style="width:${pct}%"></div></div>
+        <span class="acp-stat"><b>${p.done}</b>/${p.total}</span>
+        ${p.failed ? `<span class="acp-stat err">${p.failed} 失败</span>` : ""}
+        ${p.retried ? `<span class="acp-stat warn">${p.retried} 换模型</span>` : ""}
+        ${avgMs ? `<span class="acp-stat">平均 ${(avgMs / 1000).toFixed(1)}s</span>` : ""}
+        <span class="acp-stat muted">总 ${elapsed}s</span>
+      </div>`;
+    }
+
+    function updateCouncilProgressBubble(progress) {
+      const idx = AI.AIStore.messages.indexOf(progress);
+      if (idx < 0) return;
+      const wrap = messagesEl.querySelectorAll(".ai-msg")[idx];
+      if (!wrap) return;
+      wrap.innerHTML = renderCouncilProgress(progress);
     }
 
     /** 辩论：第 1 轮广播 → 第 2 轮把所有 R1 答案喂给主持人/全体 综合反驳。 */
@@ -3885,6 +4088,7 @@
       autoResize();
       stopBtn.hidden = false;
       sendBtn.hidden = true;
+      panel.classList.add("is-sending");
       abortCtrl = new AbortController();
 
       // ========== 🍵 茶话会分支 ==========
@@ -3901,6 +4105,7 @@
           abortCtrl = null;
           stopBtn.hidden = true;
           sendBtn.hidden = false;
+          panel.classList.remove("is-sending");
           try { refreshModelStatus(); } catch (_) {}
           try { syncCouncilBtnState(); } catch (_) {}
         }
@@ -4016,6 +4221,7 @@
           abortCtrl = null;
           stopBtn.hidden = true;
           sendBtn.hidden = false;
+          panel.classList.remove("is-sending");
           try { refreshModelStatus(); } catch (_) {}
         }
         return;
@@ -4143,6 +4349,7 @@
         abortCtrl = null;
         stopBtn.hidden = true;
         sendBtn.hidden = false;
+        panel.classList.remove("is-sending");
         // 一次 send 完成（成功 / 失败 / 取消都算），刷一下模型状态徽章 — chat()/generateImage() 内部已经记好台账了
         try { refreshModelStatus(); } catch (_) {}
       }
@@ -4169,6 +4376,14 @@
           const wrap = document.createElement("div");
           wrap.className = "ai-msg ai-msg-divider";
           wrap.appendChild(div);
+          messagesEl.appendChild(wrap);
+          return;
+        }
+        // 茶话会进度卡（system + councilProgress）
+        if (m.councilProgress) {
+          const wrap = document.createElement("div");
+          wrap.className = "ai-msg ai-msg-progress";
+          wrap.innerHTML = renderCouncilProgress(m);
           messagesEl.appendChild(wrap);
           return;
         }
@@ -4270,16 +4485,18 @@
         const dlName = `sakura-image-${Date.now()}-${safeIdx}.png`;
         if (r.status === "success") {
           const u = r.dataUrl || r.url;
+          // 改写提示词改为可折叠 details，默认收起，节省纵向空间
           const cap = r.revisedPrompt
-            ? `<div class="ai-img-revised" title="${escapeHtml(r.revisedPrompt)}">改写：${escapeHtml(r.revisedPrompt.slice(0, 100))}${r.revisedPrompt.length > 100 ? "…" : ""}</div>`
+            ? `<details class="ai-img-revised"><summary>模型理解的提示词</summary><div class="ai-img-revised-body">${escapeHtml(r.revisedPrompt)}</div></details>`
             : "";
+          // 操作改为图标按钮 + 悬浮 tooltip，横向收紧
           return `<figure class="ai-img-card success">
               <img class="ai-img-thumb" src="${u}" alt="生图结果 #${i + 1}" title="点击查看大图" />
               ${cap}
               <div class="ai-img-actions">
-                <a class="ai-img-act" href="${u}" download="${dlName}" title="保存到本地">⬇ 下载</a>
-                <button type="button" class="ai-img-act" data-img-act="seed-prompt" title="把这条提示词复制回输入框">✎ 复制提示词</button>
-                <button type="button" class="ai-img-act" data-img-act="retry-image" title="用同样的提示词再生成一次">↻ 再生成</button>
+                <a class="ai-img-act" href="${u}" download="${dlName}" title="下载到本地" aria-label="下载">⬇</a>
+                <button type="button" class="ai-img-act" data-img-act="seed-prompt" title="把这条提示词复制回输入框" aria-label="复制提示词">✎</button>
+                <button type="button" class="ai-img-act" data-img-act="retry-image" title="用同样的提示词再生成一次" aria-label="再生成">↻</button>
               </div>
             </figure>`;
         }
@@ -4287,7 +4504,7 @@
           return `<figure class="ai-img-card error">
               <div class="ai-img-err-text">${escapeHtml(r.error || "处理失败")}</div>
               <div class="ai-img-actions">
-                <button type="button" class="ai-img-act" data-img-act="retry-image" title="重新发送同样的请求">↻ 重新生成</button>
+                <button type="button" class="ai-img-act" data-img-act="retry-image" title="重新发送同样的请求" aria-label="重新生成">↻ 重试</button>
               </div>
             </figure>`;
         }

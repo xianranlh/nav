@@ -810,14 +810,20 @@
       </div>
       <div class="ai-head-right">
         <select id="ai-model-select" title="模型（每条选项前的 ✓/❄/⚠/· 表示最近一次状态）"></select>
-        <button class="ai-tool-btn" id="ai-refresh-models" title="重新拉取这个供应商的模型列表"><span class="ai-tool-ico">↻</span><span class="ai-tool-txt">刷新</span></button>
-        <button class="ai-tool-btn" id="ai-find-model" title="逐个发 1-token 探针自动找一个能用的模型"><span class="ai-tool-ico">🔍</span><span class="ai-tool-txt">探测</span></button>
-        <button class="ai-tool-btn" id="ai-image-mode" title="切换生图模式（请求改走 /v1/images/generations）" aria-pressed="false"><span class="ai-tool-ico">🎨</span><span class="ai-tool-txt">生图</span></button>
-        <button class="ai-tool-btn" id="ai-council" title="茶话会模式：多代理并行/辩论/圆桌对话" aria-pressed="false"><span class="ai-tool-ico">🍵</span><span class="ai-tool-txt">茶话会</span></button>
-        <button class="ai-tool-btn" id="ai-export" title="导出当前对话为 Markdown 文件"><span class="ai-tool-ico">⤓</span><span class="ai-tool-txt">导出</span></button>
-        <button class="ai-tool-btn" id="ai-clear" title="清空会话历史"><span class="ai-tool-ico">🗑</span><span class="ai-tool-txt">清空</span></button>
-        <button class="ai-tool-btn" id="ai-open-settings" title="打开 AI 设置弹窗"><span class="ai-tool-ico">⚙</span><span class="ai-tool-txt">设置</span></button>
-        <button class="ai-tool-btn" id="ai-close" title="关闭面板（Esc）"><span class="ai-tool-ico">✕</span><span class="ai-tool-txt">关闭</span></button>
+        <div class="ai-head-group" role="group" aria-label="模型操作">
+          <button class="ai-tool-btn" id="ai-refresh-models" title="重新拉取这个供应商的模型列表"><span class="ai-tool-ico">↻</span><span class="ai-tool-txt">刷新</span></button>
+          <button class="ai-tool-btn" id="ai-find-model" title="逐个发 1-token 探针自动找一个能用的模型"><span class="ai-tool-ico">🔍</span><span class="ai-tool-txt">探测</span></button>
+        </div>
+        <div class="ai-head-group" role="group" aria-label="对话模式">
+          <button class="ai-tool-btn" id="ai-image-mode" title="切换生图模式（请求改走 /v1/images/generations）" aria-pressed="false"><span class="ai-tool-ico">🎨</span><span class="ai-tool-txt">生图</span></button>
+          <button class="ai-tool-btn" id="ai-council" title="茶话会模式：多代理并行/辩论/圆桌对话" aria-pressed="false"><span class="ai-tool-ico">🍵</span><span class="ai-tool-txt">茶话会</span></button>
+        </div>
+        <div class="ai-head-group" role="group" aria-label="会话操作">
+          <button class="ai-tool-btn" id="ai-export" title="导出当前对话为 Markdown 文件"><span class="ai-tool-ico">⤓</span><span class="ai-tool-txt">导出</span></button>
+          <button class="ai-tool-btn" id="ai-clear" title="清空会话历史"><span class="ai-tool-ico">🗑</span><span class="ai-tool-txt">清空</span></button>
+          <button class="ai-tool-btn" id="ai-open-settings" title="打开 AI 设置弹窗"><span class="ai-tool-ico">⚙</span><span class="ai-tool-txt">设置</span></button>
+        </div>
+        <button class="ai-tool-btn ai-close-btn" id="ai-close" title="关闭面板（Esc）" aria-label="关闭面板"><span class="ai-tool-ico">✕</span><span class="ai-tool-txt">关闭</span></button>
       </div>
     </header>
     <div id="ai-image-controls" class="ai-image-controls" hidden>
@@ -857,7 +863,7 @@
           <input type="file" id="ai-attach-input" multiple accept="image/*,text/*,.json,.html,.md,.csv,.txt" hidden />
         </label>
         <button class="ai-attach-btn voice-btn" id="ai-voice" type="button" title="语音输入（Web Speech API，按一下开始/停止录制）" aria-label="语音输入"><span class="ai-tool-ico">🎙</span><span class="ai-tool-txt">语音</span></button>
-        <textarea id="ai-input" rows="1" placeholder="输入消息..." aria-label="输入 AI 对话内容。Enter 发送，Shift+Enter 换行" title="Enter 发送，Shift+Enter 换行"></textarea>
+        <textarea id="ai-input" rows="1" placeholder="输入消息，让 AI 帮你整理 / 推荐 / 生成图…" aria-label="输入 AI 对话内容。Enter 发送，Shift+Enter 换行" title="Enter 发送，Shift+Enter 换行"></textarea>
         <button id="ai-send" class="btn-primary" title="发送（Enter）"><span class="ai-tool-ico">➤</span><span class="ai-tool-txt">发送</span></button>
         <button id="ai-stop" class="btn-secondary" title="停止当前请求" hidden><span class="ai-tool-ico">■</span><span class="ai-tool-txt">停止</span></button>
       </div>
@@ -1018,9 +1024,17 @@
 
         <div class="council-section">
           <div class="council-sec-head">
-            <h4>成员（建议 2-4 位）</h4>
-            <button type="button" class="mini-btn" id="council-add-member">+ 添加成员</button>
+            <h4>成员（建议 2-4 位；深度研究 16 位）</h4>
+            <div class="council-sec-actions">
+              <button type="button" class="mini-btn" id="council-deep-research" title="一键创建 16 个差异化角色的成员，覆盖你已配置的所有供应商，模拟 grok-4.20-multi-agent-xhigh 体验">⚡ 深度研究 (16)</button>
+              <button type="button" class="mini-btn" id="council-add-member">+ 添加成员</button>
+            </div>
           </div>
+          <label class="council-field council-concurrency">
+            <span>并发上限</span>
+            <input type="number" id="council-concurrency" min="1" max="16" value="4" />
+            <span class="council-tip-inline">同一时刻最多多少成员在飞（防止被供应商限速）</span>
+          </label>
           <div id="council-members-list" class="council-members-list"></div>
           <p class="council-tip" id="council-members-empty" hidden>还没有成员，点 + 添加成员开始。</p>
         </div>

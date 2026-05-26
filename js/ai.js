@@ -99,6 +99,7 @@
         moderatorMemberId: "",
         rounds: 1,
         speakerOrder: "configured",
+        concurrency: 4,         // 广播模式下同时在飞的成员数（grok2api semaphore 思路）
       },
     },
     messages: [],           // [{ role, content, ts, attachments?: [{type,name,url/data}] }]
@@ -132,7 +133,7 @@
       }
       // 老存档兜底：补齐 council 默认结构
       if (!this.data.council || typeof this.data.council !== "object") {
-        this.data.council = { enabled: false, mode: "broadcast", members: [], moderatorMemberId: "", rounds: 1, speakerOrder: "configured" };
+        this.data.council = { enabled: false, mode: "broadcast", members: [], moderatorMemberId: "", rounds: 1, speakerOrder: "configured", concurrency: 4 };
       }
       if (!Array.isArray(this.data.council.members)) this.data.council.members = [];
       if (!["broadcast", "debate", "roundtable"].includes(this.data.council.mode)) this.data.council.mode = "broadcast";
@@ -1090,6 +1091,8 @@
     const navCtx = buildNavContext();
     system += "\n\n" + navCtx + NAV_ACTION_SPEC;
     system += `\n\n【茶话会身份】你是"${member.label}"。回答时不需要在开头自报名字（前端会自动加标签）。`;
+    // 深度研究预设里成员自带 systemPromptOverride（角色偏置），覆盖默认 persona system 段后半部分
+    if (member.systemPromptOverride) system += "\n\n【角色定位】" + member.systemPromptOverride;
     if (opts.extraSystem) system += "\n\n" + opts.extraSystem;
 
     const history = AIStore.messages
@@ -1525,5 +1528,45 @@
     /** key = `${providerId}::${uiModel}`, value = { kind:"ok"|"error", ts:ms, msg? } */
     probeStatus: Object.create(null),
     uid: () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+    /** 简易 async 信号量。借鉴 grok2api 里 `_get_upload_sem()` 的"懒加载 + 配置驱动"思路。
+     *  用法：const sem = AI.semaphore(4); await sem.run(() => doWork());
+     *  - 同一时刻最多 n 个 fn 在执行，超出的排队等待
+     *  - fn 抛错也会释放许可；调用方自己包 try/catch
+     */
+    semaphore(n) {
+      const cap = Math.max(1, n | 0);
+      let inFlight = 0;
+      const waiters = [];
+      const acquire = () => new Promise((resolve) => {
+        if (inFlight < cap) { inFlight++; resolve(); }
+        else waiters.push(resolve);
+      });
+      const release = () => {
+        const next = waiters.shift();
+        if (next) next();          // 让下一位拿到许可，inFlight 不变
+        else inFlight--;
+      };
+      return {
+        get inFlight() { return inFlight; },
+        get pending() { return waiters.length; },
+        async run(fn) {
+          await acquire();
+          try { return await fn(); }
+          finally { release(); }
+        },
+      };
+    },
+    /** 给定 provider + 当前模型 + 已试过的模型集合，挑下一个"最不可能坏"的备选。
+     *  借鉴 grok2api executor 的 fallback 思路：失败后用 rankModels 顺序取下一个未试过的。
+     *  返回 null 表示没有更多备选可用。 */
+    pickNextModelFor(provider, currentModel, triedSet) {
+      const all = (provider?.models || []).filter(Boolean);
+      if (!all.length) return null;
+      const { ordered } = rankModels(provider, all);
+      for (const m of ordered) {
+        if (m && m !== currentModel && !triedSet.has(m)) return m;
+      }
+      return null;
+    },
   };
 })();
