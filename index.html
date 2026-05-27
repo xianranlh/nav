@@ -819,6 +819,8 @@
           <button class="ai-tool-btn" id="ai-council" title="茶话会模式：多代理并行/辩论/圆桌对话" aria-pressed="false"><span class="ai-tool-ico">🍵</span><span class="ai-tool-txt">茶话会</span></button>
         </div>
         <div class="ai-head-group" role="group" aria-label="会话操作">
+          <button class="ai-tool-btn" id="ai-sessions" title="历史会话：新建 / 切换 / 重命名 / 删除"><span class="ai-tool-ico">💬</span><span class="ai-tool-txt">会话</span></button>
+          <button class="ai-tool-btn" id="ai-gallery" title="图库：所有生成过的图与上传过的图"><span class="ai-tool-ico">🖼</span><span class="ai-tool-txt">图库</span></button>
           <button class="ai-tool-btn" id="ai-export" title="导出当前对话为 Markdown 文件"><span class="ai-tool-ico">⤓</span><span class="ai-tool-txt">导出</span></button>
           <button class="ai-tool-btn" id="ai-clear" title="清空会话历史"><span class="ai-tool-ico">🗑</span><span class="ai-tool-txt">清空</span></button>
           <button class="ai-tool-btn" id="ai-open-settings" title="打开 AI 设置弹窗"><span class="ai-tool-ico">⚙</span><span class="ai-tool-txt">设置</span></button>
@@ -1042,6 +1044,83 @@
       <div class="dialog-actions">
         <button type="button" class="btn-secondary" data-close>取消</button>
         <button type="submit" class="btn-primary" id="council-save">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== 历史会话管理 ===== -->
+  <dialog id="dialog-sessions" class="glass-dialog sessions-dialog">
+    <form method="dialog">
+      <div class="dialog-header">
+        <h3><span>💬</span> 历史会话</h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="sessions-toolbar">
+          <input type="search" id="sessions-search" placeholder="搜索会话标题或消息内容…" />
+          <button type="button" class="mini-btn" id="sessions-new">+ 新建会话</button>
+        </div>
+        <div id="sessions-list" class="sessions-list"></div>
+        <p class="sessions-empty" id="sessions-empty" hidden>还没有历史会话。点 + 新建一个开始。</p>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== 图库 ===== -->
+  <dialog id="dialog-gallery" class="glass-dialog gallery-dialog">
+    <form method="dialog">
+      <div class="dialog-header">
+        <h3><span>🖼</span> 图库 <small class="gallery-stat" id="gallery-stat"></small></h3>
+        <button type="button" class="close-btn" data-close title="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="gallery-toolbar">
+          <div class="gallery-filters" role="tablist">
+            <button type="button" class="gallery-filter is-active" data-filter="all" role="tab" aria-selected="true">全部</button>
+            <button type="button" class="gallery-filter" data-filter="generated" role="tab" aria-selected="false">生图</button>
+            <button type="button" class="gallery-filter" data-filter="uploaded" role="tab" aria-selected="false">上传</button>
+            <button type="button" class="gallery-filter" data-filter="favorite" role="tab" aria-selected="false">⭐ 收藏</button>
+          </div>
+          <input type="search" id="gallery-search" placeholder="搜索 prompt / 文件名 / 模型…" />
+          <button type="button" class="mini-btn" id="gallery-select-toggle" title="进入选择模式：勾选若干张当作背景轮询">☑ 选择</button>
+          <button type="button" class="mini-btn gallery-danger" id="gallery-clear" title="清空整个图库">清空</button>
+        </div>
+        <div class="gallery-selbar" id="gallery-selbar" hidden>
+          <div class="gallery-selbar-row gallery-selbar-row-main">
+            <span class="gallery-selbar-info">已选 <b id="gallery-sel-count">0</b> 张</span>
+            <button type="button" class="mini-btn" id="gallery-sel-all">全选当前视图</button>
+            <button type="button" class="mini-btn" id="gallery-sel-none">取消选择</button>
+            <label class="gallery-sel-shuffle" title="勾选后按随机顺序播放">
+              <input type="checkbox" id="gallery-bg-shuffle" />
+              <span>🔀 随机</span>
+            </label>
+            <label class="gallery-sel-interval" title="背景切换间隔（秒）">
+              <span>间隔</span>
+              <input type="number" id="gallery-bg-interval" min="5" max="3600" step="5" value="60" />
+              <span>s</span>
+            </label>
+            <button type="button" class="mini-btn primary" id="gallery-use-bg" title="把选中的图作为桌面背景，按设定间隔轮播">🖼 用作背景</button>
+          </div>
+
+          <!-- 拖拽排序条：缩略图按选择顺序排列，可拖动改顺序 -->
+          <div class="gallery-selbar-row gallery-selbar-row-thumbs" id="gallery-sel-thumbs" hidden>
+            <span class="gallery-thumbs-label">播放顺序（可拖动）：</span>
+            <div class="gallery-sel-thumb-strip" id="gallery-sel-thumb-strip"></div>
+          </div>
+
+          <!-- 预设：保存当前选择为命名预设，或一键加载历史预设 -->
+          <div class="gallery-selbar-row gallery-selbar-row-presets">
+            <span class="gallery-preset-label">📦 预设：</span>
+            <select id="gallery-preset-select" title="加载已保存的图集预设">
+              <option value="">— 选择预设 —</option>
+            </select>
+            <button type="button" class="mini-btn" id="gallery-preset-load" title="把所选预设加载到选择列表 + 直接应用为背景">加载</button>
+            <button type="button" class="mini-btn" id="gallery-preset-save" title="把当前选中保存成一个命名预设">+ 另存</button>
+            <button type="button" class="mini-btn danger" id="gallery-preset-delete" title="删除当前选中的预设">删除</button>
+          </div>
+        </div>
+        <div id="gallery-grid" class="gallery-grid"></div>
+        <p class="gallery-empty" id="gallery-empty" hidden>这里还没有图。生图或上传图片附件后会自动入库。</p>
       </div>
     </form>
   </dialog>
@@ -1478,6 +1557,7 @@
   <script src="js/suggest.js"></script>
   <script src="js/exporter.js"></script>
   <script src="js/idb.js"></script>
+  <script src="js/archive.js"></script>
   <script src="js/music.js"></script>
   <script src="js/storage-inspector.js"></script>
   <script src="js/app.js?v=v1.20.3"></script>
