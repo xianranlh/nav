@@ -52,6 +52,23 @@ export function openDatabase(dataDir) {
       payload TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS gallery_files (
+      id TEXT PRIMARY KEY,            -- 随机 ID，也是 URL slug；难猜避免被遍历
+      filename TEXT NOT NULL,         -- 磁盘上的实际文件名：{id}.{ext}
+      source TEXT NOT NULL,           -- "generated" | "uploaded"
+      mime TEXT,
+      bytes INTEGER,
+      prompt TEXT,
+      revised_prompt TEXT,
+      model TEXT,
+      size TEXT,
+      quality TEXT,
+      original_name TEXT,
+      client_id TEXT,                 -- 浏览器侧 IDB 里的 id，便于双向对账 / 去重
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_gallery_created_at ON gallery_files(created_at);
+    CREATE INDEX IF NOT EXISTS idx_gallery_client_id  ON gallery_files(client_id);
   `);
 
   migrateFromLegacyJson(dataDir);
@@ -188,6 +205,82 @@ export function setAiSettings(obj) {
   db.prepare(
     "INSERT OR REPLACE INTO ai_settings (id, payload, updated_at) VALUES (1, ?, ?)"
   ).run(raw, Date.now());
+}
+
+// ---------------------------------------------------------------------------
+// Gallery files — 服务端图床
+// ---------------------------------------------------------------------------
+
+export function recordGalleryFile(row) {
+  if (!db) return;
+  db.prepare(
+    `INSERT INTO gallery_files
+       (id, filename, source, mime, bytes, prompt, revised_prompt, model, size, quality, original_name, client_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       filename       = excluded.filename,
+       source         = excluded.source,
+       mime           = excluded.mime,
+       bytes          = excluded.bytes,
+       prompt         = excluded.prompt,
+       revised_prompt = excluded.revised_prompt,
+       model          = excluded.model,
+       size           = excluded.size,
+       quality        = excluded.quality,
+       original_name  = excluded.original_name,
+       client_id      = excluded.client_id`
+  ).run(
+    row.id,
+    row.filename,
+    row.source || "generated",
+    row.mime || "image/png",
+    row.bytes || 0,
+    row.prompt || "",
+    row.revised_prompt || "",
+    row.model || "",
+    row.size || "",
+    row.quality || "",
+    row.original_name || "",
+    row.client_id || "",
+    row.created_at || Date.now()
+  );
+}
+
+export function getGalleryFile(id) {
+  if (!db) return null;
+  const row = db.prepare("SELECT * FROM gallery_files WHERE id = ?").get(id);
+  return row || null;
+}
+
+export function findGalleryByClientId(clientId) {
+  if (!db || !clientId) return null;
+  const row = db.prepare("SELECT * FROM gallery_files WHERE client_id = ? LIMIT 1").get(clientId);
+  return row || null;
+}
+
+export function listGalleryFiles({ source, limit, offset } = {}) {
+  if (!db) return [];
+  const lim = Math.min(Math.max(+limit || 200, 1), 1000);
+  const off = Math.max(+offset || 0, 0);
+  const sql = source
+    ? "SELECT * FROM gallery_files WHERE source = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    : "SELECT * FROM gallery_files ORDER BY created_at DESC LIMIT ? OFFSET ?";
+  const args = source ? [source, lim, off] : [lim, off];
+  return db.prepare(sql).all(...args);
+}
+
+export function deleteGalleryFile(id) {
+  if (!db) return null;
+  const row = getGalleryFile(id);
+  if (!row) return null;
+  db.prepare("DELETE FROM gallery_files WHERE id = ?").run(id);
+  return row;
+}
+
+export function countGalleryFiles() {
+  if (!db) return 0;
+  const r = db.prepare("SELECT COUNT(*) AS c, COALESCE(SUM(bytes), 0) AS b FROM gallery_files").get();
+  return { count: r?.c || 0, bytes: r?.b || 0 };
 }
 
 /** 关闭当前 DB（导入前需要） */

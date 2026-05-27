@@ -32,6 +32,12 @@ import {
   snapshotDatabaseTo,
   getAiSettings,
   setAiSettings,
+  recordGalleryFile,
+  getGalleryFile,
+  findGalleryByClientId,
+  listGalleryFiles,
+  deleteGalleryFile,
+  countGalleryFiles,
 } from "./database.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -47,6 +53,28 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || "/data";
 const API_KEY = (process.env.SAKURA_API_KEY || "").trim();
+
+/**
+ * 公开访问的基础 URL 前缀（用于图床 URL 拼接）。
+ *
+ * - 未设置：图库 URL 返回相对路径（"/api/gallery/image/xxx.png"），
+ *   浏览器看到后自动拼成当前域 → 行为跟以前一样
+ * - 已设置（如 "https://cdn.xianran.de"）：返回绝对 URL，
+ *   复制出来的链接 / 列表里的 url 都用 CDN 域，但 nav 主站继续在原域
+ *
+ * 借鉴 grok2api 的 app.app_url 设计 —— 让图床域可以跟主域解耦：
+ *   - cdn.xianran.de 反代到同一个 Node 后端，专门服务静态图
+ *   - nav.xianran.de 服务 UI + 接受上传
+ *
+ * 注意：APP_URL 不必带尾斜杠；如果带了会自动去掉。
+ */
+const APP_URL = String(process.env.APP_URL || "").trim().replace(/\/$/, "");
+
+/** 把 gallery 文件名拼成对外可访问的 URL。 */
+function galleryPublicUrl(filename) {
+  const p = `/api/gallery/image/${filename}`;
+  return APP_URL ? `${APP_URL}${p}` : p;
+}
 
 const SERVE_STATIC =
   process.env.SERVE_STATIC === "1" ||
@@ -451,6 +479,265 @@ app.post("/api/import", auth, importUpload.single("file"), (req, res) => {
     try { openDatabase(getDataDir()); } catch (_) {}
     return res.status(500).json({ error: String(e.message || e) });
   }
+});
+
+/**
+ * 天气反代（绕过浏览器 → open-meteo 的 CORS / 间歇 502）
+ *   浏览器 → GET /api/weather/forecast?lat=…&lon=…
+ *   服务端 → GET https://api.open-meteo.com/v1/forecast?…
+ *
+ * - 不挂 auth：天气数据不敏感
+ * - 60 秒内存缓存，按 (lat,lon) 取整到 2 位小数（≈ 1km 精度）做 key
+ * - 上游 5xx 自动重试一次（间隔 800ms），仍失败才返回错误
+ * - 透传响应 JSON，主动加 CORS 头，避免被中间代理剥掉
+ */
+const _weatherCache = new Map(); // key -> { data, expireAt }
+const WEATHER_CACHE_MS = 60_000;
+const WEATHER_TIMEOUT_MS = 12_000;
+
+async function _fetchWithTimeout(url, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(new Error("timeout")), ms);
+  try {
+    const r = await fetch(url, {
+      headers: { "user-agent": "sakura-nav-weather/1.0" },
+      signal: ctrl.signal,
+    });
+    return r;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+app.get("/api/weather/forecast", async (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lon = parseFloat(req.query.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return res.status(400).json({ error: "lat / lon 必须是数字" });
+  }
+  const key = `${lat.toFixed(2)}:${lon.toFixed(2)}`;
+  const now = Date.now();
+  const cached = _weatherCache.get(key);
+  if (cached && cached.expireAt > now) {
+    res.set("X-Weather-Cache", "HIT");
+    return res.json(cached.data);
+  }
+
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature` +
+    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+    `&timezone=auto&forecast_days=7`;
+
+  // 最多 2 次尝试：原请求 + 一次重试（5xx / 网络异常时）
+  let lastErr = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 800));
+    try {
+      const r = await _fetchWithTimeout(url, WEATHER_TIMEOUT_MS);
+      if (!r.ok) {
+        lastErr = `HTTP ${r.status}`;
+        if (r.status >= 500 && attempt === 0) continue;
+        return res.status(r.status).json({ error: "open-meteo 上游错误", status: r.status });
+      }
+      const data = await r.json();
+      _weatherCache.set(key, { data, expireAt: now + WEATHER_CACHE_MS });
+      res.set("X-Weather-Cache", "MISS");
+      return res.json(data);
+    } catch (e) {
+      lastErr = String(e?.message || e);
+      // timeout / 网络异常允许重试
+      if (attempt === 0) continue;
+    }
+  }
+  // 用 stale 缓存兜底（如果有），避免上游短暂抖动让前端没数据可显
+  if (cached) {
+    res.set("X-Weather-Cache", "STALE");
+    return res.json(cached.data);
+  }
+  return res.status(502).json({ error: "open-meteo 暂不可达", detail: lastErr });
+});
+
+// ===========================================================================
+// 图库（图床）— 服务端持久化 + 公开 URL 访问
+// ===========================================================================
+//   - 上传：POST /api/gallery/upload  (auth)
+//       body JSON: { dataUrl, source, prompt, revisedPrompt, model, size, quality, name, mime, client_id }
+//       存盘到 ${DATA_DIR}/media/gallery/{id}.{ext}，DB 记录元信息
+//       返回 { id, url, ext }，url 形如 /api/gallery/image/{id}.{ext}
+//   - 读取：GET /api/gallery/image/:idExt  (无 auth；id 是随机长字符串作为密钥)
+//       匹配 {id}.{ext}；ext 可省略（兼容老链接），实际 mime 以 DB 记录为准
+//   - 列出：GET /api/gallery/list?source=generated|uploaded  (auth)
+//   - 删除：DELETE /api/gallery/image/:idExt  (auth)
+
+const GALLERY_CAT = "gallery";
+const GALLERY_MAX_BYTES = 25 * 1024 * 1024;
+const _MIME_TO_EXT = {
+  "image/png":  "png",
+  "image/jpeg": "jpg",
+  "image/jpg":  "jpg",
+  "image/webp": "webp",
+  "image/gif":  "gif",
+  "image/bmp":  "bmp",
+  "image/avif": "avif",
+};
+function _extFromMime(mime) {
+  return _MIME_TO_EXT[(mime || "").toLowerCase()] || "png";
+}
+function _splitIdExt(s) {
+  if (!s) return { id: "", ext: "" };
+  const i = s.lastIndexOf(".");
+  if (i <= 0) return { id: s, ext: "" };
+  return { id: s.slice(0, i), ext: s.slice(i + 1).toLowerCase() };
+}
+function _parseDataUrl(dataUrl) {
+  // data:[<mime>][;base64],<data>
+  const m = /^data:([^;,]+)?(?:;([^,]*))?,(.*)$/s.exec(dataUrl || "");
+  if (!m) return null;
+  const mime = (m[1] || "image/png").toLowerCase();
+  const isB64 = (m[2] || "").includes("base64");
+  const payload = m[3] || "";
+  let buf;
+  try {
+    if (isB64) buf = Buffer.from(payload, "base64");
+    else buf = Buffer.from(decodeURIComponent(payload), "utf8");
+  } catch (_) { return null; }
+  return { mime, bytes: buf };
+}
+
+app.post("/api/gallery/upload", auth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const dataUrl = String(body.dataUrl || "");
+    if (!dataUrl) return res.status(400).json({ error: "缺少 dataUrl" });
+
+    // 已上传过同一个 client_id（IDB id）的图，直接复用，避免重复占用磁盘
+    if (body.client_id) {
+      const exist = findGalleryByClientId(String(body.client_id));
+      if (exist) {
+        return res.json({
+          ok: true,
+          id: exist.id,
+          ext: path.extname(exist.filename).slice(1) || _extFromMime(exist.mime),
+          url: galleryPublicUrl(exist.filename),
+          existing: true,
+        });
+      }
+    }
+
+    let parsed;
+    if (dataUrl.startsWith("data:")) parsed = _parseDataUrl(dataUrl);
+    else {
+      // 远程 url：服务端拉一次再存。失败给 502。
+      try {
+        const r = await fetch(dataUrl);
+        if (!r.ok) return res.status(502).json({ error: "拉取远程图片失败：HTTP " + r.status });
+        const ab = await r.arrayBuffer();
+        const mime = r.headers.get("content-type") || body.mime || "image/png";
+        parsed = { mime, bytes: Buffer.from(ab) };
+      } catch (e) {
+        return res.status(502).json({ error: "拉取远程图片失败：" + String(e?.message || e) });
+      }
+    }
+    if (!parsed) return res.status(400).json({ error: "dataUrl 解析失败" });
+    if (parsed.bytes.length > GALLERY_MAX_BYTES) {
+      return res.status(413).json({ error: `图片过大（${parsed.bytes.length} > ${GALLERY_MAX_BYTES} 字节）` });
+    }
+
+    const mime = (body.mime && body.mime !== "application/octet-stream") ? body.mime : parsed.mime;
+    const ext  = _extFromMime(mime);
+
+    // 32 chars hex → 难猜，作为公开 URL 的密钥
+    const id = randomUUID().replace(/-/g, "").slice(0, 24);
+    const filename = `${id}.${ext}`;
+
+    const dir = path.join(DATA_DIR, "media", GALLERY_CAT);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, filename), parsed.bytes);
+
+    recordGalleryFile({
+      id,
+      filename,
+      source:        body.source || "generated",
+      mime,
+      bytes:         parsed.bytes.length,
+      prompt:        body.prompt || "",
+      revised_prompt: body.revisedPrompt || body.revised_prompt || "",
+      model:         body.model || "",
+      size:          body.size || "",
+      quality:       body.quality || "",
+      original_name: body.name || "",
+      client_id:     body.client_id || "",
+      created_at:    Date.now(),
+    });
+
+    return res.json({
+      ok: true,
+      id,
+      ext,
+      url: galleryPublicUrl(filename),
+    });
+  } catch (e) {
+    console.warn("[gallery] upload failed:", e?.message || e);
+    return res.status(500).json({ error: String(e?.message || e) });
+  }
+});
+
+app.get("/api/gallery/image/:idExt", (req, res) => {
+  const { id, ext } = _splitIdExt(req.params.idExt);
+  if (!id) return res.status(400).end();
+  const row = getGalleryFile(id);
+  if (!row) return res.status(404).end();
+  const fileExt = path.extname(row.filename).slice(1).toLowerCase();
+  if (ext && ext !== fileExt) {
+    // 客户端写错 ext，重定向到正确的，便于浏览器 / RSS 抓取兼容
+    return res.redirect(302, `/api/gallery/image/${row.filename}`);
+  }
+  const filePath = path.join(DATA_DIR, "media", GALLERY_CAT, row.filename);
+  if (!fs.existsSync(filePath)) return res.status(410).end();   // DB 有记录但文件丢了
+  res.set("Content-Type", row.mime || "application/octet-stream");
+  res.set("Cache-Control", "public, max-age=31536000, immutable");  // 内容寻址，永远缓存
+  return res.sendFile(filePath, (err) => {
+    if (err && !res.headersSent) res.status(500).end();
+  });
+});
+
+app.get("/api/gallery/list", auth, (req, res) => {
+  try {
+    const source = req.query.source ? String(req.query.source) : "";
+    const limit  = Math.min(Math.max(parseInt(req.query.limit) || 200, 1), 1000);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+    const rows = listGalleryFiles({ source: source || undefined, limit, offset });
+    const items = rows.map((r) => ({
+      id: r.id,
+      url: galleryPublicUrl(r.filename),
+      source: r.source,
+      mime: r.mime,
+      bytes: r.bytes,
+      prompt: r.prompt || "",
+      revisedPrompt: r.revised_prompt || "",
+      model: r.model || "",
+      size: r.size || "",
+      quality: r.quality || "",
+      name: r.original_name || "",
+      clientId: r.client_id || "",
+      createdAt: r.created_at,
+    }));
+    const stat = countGalleryFiles();
+    return res.json({ items, total: stat.count, bytes: stat.bytes });
+  } catch (e) {
+    return res.status(500).json({ error: String(e?.message || e) });
+  }
+});
+
+app.delete("/api/gallery/image/:idExt", auth, (req, res) => {
+  const { id } = _splitIdExt(req.params.idExt);
+  if (!id) return res.status(400).json({ error: "id 无效" });
+  const row = deleteGalleryFile(id);
+  if (row) {
+    const filePath = path.join(DATA_DIR, "media", GALLERY_CAT, row.filename);
+    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) {}
+  }
+  return res.json({ ok: true });
 });
 
 /**

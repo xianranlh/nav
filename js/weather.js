@@ -184,13 +184,36 @@
     const cache = Weather.data.caches[cityId];
     if (!force && cache && cache.current && now - (cache.updatedAt || 0) < 3600 * 1000) return cache;
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}` +
+    // 优先走本机服务端反代（同源，避开 open-meteo 偶发的 5xx + 缺 CORS 头问题）；
+    // 反代 404（独立部署没启服务端）或网络层错误时回退到直连。
+    const proxyUrl = `/api/weather/forecast?lat=${city.lat}&lon=${city.lon}`;
+    const directUrl = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}` +
       `&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature` +
       `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
       `&timezone=auto&forecast_days=7`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error("天气 API 出错：HTTP " + r.status);
-    const j = await r.json();
+
+    let j = null;
+    try {
+      const r = await fetch(proxyUrl, { credentials: "same-origin" });
+      if (r.ok) {
+        j = await r.json();
+      } else if (r.status === 404) {
+        // 服务端没装反代路由，回退直连
+        const r2 = await fetch(directUrl);
+        if (!r2.ok) throw new Error("天气 API 出错：HTTP " + r2.status);
+        j = await r2.json();
+      } else {
+        // 5xx / 其它：抛出让上层 swallow（已被 Promise.allSettled 兜底）
+        throw new Error("天气 API 出错：HTTP " + r.status);
+      }
+    } catch (e) {
+      // 反代请求本身失败（网络层），再试一次直连
+      if (!j) {
+        const r2 = await fetch(directUrl);
+        if (!r2.ok) throw new Error("天气 API 出错：HTTP " + r2.status);
+        j = await r2.json();
+      }
+    }
     Weather.data.caches[cityId] = {
       current: j.current,
       daily: j.daily,

@@ -30,6 +30,8 @@ services:
       DATA_DIR: /data/xianran-nav
       BIND_HOST: "127.0.0.1"
       SAKURA_API_KEY: ${SAKURA_API_KEY:-}
+      # 图床公开 URL 前缀（可选；留空则返相对路径走 nav 主域）
+      APP_URL: ${APP_URL:-}
 
     volumes:
       # 宿主 ./data → 容器 /data（SQLite 与上传媒体持久化）
