@@ -2848,6 +2848,7 @@
     const imgSizeSel = $("#ai-image-size");
     const imgQualitySel = $("#ai-image-quality");
     const imgNSel = $("#ai-image-n");
+    const imgApiModeSel = $("#ai-image-api-mode");
     const imgCustomBox = imgCtrl?.querySelector(".ai-imgctl-custom");
     const imgCustomW = $("#ai-image-custom-w");
     const imgCustomH = $("#ai-image-custom-h");
@@ -2873,6 +2874,7 @@
       if (imgSizeSel) imgSizeSel.value = o.size || "1024x1024";
       if (imgQualitySel) imgQualitySel.value = o.quality || "auto";
       if (imgNSel) imgNSel.value = String(o.n || 1);
+      if (imgApiModeSel) imgApiModeSel.value = o.apiMode || "images";
       if (imgCustomW) imgCustomW.value = o.customW || 3840;
       if (imgCustomH) imgCustomH.value = o.customH || 2160;
       if (imgCustomBox) imgCustomBox.hidden = (imgSizeSel?.value !== "custom");
@@ -2913,6 +2915,10 @@
     });
     imgNSel?.addEventListener("change", () => {
       AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), n: +imgNSel.value || 1 };
+      AI.AIStore.save();
+    });
+    imgApiModeSel?.addEventListener("change", () => {
+      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), apiMode: imgApiModeSel.value };
       AI.AIStore.save();
     });
     imgCustomW?.addEventListener("change", () => {
@@ -4180,26 +4186,49 @@
         }, 1000);
 
         try {
+          const apiMode = opts.apiMode || "images";
+          // Responses 模式：希望上游每 ~25% 推一次 partial_image，便于实时显示进度
+          const partialN = apiMode === "responses" ? 2 : 0;
           const arr = await AI.generateImage({
             provider, model,
             prompt: text || "请生成一张创意图片",
             size,
             quality: opts.quality || "auto",
             n: requestedCount,
+            apiMode,
             signal: abortCtrl.signal,
             retry: {
-              maxAttempts: 2,
-              delayMs: 1500,
-              onRetry: (n, total) => { tipEl.textContent = `生图重试 ${n}/${total - 1}…`; },
+              // Responses 用默认 3 次 + 15s 退避（Image-Studio 风格），Images 维持原 2 次
+              maxAttempts: apiMode === "responses" ? 3 : 2,
+              delayMs: apiMode === "responses" ? 15_000 : 1500,
+              onRetry: (n, total, err) => {
+                const reason = err?.status ? ` (HTTP ${err.status})` : "";
+                tipEl.textContent = `生图重试 ${n}/${total - 1}${reason} · 15s 后再试…`;
+              },
+            },
+            // Responses 模式收到 partial_image 时立刻把半成品塞进第一张卡片
+            onPartial: ({ b64, revisedPrompt, heartbeats }) => {
+              if (!b64 || !asstMsg.imageResults?.length) return;
+              const slot = asstMsg.imageResults[0];
+              slot.status = "partial";
+              slot.dataUrl = "data:image/png;base64," + b64;
+              slot.revisedPrompt = revisedPrompt || slot.revisedPrompt || "";
+              if (!asstMsg.imageGenStatus) asstMsg.imageGenStatus = {};
+              asstMsg.imageGenStatus.heartbeats = heartbeats;
+              asstMsg.imageGenStatus.hasPartial = true;
+              const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
+              if (bubble) bubble.innerHTML = renderAssistantContent(asstMsg.content, asstMsg);
             },
           });
           // 把返回结果 merge 到占位 results 上；多了的填，少了的标错（借鉴 mergeResultImages）
           const merged = arr.map((it, i) => ({
             id: asstMsg.imageResults[i]?.id || "img-" + Date.now() + "-" + i,
-            status: "success",
+            // Responses API 返回 sourceEvent，标记是否为 partial 兜底
+            status: it.degraded || it.sourceEvent === "partial" ? "partial" : "success",
             dataUrl: it.dataUrl,
             url: it.url,
             revisedPrompt: it.revisedPrompt || "",
+            degraded: !!(it.degraded || it.sourceEvent === "partial"),
           }));
           while (merged.length < requestedCount) {
             merged.push({
@@ -4549,6 +4578,25 @@
         }
         if (r.status === "cancelled") {
           return `<figure class="ai-img-card cancelled"><div class="ai-img-cancel-text">已取消</div></figure>`;
+        }
+        // partial：Responses 模式收到 partial_image 时的中间状态，或最终降级用 partial 兜底
+        if (r.status === "partial") {
+          const u = r.dataUrl || r.url;
+          const cap = r.revisedPrompt
+            ? `<details class="ai-img-revised"><summary>模型理解的提示词（草稿）</summary><div class="ai-img-revised-body">${escapeHtml(r.revisedPrompt)}</div></details>`
+            : "";
+          const label = r.degraded
+            ? `<span class="ai-img-partial-tag" title="多次重试后仍未拿到 final，用最后一次 partial_image 兜底">⚠ 半成品兜底</span>`
+            : `<span class="ai-img-partial-tag" title="还在生成，这是 partial_image 预览">⏳ 生成中…</span>`;
+          return `<figure class="ai-img-card partial">
+              <img class="ai-img-thumb" src="${u}" alt="生图中间预览 #${i + 1}" />
+              ${label}
+              ${cap}
+              <div class="ai-img-actions">
+                <a class="ai-img-act" href="${u}" download="${dlName}" title="保存这张半成品" aria-label="下载">⬇</a>
+                <button type="button" class="ai-img-act" data-img-act="retry-image" title="用同样的提示词再生成一次" aria-label="再生成">↻</button>
+              </div>
+            </figure>`;
         }
         // loading 占位
         return `<figure class="ai-img-card loading">
@@ -5290,6 +5338,7 @@
             ${urlBadge}
           </figcaption>
           <div class="gallery-acts">
+            <button type="button" class="mini-btn" data-act="edit" title="打开图像编辑器（裁剪/旋转/翻转/画笔）">✏️</button>
             <button type="button" class="mini-btn" data-act="set-bg" title="设为当前背景（单张）">📌</button>
             ${hasUrl ? `<button type="button" class="mini-btn" data-act="copy-url" title="复制公开 URL">🔗</button>` : ""}
             <button type="button" class="mini-btn" data-act="fav" title="${it.favorite ? "取消收藏" : "收藏"}">${it.favorite ? "★" : "☆"}</button>
@@ -5621,6 +5670,28 @@
           if (radio) { radio.checked = true; radio.dispatchEvent(new Event("change", { bubbles: true })); }
         } catch (_) {}
         toast("✨ 已设为当前背景");
+      }
+      if (act === "edit") {
+        const rec = await Gallery.get(id);
+        if (!rec) return;
+        if (!window.ImageEditor) { toast("图像编辑器模块未加载"); return; }
+        try {
+          await window.ImageEditor.open(rec, async ({ dataUrl, prompt, model }) => {
+            // 编辑结果作为新条目入图库（不覆盖原图）
+            const newId = await Gallery.add({
+              source: "uploaded",
+              dataUrl,
+              prompt: (prompt || rec.prompt || "") + " (edited)",
+              name: (rec.name || "image") + "-edited.png",
+              mime: "image/png",
+              model: model || rec.model || "",
+            });
+            renderGallery();
+            toast(newId ? "✏️ 编辑结果已存为图库新条目" : "保存失败");
+          });
+        } catch (e) {
+          toast("打开编辑器失败：" + (e?.message || e), 4000);
+        }
       }
       if (act === "remove") {
         if (!confirm("删除这张图？(本地 + 服务端都会删)")) return;

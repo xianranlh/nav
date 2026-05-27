@@ -8514,3 +8514,244 @@ body.has-offline-banner #ai-panel { top: 56px; }
 
 /* ai-tip 顶到一行内的小提示 */
 .ai-tip { margin-top: 4px !important; font-size: 10px !important; }
+
+/* =====================================================================
+   生图 · Responses API 模式（借鉴 Image-Studio）
+   - API 模式 select 高亮 Responses 状态
+   - partial 半成品卡片视觉区分（黄边 + 标签）
+   ===================================================================== */
+
+/* API 模式选择器：Responses 模式时给整个参数行加一道琥珀色描边，提示用户走的是 SSE 保活 */
+.ai-image-controls label[title*="Responses"] select#ai-image-api-mode {
+  min-width: 130px !important;
+}
+.ai-image-controls:has(#ai-image-api-mode[value="responses"]),
+.ai-image-controls:has(#ai-image-api-mode option[value="responses"]:checked) {
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  background: linear-gradient(90deg,
+    rgba(245, 158, 11, 0.05),
+    rgba(255, 255, 255, 0.30)) !important;
+}
+[data-theme="dark"] .ai-image-controls:has(#ai-image-api-mode[value="responses"]),
+[data-theme="dark"] .ai-image-controls:has(#ai-image-api-mode option[value="responses"]:checked) {
+  background: linear-gradient(90deg,
+    rgba(245, 158, 11, 0.10),
+    rgba(255, 255, 255, 0.04)) !important;
+}
+
+/* partial 卡片：金黄色边 + 半透明覆盖（与最终图区分） */
+.ai-img-card.partial {
+  border-color: rgba(245, 158, 11, 0.45) !important;
+  background: rgba(245, 158, 11, 0.04) !important;
+  position: relative;
+}
+[data-theme="dark"] .ai-img-card.partial {
+  border-color: rgba(245, 158, 11, 0.50) !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+.ai-img-card.partial .ai-img-thumb {
+  /* 给半成品图轻微降饱和提示用户它还在生成 */
+  filter: saturate(0.92);
+  opacity: 0.96;
+}
+.ai-img-partial-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.92);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ai-img-card.partial .ai-img-thumb {
+    animation: ai-img-partial-pulse 2.4s ease-in-out infinite;
+  }
+}
+@keyframes ai-img-partial-pulse {
+  0%, 100% { opacity: 0.96; }
+  50%      { opacity: 0.78; }
+}
+
+/* =====================================================================
+   图像编辑器（image-editor.js） · 借鉴 Image-Studio
+   ===================================================================== */
+.image-editor-dialog {
+  max-width: 96vw;
+  width: 96vw;
+  max-height: 96vh;
+  height: 96vh;
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 14px;
+}
+.image-editor-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.editor-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--card-bg);
+}
+
+/* 顶部 */
+.editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.editor-head h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.editor-head-acts {
+  display: inline-flex;
+  gap: 6px;
+}
+.editor-head-acts .mini-btn { padding: 5px 14px; font-size: 12px; }
+
+/* 工具栏 */
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.30);
+  font-size: 12px;
+}
+[data-theme="dark"] .editor-toolbar { background: rgba(255, 255, 255, 0.04); }
+.editor-tool-group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.40);
+  border: 1px solid var(--glass-border);
+}
+[data-theme="dark"] .editor-tool-group {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.editor-tool {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: 0.15s;
+}
+.editor-tool:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+}
+.editor-tool:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.editor-tool.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* 画笔参数 */
+.editor-brush-params {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.editor-param {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+.editor-param input[type="range"] {
+  width: 80px;
+  accent-color: var(--accent);
+}
+.editor-param input[type="color"] {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+.editor-param-val {
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+  color: var(--text);
+  text-align: right;
+}
+.editor-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* canvas 容器：占满剩余高度，棋盘背景表示透明 */
+.editor-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background-color: #2a2a2a;
+  background-image:
+    linear-gradient(45deg, #383838 25%, transparent 25%),
+    linear-gradient(-45deg, #383838 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #383838 75%),
+    linear-gradient(-45deg, transparent 75%, #383838 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+[data-theme="light"] .editor-canvas-wrap {
+  background-color: #d4d4d4;
+  background-image:
+    linear-gradient(45deg, #e8e8e8 25%, transparent 25%),
+    linear-gradient(-45deg, #e8e8e8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e8e8e8 75%),
+    linear-gradient(-45deg, transparent 75%, #e8e8e8 75%);
+}
+#editor-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+@media (max-width: 720px) {
+  .editor-toolbar { padding: 6px 10px; gap: 6px; }
+  .editor-brush-params { gap: 6px; }
+  .editor-param input[type="range"] { width: 60px; }
+  .editor-hint { display: none; }
+}

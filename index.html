@@ -829,6 +829,13 @@
       </div>
     </header>
     <div id="ai-image-controls" class="ai-image-controls" hidden>
+      <label class="ai-imgctl-field" title="Responses(SSE)：长推理 CF 524 几乎不会中断，需要中转支持 /v1/responses + image_generation 工具；Images：标准 /v1/images/generations，瞬时 JSON，兼容性最广但 CF 524 风险更高">
+        <span>API 模式</span>
+        <select id="ai-image-api-mode">
+          <option value="images">Images · 标准（兼容）</option>
+          <option value="responses">Responses · SSE 保活（防 524）</option>
+        </select>
+      </label>
       <label class="ai-imgctl-field"><span>尺寸</span><select id="ai-image-size"></select></label>
       <label class="ai-imgctl-field"><span>质量</span><select id="ai-image-quality"></select></label>
       <label class="ai-imgctl-field"><span>张数</span>
@@ -1121,6 +1128,73 @@
         </div>
         <div id="gallery-grid" class="gallery-grid"></div>
         <p class="gallery-empty" id="gallery-empty" hidden>这里还没有图。生图或上传图片附件后会自动入库。</p>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== 图像编辑器（借鉴 Image-Studio 的核心能力） ===== -->
+  <dialog id="dialog-image-editor" class="glass-dialog image-editor-dialog">
+    <form method="dialog" class="editor-form">
+      <header class="editor-head">
+        <h3><span>✏️</span> 图像编辑器</h3>
+        <div class="editor-head-acts">
+          <button type="button" class="mini-btn" data-editor-act="cancel">取消</button>
+          <button type="button" class="mini-btn primary" data-editor-act="save" title="保存为图库中的一条新记录（不覆盖原图）">💾 保存为新条目</button>
+        </div>
+      </header>
+
+      <div class="editor-toolbar">
+        <!-- 工具组 -->
+        <div class="editor-tool-group" role="group" aria-label="工具">
+          <button type="button" class="editor-tool" data-editor-tool="brush" title="画笔 (1)">🖌 画笔</button>
+          <button type="button" class="editor-tool" data-editor-tool="erase" title="橡皮 (2)">🩹 橡皮</button>
+          <button type="button" class="editor-tool" data-editor-tool="crop"  title="裁剪 (3 · Enter 应用)">✂ 裁剪</button>
+        </div>
+
+        <!-- 撤销 / 重做 -->
+        <div class="editor-tool-group" role="group" aria-label="历史">
+          <button type="button" class="editor-tool" id="editor-undo" data-editor-act="undo" title="撤销 (Ctrl+Z)">↶</button>
+          <button type="button" class="editor-tool" id="editor-redo" data-editor-act="redo" title="重做 (Ctrl+Y)">↷</button>
+        </div>
+
+        <!-- 几何变换 -->
+        <div class="editor-tool-group" role="group" aria-label="变换">
+          <button type="button" class="editor-tool" data-editor-act="rot-ccw" title="逆时针 90°">⤴</button>
+          <button type="button" class="editor-tool" data-editor-act="rot-cw"  title="顺时针 90°">⤵</button>
+          <button type="button" class="editor-tool" data-editor-act="flip-h"  title="水平翻转">⇋</button>
+          <button type="button" class="editor-tool" data-editor-act="flip-v"  title="垂直翻转">⇵</button>
+        </div>
+
+        <!-- 视图 -->
+        <div class="editor-tool-group" role="group" aria-label="视图">
+          <button type="button" class="editor-tool" data-editor-act="fit" title="适合窗口">⛶</button>
+          <button type="button" class="editor-tool" data-editor-act="clear-mask" title="清空蒙版">🧹</button>
+          <button type="button" class="editor-tool" data-editor-act="apply-crop" title="应用裁剪选区 (Enter)">✓</button>
+        </div>
+
+        <!-- 画笔参数 -->
+        <div class="editor-brush-params">
+          <label class="editor-param">
+            <span>大小</span>
+            <input type="range" id="editor-brush-size" min="2" max="120" value="24" />
+            <span class="editor-param-val" id="editor-brush-size-val">24</span>
+          </label>
+          <label class="editor-param">
+            <span>颜色</span>
+            <input type="color" id="editor-brush-color" value="#ffffff" />
+          </label>
+          <label class="editor-param">
+            <span>透明</span>
+            <input type="range" id="editor-brush-opacity" min="0.1" max="1" step="0.05" value="1" />
+            <span class="editor-param-val" id="editor-brush-opacity-val">1.00</span>
+          </label>
+        </div>
+
+        <span class="editor-hint">滚轮缩放 · 按住 V 看原图</span>
+      </div>
+
+      <div class="editor-canvas-wrap" id="editor-canvas-wrap">
+        <canvas id="editor-canvas" tabindex="0"></canvas>
       </div>
     </form>
   </dialog>
@@ -1558,6 +1632,7 @@
   <script src="js/exporter.js"></script>
   <script src="js/idb.js"></script>
   <script src="js/archive.js"></script>
+  <script src="js/image-editor.js"></script>
   <script src="js/music.js"></script>
   <script src="js/storage-inspector.js"></script>
   <script src="js/app.js?v=v1.20.3"></script>

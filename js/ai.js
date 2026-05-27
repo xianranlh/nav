@@ -792,6 +792,220 @@
     return trimmed;
   }
 
+  // ===================== SSE 工具 =====================
+  /** 通用 Server-Sent Events 解析器。
+   *  借鉴 Image-Studio（github.com/RoseKhlifa/Image-Studio）的设计思路：
+   *  - Responses API 的 partial_image 事件单行 base64 可超 4MB，浏览器 ReadableStream
+   *    天然支持任意大 chunk，不像 Go bufio 有 64KB 截断问题
+   *  - event 边界是 \n\n；同一 event 的 data: 可以多行，要拼起来
+   *  - 调用方传 onEvent({event, data, raw})，data 已是 string（未 JSON.parse）
+   *  - signal 可中止整个流（AbortController.signal） */
+  async function readSseStream(response, onEvent, signal) {
+    if (!response.body) throw new Error("响应没有 body，无法流式读取");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buf = "";
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        // 按 \n\n 切分 event。注意单条 event 的 data 可能跨多行，
+        // 最后一段（未以 \n\n 收尾）留在 buf 里等下一轮。
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const block = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          if (!block.trim()) continue;
+          let evtName = "message";
+          const dataLines = [];
+          for (const line of block.split(/\r?\n/)) {
+            if (!line) continue;
+            if (line.startsWith(":")) continue;             // 注释 / 心跳
+            const colon = line.indexOf(":");
+            if (colon < 0) continue;
+            const field = line.slice(0, colon).trim();
+            const val   = line.slice(colon + 1).replace(/^ /, "");
+            if (field === "event") evtName = val.trim();
+            else if (field === "data") dataLines.push(val);
+            // id / retry 字段忽略
+          }
+          const data = dataLines.join("\n");
+          try {
+            onEvent({ event: evtName, data, raw: block });
+          } catch (cbErr) {
+            // 回调异常不打断流，但记一下
+            logger.debug?.("SSE onEvent threw:", cbErr);
+          }
+        }
+      }
+      // flush 剩余
+      const tail = decoder.decode();
+      if (tail) buf += tail;
+      if (buf.trim()) {
+        try { onEvent({ event: "message", data: buf, raw: buf }); } catch (_) {}
+      }
+    } finally {
+      try { reader.releaseLock(); } catch (_) {}
+    }
+  }
+
+  // ===================== 重试判定（借鉴 Image-Studio retry.go） =====================
+  /** 上游 body 文本是否值得自动重试 —— 端口自 Image-Studio 的 IsRetryable：
+   *  - 文本里含已知 CF / 网关错误标记
+   *  - JSON 里 status ∈ {502, 503, 504, 524}，或 retryable: true
+   *  - error.type ∈ {api_error, server_error}，或 error.message 含 "temporarily unavailable" */
+  const _RETRY_MARKERS = [
+    "error code 524", "524: a timeout occurred",
+    "error code 504", "gateway time-out",
+    "service temporarily unavailable", "origin_gateway_timeout",
+  ];
+  function isImageStudioRetryable(text) {
+    if (!text) return false;
+    const t = String(text);
+    const lower = t.toLowerCase();
+    for (const m of _RETRY_MARKERS) if (lower.includes(m)) return true;
+    let j;
+    try { j = JSON.parse(t.trim()); } catch (_) { return false; }
+    if (j?.retryable === true) return true;
+    const s = +j?.status;
+    if (s === 502 || s === 503 || s === 504 || s === 524) return true;
+    if (j?.error) {
+      const msg = String(j.error.message || "").toLowerCase();
+      const typ = String(j.error.type || "").toLowerCase();
+      if (msg.includes("temporarily unavailable")) return true;
+      if (typ === "api_error" || typ === "server_error") return true;
+    }
+    return false;
+  }
+
+  // ===================== 生图（Responses API · SSE 保活） =====================
+  /** 借鉴 Image-Studio 的 payload.go BuildPayload：
+   *  把生图请求伪装成"工具调用"塞进 /v1/responses 流式接口，模型边推理边发心跳事件，
+   *  Cloudflare 看到持续流量就不会按 524/504 切链路。
+   *
+   *  事件参考（来自 Image-Studio sse.go SummarizeSSELine）：
+   *    response.created                          — 请求已创建
+   *    response.in_progress                      — 模型处理中
+   *    response.image_generation_call.in_progress / .generating — 图工具运行中
+   *    response.image_generation_call.partial_image{ partial_image_b64, revised_prompt }
+   *    response.output_item.done{ item:{type:"image_generation_call", result, revised_prompt} }
+   *    response.completed
+   *
+   *  返回 [{ dataUrl, revisedPrompt, sourceEvent: "final"|"partial" }]
+   *  抛错时若 err.partial 存在 → 调用方可以决定要不要兜底用这个半成品 */
+  async function imageRequestResponses({
+    provider, model, prompt, size, quality, n, signal, onPartial, textModel,
+  }) {
+    const t = buildFetchTarget(provider, "responses");
+    const tool = {
+      type: "image_generation",
+      model,                                // 图模型，如 gpt-image-2 / gpt-image-1
+      action: "generate",
+      size: (size && size !== "auto") ? size : "1024x1024",
+      quality: (quality && quality !== "auto") ? quality : "auto",
+      output_format: "png",
+      moderation: "low",
+      partial_images: Math.max(0, Math.min(3, +n || 0)),   // 0 表示不要 partial；>0 表示让上游每 N 步推一次
+    };
+    const body = {
+      model: textModel || "gpt-5.5",        // text driver，可被 provider.defaultModel 覆盖
+      input: [{
+        role: "user",
+        content: [{ type: "input_text", text: String(prompt || "").slice(0, 4000) }],
+      }],
+      tools: [tool],
+      tool_choice: { type: "image_generation" },
+      reasoning: { effort: "xhigh" },
+      store: false,
+      stream: true,
+    };
+
+    const r = await fetch(t.url, {
+      method: "POST",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+        ...t.headers,
+      },
+      body: JSON.stringify(body),
+    });
+
+    // 非 2xx 直接抛，body 给重试判定器用
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      throw buildHttpError(r.status, txt);
+    }
+
+    let finalB64 = "", finalPrompt = "", finalReceived = false;
+    let partialB64 = "", partialPrompt = "";
+    let lastErrorEvent = "";
+    let heartbeats = 0;
+
+    const onSseEvent = ({ event, data }) => {
+      // OpenAI Responses API 真正的事件类型在 JSON payload 的 type 字段里
+      let ev;
+      try { ev = JSON.parse(data); } catch (_) { return; }
+      const evType = ev.type || event || "";
+      heartbeats++;
+
+      if (evType === "response.image_generation_call.partial_image") {
+        const b64 = ev.partial_image_b64 || "";
+        const rev = ev.revised_prompt || "";
+        if (b64) {
+          partialB64 = b64;
+          if (rev) partialPrompt = rev;
+          try { onPartial?.({ b64, revisedPrompt: rev, heartbeats }); } catch (_) {}
+        }
+        return;
+      }
+      if (evType === "response.output_item.done") {
+        const item = ev.item || {};
+        if (item.type === "image_generation_call" && typeof item.result === "string" && item.result) {
+          finalB64 = item.result;
+          finalPrompt = item.revised_prompt || partialPrompt || "";
+          finalReceived = true;
+        }
+        return;
+      }
+      // 上游错误事件
+      if (ev.error || (ev.response && ev.response.error)) {
+        const e = ev.error || ev.response.error;
+        lastErrorEvent = JSON.stringify(e);
+      }
+    };
+
+    try {
+      await readSseStream(r, onSseEvent, signal);
+    } catch (streamErr) {
+      // 中途流断了：跟 Image-Studio 一样——如果已收齐 final，那就当成功
+      if (finalReceived && finalB64) {
+        return [{ dataUrl: "data:image/png;base64," + finalB64, revisedPrompt: finalPrompt, sourceEvent: "final" }];
+      }
+      // 否则把 partial 挂在异常上让调用方决定要不要兜底
+      const wrapped = streamErr?.name === "AbortError" ? streamErr : new Error("Responses 流被中断：" + (streamErr?.message || streamErr));
+      if (partialB64) {
+        wrapped.partial = { dataUrl: "data:image/png;base64," + partialB64, revisedPrompt: partialPrompt };
+      }
+      if (lastErrorEvent) wrapped.upstreamError = lastErrorEvent;
+      throw wrapped;
+    }
+
+    if (finalReceived && finalB64) {
+      return [{ dataUrl: "data:image/png;base64," + finalB64, revisedPrompt: finalPrompt, sourceEvent: "final" }];
+    }
+    if (partialB64) {
+      // 流正常结束但没收到 final，只有 partial —— 返回 partial 当兜底
+      return [{ dataUrl: "data:image/png;base64," + partialB64, revisedPrompt: partialPrompt, sourceEvent: "partial" }];
+    }
+    const err = new Error("Responses 流结束但没解析到任何图片" + (lastErrorEvent ? "：" + lastErrorEvent : ""));
+    err.upstreamError = lastErrorEvent;
+    throw err;
+  }
+
   // ===================== 生图（/v1/images/generations） =====================
   /** UI 下拉里能选的常见尺寸；除此之外用户还能切换到"自定义"。 */
   const IMAGE_SIZES = [
@@ -820,13 +1034,22 @@
    *  size 可以是 "1024x1024"/"3840x2160"/"auto"，也可以传 "WIDTHxHEIGHT" 任意自定义。 */
   async function generateImage(opts) {
     const { retry } = opts || {};
-    const attempts = Math.max(1, Math.min(5, +(retry?.maxAttempts) || 1));
-    const baseDelay = +(retry?.delayMs) || 1500;
+    // Responses 模式默认 3 次 + 15s 退避（借鉴 Image-Studio MaxAttempts=3, RetryBackoffSeconds=15）
+    const isResponses = opts.apiMode === "responses";
+    const defaultAttempts = isResponses ? 3 : 1;
+    const defaultDelay    = isResponses ? 15_000 : 1500;
+    const attempts  = Math.max(1, Math.min(5, +(retry?.maxAttempts) || defaultAttempts));
+    const baseDelay = +(retry?.delayMs) || defaultDelay;
+
     let lastErr;
+    let lastPartial = null;    // 跨重试保留最近的 partial_image，作为最终兜底
+
     for (let i = 0; i < attempts; i++) {
       if (i > 0) {
         try { retry?.onRetry?.(i, attempts, lastErr); } catch (_) {}
-        await sleepWithSignal(baseDelay * i, opts.signal);
+        // 退避：Responses 模式用固定退避（CF 抖动一般 5-15s 就过去了），其它用线性
+        const delay = isResponses ? baseDelay : baseDelay * i;
+        await sleepWithSignal(delay, opts.signal);
         if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
       }
       try {
@@ -836,19 +1059,39 @@
       } catch (err) {
         lastErr = err;
         if (err?.name === "AbortError") throw err;
+
+        // 收一下这次的 partial（如果有），下一轮成功就抛掉它，全失败就用它兜底
+        if (err.partial) lastPartial = err.partial;
+
         const cool = isCooldownError(err);
         const gw = isRetryableGatewayError(err);
-        if (cool) {
-          recordCooldown(opts.provider, opts.model, err);
-        } else {
-          recordProbeError(opts.provider, opts.model, err);
-        }
-        if (!cool && !gw) throw err;
+        // Image-Studio 风格的 body 重试判定（更宽松）：只在 Responses 模式启用
+        const bodyRetryable = isResponses && isImageStudioRetryable(
+          err.raw || err.upstreamError || err.message || ""
+        );
+
+        if (cool) recordCooldown(opts.provider, opts.model, err);
+        else recordProbeError(opts.provider, opts.model, err);
+
+        // Responses 模式下，524/504 也允许重试（这是 SSE 保活的目标场景）
+        const retriable = cool || gw || bodyRetryable || (isResponses && (err.status === 524 || err.status === 504));
+        if (!retriable) throw err;
+
         if (cool) {
           const need = cooldownSeconds(err);
           if (need > 0 && need * 1000 > baseDelay * attempts) throw err;
         }
       }
+    }
+
+    // 所有重试都失败：如果中途收过 partial_image，用它兜底（标记为 partial 来源）
+    if (lastPartial?.dataUrl) {
+      return [{
+        dataUrl: lastPartial.dataUrl,
+        revisedPrompt: lastPartial.revisedPrompt || "",
+        sourceEvent: "partial",
+        degraded: true,
+      }];
     }
     throw lastErr;
   }
@@ -963,7 +1206,13 @@
     return arr;
   }
 
-  async function imageRequest({ provider, model, prompt, size, quality, n, signal }) {
+  async function imageRequest(opts) {
+    const { provider, model, prompt, size, quality, n, signal, apiMode, onPartial, textModel } = opts;
+    // Responses API 模式：走 SSE 流式（borrows Image-Studio 的 CF 524 规避思路）
+    // 仅在调用方显式声明 apiMode === "responses" 时启用，避免误伤普通中转
+    if (apiMode === "responses") {
+      return await imageRequestResponses({ provider, model, prompt, size, quality, n, signal, onPartial, textModel });
+    }
     // Gemini 原生分支：检测到 gemini-*-image-* 走 /v1beta/models/{model}:generateContent
     if (isGeminiImageModel(model)) {
       const requested = Math.max(1, Math.min(8, +n || 1));
