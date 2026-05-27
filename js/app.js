@@ -4977,11 +4977,20 @@
 
   // ===================== 历史归档 UI（多会话 + 图库）=====================
   const UIArchive = (() => {
-    if (!window.Archive) return null;
-    const { Gallery, Sessions } = window.Archive;
     const dlgSessions = $("#dialog-sessions");
     const dlgGallery  = $("#dialog-gallery");
     let _saveTimer = null;
+
+    // Archive 缺失（IDB 不可用 / archive.js 加载失败）时给个温和的兜底：
+    // 按钮仍可点，但 toast 提示原因，便于用户排查；不再 return null 让按钮变哑巴。
+    if (!window.Archive) {
+      console.warn("[UIArchive] window.Archive 未就绪，可能 archive.js 没加载或 IndexedDB 不可用");
+      const warn = () => toast("图库 / 会话功能未启用：浏览器禁用了 IndexedDB 或脚本加载失败", 4000);
+      $("#ai-sessions")?.addEventListener("click", warn);
+      $("#ai-gallery") ?.addEventListener("click", warn);
+      return null;
+    }
+    const { Gallery, Sessions } = window.Archive;
 
     // 给 currentId/AIStore.messages 关联：saveMessages 之后异步把当前会话写入 DB
     function patchSaveMessages() {
@@ -5052,9 +5061,19 @@
 
     // ---------- 会话弹窗 ----------
     function openSessions() {
-      renderSessionsList();
-      if (typeof dlgSessions.showModal === "function" && !dlgSessions.open) dlgSessions.showModal();
-      else dlgSessions.setAttribute("open", "");
+      if (!dlgSessions) {
+        console.warn("[UIArchive] #dialog-sessions 不存在 — 检查 index.html 是否包含会话弹窗元素");
+        toast("会话弹窗模板缺失，请刷新页面或重新部署");
+        return;
+      }
+      try {
+        renderSessionsList();
+        if (typeof dlgSessions.showModal === "function" && !dlgSessions.open) dlgSessions.showModal();
+        else dlgSessions.setAttribute("open", "");
+      } catch (e) {
+        console.error("[UIArchive.openSessions]", e);
+        toast("打开会话弹窗出错：" + (e?.message || e), 4000);
+      }
     }
     async function renderSessionsList(filterText = "") {
       const list = $("#sessions-list");
@@ -5174,16 +5193,25 @@
     let galleryCurrentItems = [];           // 当前视图渲染出的 items（供"全选当前视图"用）
 
     function openGallery() {
-      // 同步当前 Store 设置到 UI（间隔 + shuffle）
-      const intEl = $("#gallery-bg-interval");
-      if (intEl) intEl.value = Math.max(5, Math.min(3600, +Store.settings.bgInterval || 60));
-      const shEl  = $("#gallery-bg-shuffle");
-      if (shEl) shEl.checked = !!Store.settings.bgShuffle;
-      refreshPresetSelect();
-      renderGallery();
-      renderSelThumbStrip();
-      if (typeof dlgGallery.showModal === "function" && !dlgGallery.open) dlgGallery.showModal();
-      else dlgGallery.setAttribute("open", "");
+      if (!dlgGallery) {
+        console.warn("[UIArchive] #dialog-gallery 不存在 — 检查 index.html 是否包含图库弹窗元素");
+        toast("图库弹窗模板缺失，请刷新页面或重新部署");
+        return;
+      }
+      try {
+        const intEl = $("#gallery-bg-interval");
+        if (intEl) intEl.value = Math.max(5, Math.min(3600, +Store.settings.bgInterval || 60));
+        const shEl  = $("#gallery-bg-shuffle");
+        if (shEl) shEl.checked = !!Store.settings.bgShuffle;
+        refreshPresetSelect();
+        renderGallery();
+        renderSelThumbStrip();
+        if (typeof dlgGallery.showModal === "function" && !dlgGallery.open) dlgGallery.showModal();
+        else dlgGallery.setAttribute("open", "");
+      } catch (e) {
+        console.error("[UIArchive.openGallery]", e);
+        toast("打开图库出错：" + (e?.message || e), 4000);
+      }
     }
 
     function setGallerySelectMode(on) {
