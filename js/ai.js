@@ -910,8 +910,11 @@
       moderation: "low",
       partial_images: Math.max(0, Math.min(3, +n || 0)),   // 0 表示不要 partial；>0 表示让上游每 N 步推一次
     };
+    // 重要：body.model 不再写死 "gpt-5.5"（Image-Studio 默认）—— 大多数中转没这个模型。
+    // 默认用用户当前选的模型 → 单模型中转也能跑；高级用户可通过 textModel 显式分离 text/image。
+    const driver = (textModel && textModel.trim()) || model;
     const body = {
-      model: textModel || "gpt-5.5",        // text driver，可被 provider.defaultModel 覆盖
+      model: driver,
       input: [{
         role: "user",
         content: [{ type: "input_text", text: String(prompt || "").slice(0, 4000) }],
@@ -937,6 +940,11 @@
     // 非 2xx 直接抛，body 给重试判定器用
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
+      console.error(
+        "[ai][responses] 上游返回 %s\ndriver=%s  imageModel=%s  size=%s\n请求体: %o\n上游 body:\n%s",
+        r.status, driver, model, tool.size,
+        body, txt.slice(0, 4000)
+      );
       throw buildHttpError(r.status, txt);
     }
 
@@ -1093,7 +1101,39 @@
         degraded: true,
       }];
     }
+
+    // ★ 新增：Responses 模式全军覆没 + 错误像是"端点不存在 / 不支持" → 自动回退到 Images API 再试一次
+    if (isResponses && _shouldFallbackToImages(lastErr)) {
+      try {
+        try { retry?.onRetry?.(attempts + 1, attempts + 1, lastErr, "fallback-images"); } catch (_) {}
+        const fallback = await imageRequest({ ...opts, apiMode: "images" });
+        // 给结果挂个标，让 UI 提示用户走了降级路径
+        if (Array.isArray(fallback)) {
+          fallback.forEach((r) => { if (r) r.fallbackFromResponses = true; });
+        }
+        return fallback;
+      } catch (fbErr) {
+        // 回退也失败：保留原始 Responses 错误（信息更准），把回退错误塞 cause 链
+        lastErr.fallbackError = fbErr;
+      }
+    }
     throw lastErr;
+  }
+
+  /** Responses 模式失败时，判断要不要回退到 Images API。
+   *  原则：错误像是"这个端点根本没实现"或"模型在 Responses 路由下不可用"时回退；
+   *  普通的 429/限速/鉴权问题不回退（这些在 Images 路径下也会同样失败）。 */
+  function _shouldFallbackToImages(err) {
+    if (!err) return false;
+    const s = +err.status || 0;
+    if (s === 404 || s === 405 || s === 501) return true;
+    if (s === 503 || s === 502 || s === 504) return true;
+    const txt = String(err.raw || err.upstreamError || err.message || "").toLowerCase();
+    if (!txt) return false;
+    if (txt.includes("not implemented") || txt.includes("not found") || txt.includes("not supported")) return true;
+    if (txt.includes("unknown route") || txt.includes("no such route")) return true;
+    if (txt.includes("does not support") || txt.includes("model_not_found")) return true;
+    return false;
   }
 
   /** 检测是不是 Google Gemini 系的图片生成模型（不走标准 OpenAI /images/generations，而是 Google 原生 /v1beta/models/{model}:generateContent）。
@@ -1250,7 +1290,15 @@
     });
     const txt = await r.text().catch(() => "");
     const ct = (r.headers.get("content-type") || "").toLowerCase();
-    if (!r.ok) throw buildHttpError(r.status, txt);
+    if (!r.ok) {
+      // 失败时把完整上游 body 打到 console.error，方便用户 F12 看清楚 400 / 401 / 429 的真实原因
+      console.error(
+        "[ai][images/generations] 上游返回 %s\nmodel=%s  size=%s  quality=%s\n请求体: %o\n上游 body 完整内容:\n%s",
+        r.status, model, body.size || "(未设)", body.quality || "(未设)",
+        body, txt.slice(0, 4000)
+      );
+      throw buildHttpError(r.status, txt);
+    }
     // 上游返回了 200 OK 但 body 完全空白：基本上是中转配错或反代截断了响应。
     if (!txt.trim()) {
       const err = new Error(`上游返回空响应（状态 ${r.status}，content-type=${ct || "缺失"}）。可能是中转把请求路由到了一个不返回数据的后端，或者反向代理在转发时丢了 body。`);

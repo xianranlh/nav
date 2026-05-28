@@ -32,6 +32,9 @@ services:
       SAKURA_API_KEY: ${SAKURA_API_KEY:-}
       # 图床公开 URL 前缀（可选；留空则返相对路径走 nav 主域）
       APP_URL: ${APP_URL:-}
+      # AI 反代超时（毫秒）；生图默认 10 分钟（应对 4K + reasoning xhigh / multi-agent 慢推理）
+      AI_PROXY_TIMEOUT_MS:       ${AI_PROXY_TIMEOUT_MS:-100000}
+      AI_PROXY_IMAGE_TIMEOUT_MS: ${AI_PROXY_IMAGE_TIMEOUT_MS:-600000}
 
     volumes:
       # 宿主 ./data → 容器 /data（SQLite 与上传媒体持久化）

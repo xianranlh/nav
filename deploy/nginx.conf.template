@@ -44,6 +44,39 @@ server {
         add_header Cache-Control "no-cache" always;
     }
 
+    # 生图 / Responses 流式接口：放在通用 /api/ 前面（优先匹配），把超时拉到 10 分钟，关 buffering 让 SSE 实时透传
+    location ^~ /api/ai-proxy/images/ {
+        client_max_body_size 50m;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization "Bearer ${SAKURA_API_KEY}";
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+        proxy_buffering off;
+        proxy_cache off;
+    }
+    location ^~ /api/ai-proxy/responses {
+        client_max_body_size 50m;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization "Bearer ${SAKURA_API_KEY}";
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Connection "";
+    }
+
     # 数据 API：反代到本机 Node（单容器内），由 envsubst 注入 Bearer（浏览器不携带密钥）
     location ^~ /api/ {
         client_max_body_size 50m;
@@ -55,8 +88,8 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header Authorization "Bearer ${SAKURA_API_KEY}";
         proxy_connect_timeout 60s;
-        proxy_send_timeout 300s;
-        proxy_read_timeout 300s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
     }
 
     # 项目未给 JS/CSS 加内容 hash；用 no-cache + ETag 让浏览器每次条件请求（304），

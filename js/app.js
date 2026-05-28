@@ -4201,7 +4201,12 @@
               // Responses 用默认 3 次 + 15s 退避（Image-Studio 风格），Images 维持原 2 次
               maxAttempts: apiMode === "responses" ? 3 : 2,
               delayMs: apiMode === "responses" ? 15_000 : 1500,
-              onRetry: (n, total, err) => {
+              onRetry: (n, total, err, stage) => {
+                if (stage === "fallback-images") {
+                  // Responses 全失败，正在改用 Images 模式
+                  tipEl.textContent = `⤵ Responses 模式失败 (HTTP ${err?.status || "?"})，自动改用 Images 模式…`;
+                  return;
+                }
                 const reason = err?.status ? ` (HTTP ${err.status})` : "";
                 tipEl.textContent = `生图重试 ${n}/${total - 1}${reason} · 15s 后再试…`;
               },
