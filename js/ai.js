@@ -913,6 +913,19 @@
     // 重要：body.model 不再写死 "gpt-5.5"（Image-Studio 默认）—— 大多数中转没这个模型。
     // 默认用用户当前选的模型 → 单模型中转也能跑；高级用户可通过 textModel 显式分离 text/image。
     const driver = (textModel && textModel.trim()) || model;
+
+    // 前置检查：driver 必须是聊天/推理模型；如果看起来是图像专用模型（gpt-image-* / dall-e-* / imagen-* / flux-* / sdxl-*），
+    // 上游 100% 会返 400（因为不能用图模型驱动 Responses）。提前抛友好错误，省 600s 等待。
+    if (/^(gpt-image-|dall.?e[-\d]|imagen[-\d]|flux[-\d_]|sdxl|stable-diffusion|midjourney|nano-?banana)/i.test(driver)) {
+      const err = new Error(
+        `Responses 模式需要文本驱动模型（gpt-4o / gpt-5 / claude-* 等），不能用图像专用模型 "${driver}"。\n` +
+        `修法：在生图参数行的"文本驱动"字段填一个文本模型，或把 API 模式切回 Images。`
+      );
+      err.status = 0;
+      err.localCheck = true;     // 标记是前端检查，重试 / 降级路径都跳过它
+      err.skipFallback = false;  // 但允许走自动降级到 Images
+      throw err;
+    }
     const body = {
       model: driver,
       input: [{

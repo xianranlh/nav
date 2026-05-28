@@ -8525,6 +8525,27 @@ body.has-offline-banner #ai-panel { top: 56px; }
 .ai-image-controls label[title*="Responses"] select#ai-image-api-mode {
   min-width: 130px !important;
 }
+
+/* Responses 模式的"文本驱动"输入框 */
+.ai-imgctl-driver[hidden] { display: none !important; }
+.ai-imgctl-driver input#ai-image-driver {
+  width: 130px;
+  height: 24px;
+  padding: 2px 6px;
+  font-size: 11px;
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="dark"] .ai-imgctl-driver input#ai-image-driver {
+  background: rgba(255, 255, 255, 0.08);
+}
+.ai-imgctl-driver input#ai-image-driver::placeholder {
+  color: var(--text-faint);
+  font-style: italic;
+}
 .ai-image-controls:has(#ai-image-api-mode[value="responses"]),
 .ai-image-controls:has(#ai-image-api-mode option[value="responses"]:checked) {
   border-color: rgba(245, 158, 11, 0.35) !important;

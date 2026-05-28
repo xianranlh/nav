@@ -2849,6 +2849,8 @@
     const imgQualitySel = $("#ai-image-quality");
     const imgNSel = $("#ai-image-n");
     const imgApiModeSel = $("#ai-image-api-mode");
+    const imgDriverField = $("#ai-image-driver-field");
+    const imgDriverInput = $("#ai-image-driver");
     const imgCustomBox = imgCtrl?.querySelector(".ai-imgctl-custom");
     const imgCustomW = $("#ai-image-custom-w");
     const imgCustomH = $("#ai-image-custom-h");
@@ -2875,6 +2877,8 @@
       if (imgQualitySel) imgQualitySel.value = o.quality || "auto";
       if (imgNSel) imgNSel.value = String(o.n || 1);
       if (imgApiModeSel) imgApiModeSel.value = o.apiMode || "images";
+      if (imgDriverInput) imgDriverInput.value = o.textModel || "";
+      if (imgDriverField) imgDriverField.hidden = (o.apiMode !== "responses");
       if (imgCustomW) imgCustomW.value = o.customW || 3840;
       if (imgCustomH) imgCustomH.value = o.customH || 2160;
       if (imgCustomBox) imgCustomBox.hidden = (imgSizeSel?.value !== "custom");
@@ -2919,6 +2923,12 @@
     });
     imgApiModeSel?.addEventListener("change", () => {
       AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), apiMode: imgApiModeSel.value };
+      AI.AIStore.save();
+      // 切到 Responses 时显示驱动模型字段；切回 Images 隐藏
+      if (imgDriverField) imgDriverField.hidden = (imgApiModeSel.value !== "responses");
+    });
+    imgDriverInput?.addEventListener("change", () => {
+      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), textModel: imgDriverInput.value.trim() };
       AI.AIStore.save();
     });
     imgCustomW?.addEventListener("change", () => {
@@ -4196,6 +4206,8 @@
             quality: opts.quality || "auto",
             n: requestedCount,
             apiMode,
+            // Responses 模式专用：文本驱动模型。空字符串则 ai.js 用主 model 兜底（适合单模型中转）
+            textModel: opts.textModel || "",
             signal: abortCtrl.signal,
             retry: {
               // Responses 用默认 3 次 + 15s 退避（Image-Studio 风格），Images 维持原 2 次

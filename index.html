@@ -836,6 +836,18 @@
           <option value="responses">Responses · SSE 保活（防 524）</option>
         </select>
       </label>
+      <label class="ai-imgctl-field ai-imgctl-driver" id="ai-image-driver-field" hidden title="Responses API 的文本驱动模型，负责理解 prompt + 调度工具。必须是聊天/推理模型（gpt-4o / gpt-5 / claude-* 等），不能是图像模型本身。留空则用顶栏选的模型，但若顶栏选的是 gpt-image-* / dall-e 这类图模型，必须显式填一个文本模型，否则上游会 400。">
+        <span>文本驱动</span>
+        <input type="text" id="ai-image-driver" placeholder="gpt-4o / gpt-5 / 留空" list="ai-image-driver-list" />
+        <datalist id="ai-image-driver-list">
+          <option value="gpt-4o"></option>
+          <option value="gpt-4o-mini"></option>
+          <option value="gpt-5"></option>
+          <option value="gpt-5-mini"></option>
+          <option value="claude-3-5-sonnet"></option>
+          <option value="claude-sonnet-4-5"></option>
+        </datalist>
+      </label>
       <label class="ai-imgctl-field"><span>尺寸</span><select id="ai-image-size"></select></label>
       <label class="ai-imgctl-field"><span>质量</span><select id="ai-image-quality"></select></label>
       <label class="ai-imgctl-field"><span>张数</span>
