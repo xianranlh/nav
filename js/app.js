@@ -5701,6 +5701,11 @@
       const prov = providers.find((p) => p.id === provSel.value);
       const models = (prov?.models || []).slice();
       if (prov?.defaultModel && !models.includes(prov.defaultModel)) models.unshift(prov.defaultModel);
+      // 百炼（DashScope）供应商：补充常用文生图模型建议，方便从下拉里直接选用
+      if (/dashscope|aliyuncs\.com/i.test(prov?.baseUrl || "")) {
+        ["wan2.5-t2i-preview", "wanx2.1-t2i-turbo", "wanx2.1-t2i-plus", "wanx2.0-t2i-turbo", "qwen-image", "flux-schnell", "flux-dev"]
+          .forEach((m) => { if (!models.includes(m)) models.push(m); });
+      }
       if (list) list.innerHTML = models.map((m) => `<option value="${escapeAttr(m)}"></option>`).join("");
       if (forceDefault || !modelInput.value) {
         const saved = AI.AIStore.data.imageOpts?.genModel || "";

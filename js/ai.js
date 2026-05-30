@@ -1285,8 +1285,108 @@
     return arr;
   }
 
+  // ===================== DashScope（阿里云百炼 / 通义万相）原生生图（异步任务 + 轮询） =====================
+  /** 从兼容模式 baseUrl 推导百炼原生根：去掉 /compatible-mode/v1 或末尾 /vN。
+   *  例：https://dashscope.aliyuncs.com/compatible-mode/v1 → https://dashscope.aliyuncs.com */
+  function dashscopeNativeBase(provider) {
+    let host = String(provider?.baseUrl || "").trim().replace(/\/+$/, "");
+    host = host.replace(/\/compatible-mode\/v\d+$/i, "").replace(/\/v\d+(beta)?$/i, "");
+    return host || "https://dashscope.aliyuncs.com";
+  }
+
+  /** 是否走百炼原生图像接口：baseUrl 指向 dashscope/aliyuncs，或模型是 wanx / wan2 / qwen-image / flux 系。 */
+  function isDashScopeProvider(provider, model) {
+    const host = String(provider?.baseUrl || "").toLowerCase();
+    if (/dashscope|aliyuncs\.com/.test(host)) return true;
+    return /^(wanx|wan[0-9]|qwen-image|flux)/i.test(String(model || "").trim());
+  }
+
+  /** 构造百炼原生接口的 url+headers，复用与 buildFetchTarget 相同的反代决策。
+   *  注意：百炼无 CORS 头，浏览器直连会被拦，强烈建议保持反代开启。 */
+  function dashscopeTarget(provider, subPath) {
+    const base = dashscopeNativeBase(provider) + "/api/v1";
+    const sub = String(subPath || "").replace(/^\/+/, "");
+    let useProxy;
+    if (provider.useProxy === true) useProxy = true;
+    else if (provider.useProxy === false) useProxy = false;
+    else useProxy = !!(window.AI && window.AI.AIStore && window.AI.AIStore.proxyAvailable);
+    if (useProxy) {
+      return {
+        url: "/api/ai-proxy/" + sub,
+        headers: { "X-Sakura-Target-Base": base, "X-Sakura-Target-Auth": "Bearer " + (provider.apiKey || "") },
+      };
+    }
+    return { url: base + "/" + sub, headers: { "Authorization": "Bearer " + (provider.apiKey || "") } };
+  }
+
+  /** 百炼原生文生图：异步提交 image-synthesis → 轮询 tasks/{id} 到 SUCCEEDED。返回 [{url}] 或 [{dataUrl}]。 */
+  async function imageRequestDashScope({ provider, model, prompt, size, n, signal }) {
+    // 百炼尺寸用 "宽*高"（星号）；nav 的 "宽x高" 转一下，auto/自定义非法值则不传，让模型用默认。
+    const dsSize = (size && size !== "auto" && /^\d+x\d+$/.test(size)) ? size.replace("x", "*") : undefined;
+    const submit = dashscopeTarget(provider, "services/aigc/text2image/image-synthesis");
+    const body = {
+      model: model || "wanx2.1-t2i-turbo",
+      input: { prompt: String(prompt || "").slice(0, 4000) },
+      parameters: { n: Math.max(1, Math.min(4, +n || 1)), ...(dsSize ? { size: dsSize } : {}) },
+    };
+    const submitRes = await fetch(submit.url, {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json", "X-DashScope-Async": "enable", ...submit.headers },
+      body: JSON.stringify(body),
+    });
+    const submitTxt = await submitRes.text().catch(() => "");
+    if (!submitRes.ok) {
+      console.error("[ai][dashscope] 提交失败 %s\nmodel=%s  size=%s\n上游 body:\n%s", submitRes.status, model, dsSize || "(默认)", submitTxt.slice(0, 2000));
+      throw buildHttpError(submitRes.status, submitTxt);
+    }
+    let submitJson;
+    try { submitJson = JSON.parse(submitTxt); } catch (_) {
+      const e = new Error("百炼提交响应不是合法 JSON：" + submitTxt.slice(0, 200));
+      e.status = submitRes.status; e.raw = submitTxt; throw e;
+    }
+    const taskId = submitJson?.output?.task_id;
+    if (!taskId) {
+      const msg = submitJson?.output?.message || submitJson?.message || submitJson?.code || "百炼未返回 task_id（模型名或参数可能不被接受）";
+      const e = new Error(String(msg)); e.status = submitRes.status; e.raw = submitTxt; throw e;
+    }
+    const deadline = Date.now() + 240_000; // 4 分钟上限
+    for (;;) {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      await sleepWithSignal(2500, signal);
+      if (Date.now() > deadline) throw new Error("百炼生图超时（4 分钟未完成）");
+      const poll = dashscopeTarget(provider, "tasks/" + taskId);
+      const pollRes = await fetch(poll.url, { signal, headers: { ...poll.headers } });
+      const pollTxt = await pollRes.text().catch(() => "");
+      if (!pollRes.ok) throw buildHttpError(pollRes.status, pollTxt);
+      let pj;
+      try { pj = JSON.parse(pollTxt); } catch (_) { continue; }
+      const status = pj?.output?.task_status;
+      if (status === "SUCCEEDED") {
+        const results = pj?.output?.results || [];
+        const arr = results
+          .map((r) => (r && r.url) ? { url: r.url } : (r && r.b64_image ? { dataUrl: "data:image/png;base64," + r.b64_image } : null))
+          .filter(Boolean);
+        if (!arr.length) {
+          const e = new Error("百炼任务成功但未返回图片（可能命中内容审核或参数不合法）");
+          e.status = pollRes.status; e.raw = pollTxt; throw e;
+        }
+        return arr;
+      }
+      if (status === "FAILED" || status === "UNKNOWN") {
+        const e = new Error("百炼生图失败：" + (pj?.output?.message || pj?.output?.code || status || "未知"));
+        e.status = pollRes.status; e.raw = pollTxt; throw e;
+      }
+      // PENDING / RUNNING → 继续轮询
+    }
+  }
+
   async function imageRequest(opts) {
     const { provider, model, prompt, size, quality, n, signal, apiMode, onPartial, textModel } = opts;
+    // 百炼（DashScope / 通义万相）原生分支：dashscope/aliyuncs 域名或 wanx/qwen-image 系模型，走异步 image-synthesis
+    if (isDashScopeProvider(provider, model)) {
+      return await imageRequestDashScope({ provider, model, prompt, size, n, signal });
+    }
     // Responses API 模式：走 SSE 流式（borrows Image-Studio 的 CF 524 规避思路）
     // 仅在调用方显式声明 apiMode === "responses" 时启用，避免误伤普通中转
     if (apiMode === "responses") {
@@ -1449,6 +1549,9 @@
    *  opts: { provider, model, prompt, images:[dataUrl|{dataUrl}], size?, quality?, n?, signal, retry? } */
   async function generateImageEdit(opts) {
     const { retry } = opts || {};
+    if (isDashScopeProvider(opts?.provider, opts?.model)) {
+      throw new Error("百炼（DashScope）图生图需要公网图片 URL 输入，nav 当前用的是本地参考图（base64），暂未适配；图生图请改用 OpenAI 兼容的图片中转（如 gpt-image-1）。");
+    }
     const attempts = Math.max(1, Math.min(5, +(retry?.maxAttempts) || 2));
     const baseDelay = +(retry?.delayMs) || 1500;
     let lastErr;

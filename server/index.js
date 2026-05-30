@@ -777,6 +777,8 @@ app.all(/^\/api\/ai-proxy(\/.*)?$/, async (req, res) => {
   const ct = req.headers["content-type"];
   if (ct) upstreamHeaders["content-type"] = ct;
   if (targetAuth) upstreamHeaders["authorization"] = targetAuth;
+  // 透传百炼（DashScope）异步生图头：image-synthesis 提交必须带 X-DashScope-Async: enable，否则会被拒
+  if (req.headers["x-dashscope-async"]) upstreamHeaders["x-dashscope-async"] = req.headers["x-dashscope-async"];
   // 不转发：origin / referer / cookie / accept-encoding（会让 undici 自动解压打乱 content-length）
 
   let body;
@@ -901,10 +903,3 @@ if (SERVE_STATIC) {
 }
 
 const BIND_HOST = process.env.BIND_HOST || "0.0.0.0";
-
-app.listen(PORT, BIND_HOST, () => {
-  const staticHint = SERVE_STATIC ? `, 静态=${STATIC_ROOT}` : "";
-  console.log(
-    `[sakura-data] SQLite + media, listening on ${BIND_HOST}:${PORT}, DATA_DIR=${DATA_DIR}${staticHint}`
-  );
-});
