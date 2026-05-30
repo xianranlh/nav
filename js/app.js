@@ -2843,104 +2843,14 @@
     const attachPreview = $("#ai-attach-preview");
     const modelSel = $("#ai-model-select");
     const personaSel = $("#ai-persona-select");
-    const imgModeBtn = $("#ai-image-mode");
-    const imgCtrl = $("#ai-image-controls");
-    const imgSizeSel = $("#ai-image-size");
-    const imgQualitySel = $("#ai-image-quality");
-    const imgNSel = $("#ai-image-n");
-    const imgApiModeSel = $("#ai-image-api-mode");
-    const imgDriverField = $("#ai-image-driver-field");
-    const imgDriverInput = $("#ai-image-driver");
-    const imgCustomBox = imgCtrl?.querySelector(".ai-imgctl-custom");
-    const imgCustomW = $("#ai-image-custom-w");
-    const imgCustomH = $("#ai-image-custom-h");
-
-    // 填充生图下拉
-    if (imgSizeSel) {
-      imgSizeSel.innerHTML = AI.IMAGE_SIZES.map((o) =>
-        `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
+    // 🎨 生图已迁移到「图库 → 生图」标签页（见图库弹窗 + UIArchive 生图逻辑）。
+    // 聊天面板不再提供生图模式：这里只做一次性兜底，清掉历史持久化里可能残留的 imageMode，
+    // 避免发送时仍走到已废弃的生图分支；生图参数（imageOpts）仍由图库生图标签页复用。
+    if (AI.AIStore.data.imageMode) {
+      AI.AIStore.data.imageMode = false;
+      try { AI.AIStore.save(); } catch (_) {}
     }
-    if (imgQualitySel) {
-      imgQualitySel.innerHTML = AI.IMAGE_QUALITIES.map((o) =>
-        `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
-    }
-
-    function syncImageMode() {
-      const on = !!AI.AIStore.data.imageMode;
-      imgModeBtn?.setAttribute("aria-pressed", on ? "true" : "false");
-      imgModeBtn?.classList.toggle("active", on);
-      if (imgCtrl) imgCtrl.hidden = !on;
-      if (input) input.placeholder = on ? "描述要画的图…（Enter 发送）" : "输入消息...";
-      // 把当前持久化的值回填到下拉
-      const o = AI.AIStore.data.imageOpts || {};
-      if (imgSizeSel) imgSizeSel.value = o.size || "1024x1024";
-      if (imgQualitySel) imgQualitySel.value = o.quality || "auto";
-      if (imgNSel) imgNSel.value = String(o.n || 1);
-      if (imgApiModeSel) imgApiModeSel.value = o.apiMode || "images";
-      if (imgDriverInput) imgDriverInput.value = o.textModel || "";
-      if (imgDriverField) imgDriverField.hidden = (o.apiMode !== "responses");
-      if (imgCustomW) imgCustomW.value = o.customW || 3840;
-      if (imgCustomH) imgCustomH.value = o.customH || 2160;
-      if (imgCustomBox) imgCustomBox.hidden = (imgSizeSel?.value !== "custom");
-      syncImageWarnState();
-    }
-    /** 选了 4K（包括自定义里 W/H 触及 4K）就给 .ai-image-controls 加 data-warn="4k"，CSS 接管显示提示。 */
-    function syncImageWarnState() {
-      if (!imgCtrl) return;
-      const o = AI.AIStore.data.imageOpts || {};
-      let is4K = false;
-      const sizeStr = (o.size === "custom")
-        ? `${o.customW || 0}x${o.customH || 0}`
-        : (o.size || "");
-      const m = /^(\d+)x(\d+)$/.exec(sizeStr);
-      if (m) {
-        const longSide = Math.max(+m[1], +m[2]);
-        if (longSide >= 2560) is4K = true; // 2K 以上就给提示
-      }
-      if (is4K) imgCtrl.setAttribute("data-warn", "4k");
-      else imgCtrl.removeAttribute("data-warn");
-    }
-    syncImageMode();
-
-    imgModeBtn?.addEventListener("click", () => {
-      AI.AIStore.data.imageMode = !AI.AIStore.data.imageMode;
-      AI.AIStore.save();
-      syncImageMode();
-    });
-    imgSizeSel?.addEventListener("change", () => {
-      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), size: imgSizeSel.value };
-      AI.AIStore.save();
-      if (imgCustomBox) imgCustomBox.hidden = (imgSizeSel.value !== "custom");
-      syncImageWarnState();
-    });
-    imgQualitySel?.addEventListener("change", () => {
-      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), quality: imgQualitySel.value };
-      AI.AIStore.save();
-    });
-    imgNSel?.addEventListener("change", () => {
-      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), n: +imgNSel.value || 1 };
-      AI.AIStore.save();
-    });
-    imgApiModeSel?.addEventListener("change", () => {
-      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), apiMode: imgApiModeSel.value };
-      AI.AIStore.save();
-      // 切到 Responses 时显示驱动模型字段；切回 Images 隐藏
-      if (imgDriverField) imgDriverField.hidden = (imgApiModeSel.value !== "responses");
-    });
-    imgDriverInput?.addEventListener("change", () => {
-      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), textModel: imgDriverInput.value.trim() };
-      AI.AIStore.save();
-    });
-    imgCustomW?.addEventListener("change", () => {
-      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), customW: +imgCustomW.value || 3840 };
-      AI.AIStore.save();
-      syncImageWarnState();
-    });
-    imgCustomH?.addEventListener("change", () => {
-      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), customH: +imgCustomH.value || 2160 };
-      AI.AIStore.save();
-      syncImageWarnState();
-    });
+    if (input) input.placeholder = "输入消息...";
 
     let attachments = [];
     let abortCtrl = null;
@@ -3369,12 +3279,9 @@
           ? `茶话会模式 · 每位成员有各自的角色（在 🍵 弹窗里改）`
           : "角色";
       }
-      // 茶话会和生图互斥；启用茶话会时关掉生图模式
+      // 生图已迁移到图库；聊天不再有生图模式，这里仅兜底清残留状态
       if (on && AI.AIStore.data.imageMode) {
         AI.AIStore.data.imageMode = false;
-        try { $("#ai-image-mode")?.setAttribute("aria-pressed", "false"); } catch (_) {}
-        try { $("#ai-image-mode")?.classList.remove("is-active"); } catch (_) {}
-        try { syncImageWarnState && syncImageWarnState(); } catch (_) {}
       }
     }
 
@@ -4169,6 +4076,24 @@
           const w = Math.max(64, +opts.customW || 3840);
           const h = Math.max(64, +opts.customH || 2160);
           size = `${w}x${h}`;
+        }
+        // 4K+ 大图 + OpenAI 系图模型 → 100% 会失败，前置警告让用户选择
+        const longSide = (() => {
+          const m = /^(\d+)x(\d+)$/.exec(size);
+          return m ? Math.max(+m[1], +m[2]) : 0;
+        })();
+        const isOpenAIImgModel = /^(gpt-image-|dall.?e[-\d])/i.test(model);
+        if (longSide >= 2048 && isOpenAIImgModel) {
+          const choice = confirm(
+            `⚠️ 你选的尺寸 ${size} 大概率会失败：\n\n` +
+            `${model} 这类 OpenAI 系图模型只支持 1024×1024 / 1024×1536 / 1536×1024 / 1792×1024（DALL·E 3）。\n\n` +
+            `点【确定】= 自动改用 1024×1024 继续生成\n` +
+            `点【取消】= 保留 ${size} 强行尝试（极可能 400）`
+          );
+          if (choice) {
+            size = "1024x1024";
+            tipEl.textContent = `⬇️ 尺寸已自动降为 1024×1024（原 ${opts.size} 不被 ${model} 支持）`;
+          }
         }
         const requestedCount = Math.max(1, +opts.n || 1);
         asstMsg.imageMeta = {
@@ -5268,6 +5193,9 @@
         if (intEl) intEl.value = Math.max(5, Math.min(3600, +Store.settings.bgInterval || 60));
         const shEl  = $("#gallery-bg-shuffle");
         if (shEl) shEl.checked = !!Store.settings.bgShuffle;
+        initGalleryGen();
+        refreshGenProviders();
+        showGalleryTab("library");
         refreshPresetSelect();
         renderGallery();
         renderSelThumbStrip();
@@ -5725,6 +5653,341 @@
         renderGallery();
       }
     });
+
+    // ===================== 图库 · 生图标签页（文生图 / 图生图） =====================
+    // 复用 AI.generateImage（/v1/images/generations）与 AI.generateImageEdit（/v1/images/edits）。
+    // 生图参数复用 AIStore.data.imageOpts（与原聊天生图共用持久化），并新增 genMode / genProviderId / genModel。
+    const genState = { mode: "t2i", refs: [], abort: null, inited: false, results: [] };
+
+    function genEl(id) { return document.getElementById(id); }
+    function persistGenOpt(key, val) {
+      AI.AIStore.data.imageOpts = { ...(AI.AIStore.data.imageOpts || {}), [key]: val };
+      try { AI.AIStore.save(); } catch (_) {}
+    }
+    function readFileAsDataURL(f) {
+      return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+    }
+
+    function showGalleryTab(name) {
+      $$(".gallery-tab").forEach((t) => {
+        const on = t.dataset.gtab === name;
+        t.classList.toggle("is-active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      $$(".gallery-tabpanel").forEach((p) => { p.hidden = p.dataset.gpanel !== name; });
+      if (name === "library") renderGallery();
+    }
+
+    function refreshGenProviders() {
+      const provSel = genEl("gen-provider");
+      if (!provSel) return;
+      const providers = AI.AIStore.data.providers || [];
+      const opts = AI.AIStore.data.imageOpts || {};
+      const curProv = AI.AIStore.currentProvider && AI.AIStore.currentProvider();
+      const savedId = opts.genProviderId || curProv?.id || providers[0]?.id || "";
+      provSel.innerHTML = providers.length
+        ? providers.map((p) => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.name || p.id)}</option>`).join("")
+        : `<option value="">（请先在 AI 设置里添加供应商）</option>`;
+      if (providers.some((p) => p.id === savedId)) provSel.value = savedId;
+      refreshGenModelList(false);
+    }
+
+    function refreshGenModelList(forceDefault) {
+      const provSel = genEl("gen-provider");
+      const modelInput = genEl("gen-model");
+      const list = genEl("gen-model-list");
+      if (!provSel || !modelInput) return;
+      const providers = AI.AIStore.data.providers || [];
+      const prov = providers.find((p) => p.id === provSel.value);
+      const models = (prov?.models || []).slice();
+      if (prov?.defaultModel && !models.includes(prov.defaultModel)) models.unshift(prov.defaultModel);
+      if (list) list.innerHTML = models.map((m) => `<option value="${escapeAttr(m)}"></option>`).join("");
+      if (forceDefault || !modelInput.value) {
+        const saved = AI.AIStore.data.imageOpts?.genModel || "";
+        const curProv = AI.AIStore.currentProvider && AI.AIStore.currentProvider();
+        let pick = "";
+        if (!forceDefault && saved) pick = saved;
+        if (!pick && prov && curProv && prov.id === curProv.id && AI.AIStore.data.currentModel) pick = AI.AIStore.data.currentModel;
+        if (!pick) pick = prov?.defaultModel || models[0] || "";
+        modelInput.value = pick;
+      }
+    }
+
+    function syncGenMode() {
+      const mode = genState.mode || "t2i";
+      $$(".gen-mode-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.mode === mode));
+      const refs = genEl("gen-refs");
+      if (refs) refs.hidden = mode !== "i2i";
+      const apiField = dlgGallery?.querySelector(".gen-field-api");
+      if (apiField) apiField.hidden = mode === "i2i";
+      const prompt = genEl("gen-prompt");
+      if (prompt) prompt.placeholder = mode === "i2i"
+        ? "描述如何编辑参考图（留空＝按模型默认重绘）…（Ctrl/⌘ + Enter 生成）"
+        : "描述要生成的图片…（Ctrl/⌘ + Enter 生成）";
+      syncGenDriver();
+    }
+    function syncGenDriver() {
+      const apiSel = genEl("gen-api-mode");
+      const driverField = genEl("gen-driver-field");
+      const isResp = (genState.mode !== "i2i") && apiSel && apiSel.value === "responses";
+      if (driverField) driverField.hidden = !isResp;
+    }
+    function syncGenCustom() {
+      const sizeSel = genEl("gen-size");
+      const customField = genEl("gen-custom-field");
+      if (customField) customField.hidden = !(sizeSel && sizeSel.value === "custom");
+    }
+
+    function renderGenRefs() {
+      const wrap = genEl("gen-ref-thumbs");
+      const empty = genEl("gen-ref-empty");
+      if (!wrap) return;
+      wrap.innerHTML = genState.refs.map((r, i) =>
+        `<div class="gen-ref-thumb"><img src="${r.dataUrl}" alt="参考图${i + 1}" /><button type="button" data-ref-rm="${i}" title="移除">×</button></div>`
+      ).join("");
+      if (empty) empty.hidden = genState.refs.length > 0;
+    }
+    async function addGenRefFiles(files) {
+      for (const f of Array.from(files || [])) {
+        if (!f || !(f.type || "").startsWith("image/")) continue;
+        try { genState.refs.push({ dataUrl: await readFileAsDataURL(f), name: f.name }); } catch (_) {}
+      }
+      renderGenRefs();
+    }
+
+    function renderGenResults() {
+      const el = genEl("gen-results");
+      if (!el) return;
+      el.innerHTML = genState.results.map((r) => {
+        if (r.status === "loading") {
+          return `<figure class="gen-card is-loading"><div class="gen-card-msg"><span class="gen-spin"></span>生成中…</div></figure>`;
+        }
+        if (r.status === "error") {
+          return `<figure class="gen-card is-error" data-id="${r.id}"><div class="gen-card-msg">⚠ ${escapeHtml((r.error || "失败").slice(0, 90))}<button type="button" class="gen-card-retry" data-gen-act="retry">重试</button></div></figure>`;
+        }
+        const dl = r.dataUrl || "";
+        return `<figure class="gen-card ${r.status === "partial" ? "is-partial" : ""}" data-id="${r.id}">
+          <img src="${dl}" alt="生成结果" loading="lazy" />
+          <div class="gen-card-acts">
+            <a class="mini-btn" href="${dl}" download="sakura-gen-${r.id}.png" title="下载">⬇</a>
+            <button type="button" class="mini-btn" data-gen-act="edit" title="在图像编辑器中打开">✏️</button>
+            <button type="button" class="mini-btn" data-gen-act="tolib" title="去图库查看（已自动入库）">🖼</button>
+          </div>
+        </figure>`;
+      }).join("");
+    }
+
+    async function runGalleryGen() {
+      if (genState.abort) return;
+      const statusEl = genEl("gen-status");
+      const runBtn = genEl("gen-run");
+      const cancelBtn = genEl("gen-cancel");
+      const resultsEl = genEl("gen-results");
+      const setErr = (msg) => { if (statusEl) { statusEl.classList.add("err"); statusEl.textContent = msg; } };
+      if (statusEl) statusEl.classList.remove("err");
+
+      const providers = AI.AIStore.data.providers || [];
+      const provider = providers.find((p) => p.id === genEl("gen-provider")?.value);
+      const model = (genEl("gen-model")?.value || "").trim();
+      const prompt = (genEl("gen-prompt")?.value || "").trim();
+      const mode = genState.mode || "t2i";
+
+      if (!provider) { setErr("请先在 AI 设置里添加供应商，并在此选择"); return; }
+      if (!model) { setErr("请填写或选择一个图像模型"); return; }
+      if (mode === "i2i" && !genState.refs.length) { setErr("图生图需要至少上传 1 张参考图"); return; }
+      if (mode === "t2i" && !prompt) { setErr("请输入提示词"); return; }
+
+      let size = genEl("gen-size")?.value || "1024x1024";
+      if (size === "custom") {
+        const w = Math.max(64, +genEl("gen-custom-w")?.value || 1024);
+        const h = Math.max(64, +genEl("gen-custom-h")?.value || 1024);
+        size = `${w}x${h}`;
+      }
+      const quality = genEl("gen-quality")?.value || "auto";
+      const count = Math.max(1, Math.min(8, +genEl("gen-count")?.value || 1));
+      const apiMode = mode === "i2i" ? "images" : (genEl("gen-api-mode")?.value || "images");
+      const textModel = (genEl("gen-driver")?.value || "").trim();
+
+      const longSide = (() => { const m = /^(\d+)x(\d+)$/.exec(size); return m ? Math.max(+m[1], +m[2]) : 0; })();
+      if (longSide >= 2048 && /^(gpt-image-|dall.?e[-\d])/i.test(model)) {
+        if (confirm(`你选的尺寸 ${size} 对 ${model} 这类 OpenAI 系图模型大概率会失败（一般只支持 1024 系列）。\n\n确定 = 自动改用 1024×1024 继续；取消 = 保留 ${size} 强行尝试`)) {
+          size = "1024x1024";
+        }
+      }
+
+      genState.results = Array.from({ length: count }, (_, i) => ({ id: "g-" + Date.now() + "-" + i, status: "loading" }));
+      renderGenResults();
+      try { resultsEl?.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (_) {}
+
+      genState.abort = new AbortController();
+      if (runBtn) runBtn.hidden = true;
+      if (cancelBtn) cancelBtn.hidden = false;
+      const startedAt = Date.now();
+      if (statusEl) statusEl.textContent = mode === "i2i" ? "正在图生图…" : "正在生成…";
+      const tick = setInterval(() => {
+        if (!genState.abort || !statusEl) return;
+        statusEl.textContent = `${mode === "i2i" ? "图生图" : "生成"}中… 已等待 ${Math.floor((Date.now() - startedAt) / 1000)}s`;
+      }, 1000);
+
+      const retry = {
+        maxAttempts: apiMode === "responses" ? 3 : 2,
+        delayMs: apiMode === "responses" ? 15000 : 1500,
+        onRetry: (n, total, err, stage) => {
+          if (!statusEl) return;
+          if (stage === "fallback-images") { statusEl.textContent = "⤵ Responses 模式失败，自动改用 Images 模式…"; return; }
+          statusEl.textContent = `重试 ${n}/${total - 1}${err?.status ? " (HTTP " + err.status + ")" : ""}…`;
+        },
+      };
+
+      try {
+        let arr;
+        if (mode === "i2i") {
+          arr = await AI.generateImageEdit({
+            provider, model, prompt: prompt || "编辑这张图片", images: genState.refs.map((r) => r.dataUrl),
+            size, quality, n: count, signal: genState.abort.signal, retry,
+          });
+        } else {
+          arr = await AI.generateImage({
+            provider, model, prompt: prompt || "请生成一张创意图片", size, quality, n: count, apiMode, textModel,
+            signal: genState.abort.signal, retry,
+            onPartial: ({ b64, revisedPrompt }) => {
+              if (!b64 || !genState.results.length) return;
+              const slot = genState.results[0];
+              slot.status = "partial";
+              slot.dataUrl = "data:image/png;base64," + b64;
+              slot.revisedPrompt = revisedPrompt || slot.revisedPrompt || "";
+              renderGenResults();
+            },
+          });
+        }
+        const merged = (arr || []).map((it, i) => ({
+          id: genState.results[i]?.id || "g-" + Date.now() + "-" + i,
+          status: (it.degraded || it.sourceEvent === "partial") ? "partial" : "success",
+          dataUrl: it.dataUrl || it.url || "",
+          revisedPrompt: it.revisedPrompt || "",
+        }));
+        while (merged.length < count) merged.push({ id: "g-err-" + merged.length, status: "error", error: "接口返回的图片数量不足" });
+        genState.results = merged;
+        renderGenResults();
+        const okCount = merged.filter((m) => m.dataUrl).length;
+        if (statusEl) statusEl.textContent = `✅ 完成 · ${okCount}/${count} 张 · ${size} · ${quality}`;
+
+        const toSave = merged
+          .filter((r) => (r.status === "success" || r.status === "partial") && r.dataUrl)
+          .map((r) => ({ source: "generated", dataUrl: r.dataUrl, prompt: prompt || "", revisedPrompt: r.revisedPrompt || "", model, size, quality }));
+        if (toSave.length && window.Archive?.Gallery) {
+          await window.Archive.Gallery.addBatch(toSave).catch(() => {});
+        }
+      } catch (err) {
+        if (err?.name === "AbortError") {
+          genState.results = genState.results.map((r) => r.status === "loading" ? { ...r, status: "error", error: "已取消" } : r);
+          if (statusEl) statusEl.textContent = "已取消";
+        } else {
+          const friendly = (AI.formatImageErrorMessage ? AI.formatImageErrorMessage(err.message || "生图失败") : (err.message || "生图失败"));
+          genState.results = genState.results.map((r) => r.status === "loading" ? { ...r, status: "error", error: friendly } : r);
+          setErr(String(friendly).replace(/\s+/g, " ").slice(0, 220));
+        }
+        renderGenResults();
+      } finally {
+        clearInterval(tick);
+        genState.abort = null;
+        if (runBtn) runBtn.hidden = false;
+        if (cancelBtn) cancelBtn.hidden = true;
+      }
+    }
+
+    function initGalleryGen() {
+      if (genState.inited) return;
+      if (!dlgGallery) return;
+      const sizeSel = genEl("gen-size");
+      const qualSel = genEl("gen-quality");
+      if (sizeSel && AI.IMAGE_SIZES) sizeSel.innerHTML = AI.IMAGE_SIZES.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
+      if (qualSel && AI.IMAGE_QUALITIES) qualSel.innerHTML = AI.IMAGE_QUALITIES.map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
+
+      const opts = AI.AIStore.data.imageOpts || {};
+      genState.mode = opts.genMode === "i2i" ? "i2i" : "t2i";
+      if (sizeSel) sizeSel.value = opts.size || "1024x1024";
+      if (qualSel) qualSel.value = opts.quality || "auto";
+      if (genEl("gen-count")) genEl("gen-count").value = String(opts.n || 1);
+      if (genEl("gen-api-mode")) genEl("gen-api-mode").value = opts.apiMode || "images";
+      if (genEl("gen-driver")) genEl("gen-driver").value = opts.textModel || "";
+      if (genEl("gen-custom-w")) genEl("gen-custom-w").value = opts.customW || 1024;
+      if (genEl("gen-custom-h")) genEl("gen-custom-h").value = opts.customH || 1024;
+
+      refreshGenProviders();
+      syncGenMode();
+      syncGenCustom();
+      renderGenRefs();
+
+      $$(".gallery-tab").forEach((t) => t.addEventListener("click", () => showGalleryTab(t.dataset.gtab)));
+      $$(".gen-mode-btn").forEach((b) => b.addEventListener("click", () => {
+        genState.mode = b.dataset.mode === "i2i" ? "i2i" : "t2i";
+        persistGenOpt("genMode", genState.mode);
+        syncGenMode();
+      }));
+
+      genEl("gen-provider")?.addEventListener("change", () => {
+        persistGenOpt("genProviderId", genEl("gen-provider").value);
+        refreshGenModelList(true);
+        persistGenOpt("genModel", genEl("gen-model").value);
+      });
+      genEl("gen-model")?.addEventListener("change", () => persistGenOpt("genModel", genEl("gen-model").value.trim()));
+      sizeSel?.addEventListener("change", () => { persistGenOpt("size", sizeSel.value); syncGenCustom(); });
+      qualSel?.addEventListener("change", () => persistGenOpt("quality", qualSel.value));
+      genEl("gen-count")?.addEventListener("change", () => persistGenOpt("n", +genEl("gen-count").value || 1));
+      genEl("gen-api-mode")?.addEventListener("change", () => { persistGenOpt("apiMode", genEl("gen-api-mode").value); syncGenDriver(); });
+      genEl("gen-driver")?.addEventListener("change", () => persistGenOpt("textModel", genEl("gen-driver").value.trim()));
+      genEl("gen-custom-w")?.addEventListener("change", () => persistGenOpt("customW", +genEl("gen-custom-w").value || 1024));
+      genEl("gen-custom-h")?.addEventListener("change", () => persistGenOpt("customH", +genEl("gen-custom-h").value || 1024));
+
+      genEl("gen-ref-input")?.addEventListener("change", (e) => { addGenRefFiles(e.target.files); e.target.value = ""; });
+      const refsBox = genEl("gen-refs");
+      if (refsBox) {
+        refsBox.addEventListener("dragover", (e) => { e.preventDefault(); refsBox.classList.add("dragover"); });
+        refsBox.addEventListener("dragleave", () => refsBox.classList.remove("dragover"));
+        refsBox.addEventListener("drop", (e) => {
+          e.preventDefault(); refsBox.classList.remove("dragover");
+          if (e.dataTransfer?.files?.length) addGenRefFiles(e.dataTransfer.files);
+        });
+      }
+      genEl("gen-ref-thumbs")?.addEventListener("click", (e) => {
+        const rm = e.target.closest("[data-ref-rm]");
+        if (rm) { genState.refs.splice(+rm.dataset.refRm, 1); renderGenRefs(); }
+      });
+
+      genEl("gen-run")?.addEventListener("click", runGalleryGen);
+      genEl("gen-cancel")?.addEventListener("click", () => { try { genState.abort?.abort(); } catch (_) {} });
+      genEl("gen-prompt")?.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runGalleryGen(); }
+      });
+
+      genEl("gen-results")?.addEventListener("click", async (e) => {
+        const act = e.target.closest("[data-gen-act]")?.dataset.genAct;
+        if (!act) return;
+        if (act === "retry") { runGalleryGen(); return; }
+        if (act === "tolib") { showGalleryTab("library"); return; }
+        if (act === "edit") {
+          const id = e.target.closest(".gen-card")?.dataset.id;
+          const r = genState.results.find((x) => x.id === id);
+          if (!r?.dataUrl) return;
+          if (!window.ImageEditor) { toast("图像编辑器模块未加载"); return; }
+          try {
+            await window.ImageEditor.open(
+              { dataUrl: r.dataUrl, prompt: genEl("gen-prompt")?.value || "", model: genEl("gen-model")?.value || "" },
+              async ({ dataUrl, prompt, model }) => {
+                const newId = await Gallery.add({ source: "uploaded", dataUrl, prompt: (prompt || "") + " (edited)", name: "gen-edited.png", mime: "image/png", model: model || "" });
+                toast(newId ? "✏️ 编辑结果已存为图库新条目" : "保存失败");
+              }
+            );
+          } catch (err) { toast("打开编辑器失败：" + (err?.message || err), 4000); }
+        }
+      });
+
+      genState.inited = true;
+    }
+
+    // 模块加载即尝试初始化（弹窗 DOM 已在页面里，隐藏状态也能绑定事件）
+    try { initGalleryGen(); } catch (e) { console.warn("[GalleryGen.init]", e); }
 
     return { openSessions, openGallery, flushCurrentSession };
   })();

@@ -1084,6 +1084,12 @@
         // 收一下这次的 partial（如果有），下一轮成功就抛掉它，全失败就用它兜底
         if (err.partial) lastPartial = err.partial;
 
+        // 确定性错误（model_not_found / 鉴权 / 配额 / 政策）—— 重试也是同样结果，立即跳出去让 fallback 接手
+        if (_isDeterministicError(err)) {
+          recordProbeError(opts.provider, opts.model, err);
+          break;
+        }
+
         const cool = isCooldownError(err);
         const gw = isRetryableGatewayError(err);
         // Image-Studio 风格的 body 重试判定（更宽松）：只在 Responses 模式启用
@@ -1146,6 +1152,26 @@
     if (txt.includes("not implemented") || txt.includes("not found") || txt.includes("not supported")) return true;
     if (txt.includes("unknown route") || txt.includes("no such route")) return true;
     if (txt.includes("does not support") || txt.includes("model_not_found")) return true;
+    // 中文中转常用提示：分组 X 下模型 Y 无可用渠道
+    if (txt.includes("无可用渠道") || txt.includes("无可用通道") || txt.includes("没有可用")) return true;
+    return false;
+  }
+
+  /** 不该重试的"确定性错误"——重试 N 次结果一样，浪费时间也浪费 token。
+   *  - model_not_found：模型不存在/无权限，重试没用
+   *  - invalid_request_error 含 size/parameter：参数错，重试没用
+   *  - 401/403 鉴权：重试没用
+   *  返回 true 表示直接跳出重试循环（让外层 fallback / 报错处理） */
+  function _isDeterministicError(err) {
+    if (!err) return false;
+    const s = +err.status || 0;
+    if (s === 401 || s === 403) return true;
+    const txt = String(err.raw || err.upstreamError || err.message || "").toLowerCase();
+    if (txt.includes("model_not_found")) return true;
+    if (txt.includes("无可用渠道") || txt.includes("无可用通道")) return true;
+    if (txt.includes("insufficient_quota") || txt.includes("billing_hard_limit")) return true;
+    if (txt.includes("content_policy_violation") || txt.includes("moderation_blocked")) return true;
+    if (txt.includes("invalid_api_key") || txt.includes("incorrect_api_key")) return true;
     return false;
   }
 
@@ -1339,6 +1365,115 @@
       err.status = r.status; err.raw = txt; throw err;
     }
     return arr;
+  }
+
+  // ===================== 图生图 / 参考图编辑（/v1/images/edits） =====================
+  /** dataURL -> Blob（图生图要把参考图当 multipart 文件上传）。 */
+  function dataUrlToBlob(dataUrl) {
+    const str = String(dataUrl || "");
+    const comma = str.indexOf(",");
+    const head = str.slice(0, comma);
+    const body = str.slice(comma + 1);
+    const mime = (head.match(/data:([^;]+)/) || [])[1] || "image/png";
+    const isB64 = /;base64/i.test(head);
+    const raw = isB64 ? atob(body) : decodeURIComponent(body);
+    const u8 = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i);
+    return new Blob([u8], { type: mime });
+  }
+
+  /** 真正发一次 /images/edits 请求。images 是 [dataUrl] 或 [{dataUrl}]。
+   *  注意：FormData 不能手动设 Content-Type，必须让浏览器带 multipart boundary。 */
+  async function imageEditRequest(opts) {
+    const { provider, model, prompt, size, quality, n, images, signal } = opts;
+    const refs = (images || [])
+      .map((img) => (typeof img === "string" ? img : img?.dataUrl))
+      .filter(Boolean);
+    if (!refs.length) throw new Error("图生图需要至少 1 张参考图");
+
+    const t = buildFetchTarget(provider, "images/edits");
+    const fd = new FormData();
+    fd.set("model", model);
+    fd.set("prompt", String(prompt || "").slice(0, 4000));
+    fd.set("n", String(Math.max(1, Math.min(10, +n || 1))));
+    if (size && size !== "auto") fd.set("size", size);
+    if (quality && quality !== "auto") fd.set("quality", quality);
+    fd.set("response_format", "b64_json");
+    refs.forEach((dataUrl, i) => {
+      const blob = dataUrlToBlob(dataUrl);
+      const ext = ((blob.type.split("/")[1] || "png").replace("jpeg", "jpg")).replace("svg+xml", "svg");
+      // 多张参考图：重复 append 同名 image 字段（与多数 OpenAI 兼容中转一致）
+      fd.append("image", blob, `reference-${i + 1}.${ext}`);
+    });
+
+    const r = await fetch(t.url, { method: "POST", signal, headers: { ...t.headers }, body: fd });
+    const txt = await r.text().catch(() => "");
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    if (!r.ok) {
+      console.error(
+        "[ai][images/edits] 上游返回 %s\nmodel=%s  size=%s  quality=%s  参考图=%d 张\n上游 body 完整内容:\n%s",
+        r.status, model, size || "(未设)", quality || "(未设)", refs.length, txt.slice(0, 4000)
+      );
+      throw buildHttpError(r.status, txt);
+    }
+    if (!txt.trim()) {
+      const err = new Error(`上游返回空响应（状态 ${r.status}，content-type=${ct || "缺失"}）。`);
+      err.status = r.status; err.raw = ""; err.bodyKind = "empty"; throw err;
+    }
+    let j;
+    try { j = JSON.parse(txt); } catch (_) {
+      const looksHtml = /<html|<!doctype|<body/i.test(txt);
+      const sample = txt.slice(0, 200);
+      const err = new Error(
+        looksHtml
+          ? `上游返回了 HTML 而不是 JSON（状态 ${r.status}）。基本是被中转/防火墙拦了。片段：${sample}`
+          : `图生图响应不是合法 JSON（状态 ${r.status}, content-type=${ct || "缺失"}）。片段：${sample}`
+      );
+      err.status = r.status; err.raw = txt; err.bodyKind = looksHtml ? "html" : "text"; throw err;
+    }
+    const arr = (j.data || j.images || []).map((d) => {
+      if (!d) return null;
+      if (d.b64_json) return { dataUrl: "data:image/png;base64," + d.b64_json, revisedPrompt: d.revised_prompt };
+      if (d.url)      return { url: d.url, revisedPrompt: d.revised_prompt };
+      if (typeof d === "string" && /^[A-Za-z0-9+/=]+$/.test(d)) return { dataUrl: "data:image/png;base64," + d };
+      return null;
+    }).filter(Boolean);
+    if (!arr.length) {
+      const err = new Error("图生图返回为空（也许中转把图片放进了非标准字段）");
+      err.status = r.status; err.raw = txt; throw err;
+    }
+    return arr;
+  }
+
+  /** 图生图（参考图编辑）。复用 generateImage 的重试/冷却/探测台账逻辑。
+   *  opts: { provider, model, prompt, images:[dataUrl|{dataUrl}], size?, quality?, n?, signal, retry? } */
+  async function generateImageEdit(opts) {
+    const { retry } = opts || {};
+    const attempts = Math.max(1, Math.min(5, +(retry?.maxAttempts) || 2));
+    const baseDelay = +(retry?.delayMs) || 1500;
+    let lastErr;
+    for (let i = 0; i < attempts; i++) {
+      if (i > 0) {
+        try { retry?.onRetry?.(i, attempts, lastErr); } catch (_) {}
+        await sleepWithSignal(baseDelay * i, opts.signal);
+        if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      }
+      try {
+        const result = await imageEditRequest(opts);
+        recordProbeOk(opts.provider, opts.model);
+        return result;
+      } catch (err) {
+        lastErr = err;
+        if (err?.name === "AbortError") throw err;
+        if (_isDeterministicError(err)) { recordProbeError(opts.provider, opts.model, err); break; }
+        const cool = isCooldownError(err);
+        const gw = isRetryableGatewayError(err);
+        if (cool) recordCooldown(opts.provider, opts.model, err);
+        else recordProbeError(opts.provider, opts.model, err);
+        if (!(cool || gw)) throw err;
+      }
+    }
+    throw lastErr;
   }
 
   // ===================== 消息构造 =====================
@@ -1784,6 +1919,7 @@
     fetchModels,
     chat,
     generateImage,
+    generateImageEdit,
     isGeminiImageModel,
     formatImageErrorMessage,
     IMAGE_SIZES,

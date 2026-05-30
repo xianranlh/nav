@@ -815,7 +815,6 @@
           <button class="ai-tool-btn" id="ai-find-model" title="逐个发 1-token 探针自动找一个能用的模型"><span class="ai-tool-ico">🔍</span><span class="ai-tool-txt">探测</span></button>
         </div>
         <div class="ai-head-group" role="group" aria-label="对话模式">
-          <button class="ai-tool-btn" id="ai-image-mode" title="切换生图模式（请求改走 /v1/images/generations）" aria-pressed="false"><span class="ai-tool-ico">🎨</span><span class="ai-tool-txt">生图</span></button>
           <button class="ai-tool-btn" id="ai-council" title="茶话会模式：多代理并行/辩论/圆桌对话" aria-pressed="false"><span class="ai-tool-ico">🍵</span><span class="ai-tool-txt">茶话会</span></button>
         </div>
         <div class="ai-head-group" role="group" aria-label="会话操作">
@@ -828,43 +827,7 @@
         <button class="ai-tool-btn ai-close-btn" id="ai-close" title="关闭面板（Esc）" aria-label="关闭面板"><span class="ai-tool-ico">✕</span><span class="ai-tool-txt">关闭</span></button>
       </div>
     </header>
-    <div id="ai-image-controls" class="ai-image-controls" hidden>
-      <label class="ai-imgctl-field" title="Responses(SSE)：长推理 CF 524 几乎不会中断，需要中转支持 /v1/responses + image_generation 工具；Images：标准 /v1/images/generations，瞬时 JSON，兼容性最广但 CF 524 风险更高">
-        <span>API 模式</span>
-        <select id="ai-image-api-mode">
-          <option value="images">Images · 标准（兼容）</option>
-          <option value="responses">Responses · SSE 保活（防 524）</option>
-        </select>
-      </label>
-      <label class="ai-imgctl-field ai-imgctl-driver" id="ai-image-driver-field" hidden title="Responses API 的文本驱动模型，负责理解 prompt + 调度工具。必须是聊天/推理模型（gpt-4o / gpt-5 / claude-* 等），不能是图像模型本身。留空则用顶栏选的模型，但若顶栏选的是 gpt-image-* / dall-e 这类图模型，必须显式填一个文本模型，否则上游会 400。">
-        <span>文本驱动</span>
-        <input type="text" id="ai-image-driver" placeholder="gpt-4o / gpt-5 / 留空" list="ai-image-driver-list" />
-        <datalist id="ai-image-driver-list">
-          <option value="gpt-4o"></option>
-          <option value="gpt-4o-mini"></option>
-          <option value="gpt-5"></option>
-          <option value="gpt-5-mini"></option>
-          <option value="claude-3-5-sonnet"></option>
-          <option value="claude-sonnet-4-5"></option>
-        </datalist>
-      </label>
-      <label class="ai-imgctl-field"><span>尺寸</span><select id="ai-image-size"></select></label>
-      <label class="ai-imgctl-field"><span>质量</span><select id="ai-image-quality"></select></label>
-      <label class="ai-imgctl-field"><span>张数</span>
-        <select id="ai-image-n">
-          <option value="1">1</option><option value="2">2</option>
-          <option value="3">3</option><option value="4">4</option>
-        </select>
-      </label>
-      <label class="ai-imgctl-custom" hidden>
-        <span>自定义</span>
-        <span class="ai-imgctl-custom-row">
-          <input id="ai-image-custom-w" type="number" min="64" step="8" placeholder="宽 W" />
-          <em>×</em>
-          <input id="ai-image-custom-h" type="number" min="64" step="8" placeholder="高 H" />
-        </span>
-      </label>
-    </div>
+    <!-- 🎨 生图已迁移到「图库 → 生图」标签页；聊天面板不再提供生图控件 -->
     <div id="ai-messages" class="ai-messages">
       <div class="ai-empty">
         <div class="ai-empty-logo">🌸</div>
@@ -1092,7 +1055,79 @@
         <h3><span>🖼</span> 图库 <small class="gallery-stat" id="gallery-stat"></small></h3>
         <button type="button" class="close-btn" data-close title="关闭">&times;</button>
       </div>
+      <div class="gallery-tabs" role="tablist">
+        <button type="button" class="gallery-tab is-active" data-gtab="library" role="tab" aria-selected="true">🖼 图库</button>
+        <button type="button" class="gallery-tab" data-gtab="generate" role="tab" aria-selected="false">🎨 生图</button>
+      </div>
       <div class="dialog-body">
+
+        <!-- ===== 生图标签页 ===== -->
+        <section class="gallery-tabpanel gen-panel" data-gpanel="generate" hidden>
+          <div class="gen-modebar" role="group" aria-label="生图模式">
+            <button type="button" class="gen-mode-btn is-active" data-mode="t2i">✍ 文生图</button>
+            <button type="button" class="gen-mode-btn" data-mode="i2i">🖼 图生图 / 参考图</button>
+          </div>
+
+          <div class="gen-refs" id="gen-refs" hidden>
+            <div class="gen-refs-head">
+              <span>参考图 <small>图生图：上传 1+ 张作为编辑 / 参考输入</small></span>
+              <label class="mini-btn" for="gen-ref-input">+ 添加参考图</label>
+              <input type="file" id="gen-ref-input" accept="image/*" multiple hidden />
+            </div>
+            <div class="gen-ref-thumbs" id="gen-ref-thumbs"></div>
+            <p class="gen-ref-hint" id="gen-ref-empty">把图片拖到这里，或点「+ 添加参考图」。也可在「图库」标签页点某张图的 🎨 送进来。</p>
+          </div>
+
+          <textarea id="gen-prompt" class="gen-prompt" rows="3" placeholder="描述要生成的图片…（Ctrl/⌘ + Enter 生成）"></textarea>
+
+          <div class="gen-config">
+            <label class="gen-field"><span>供应商</span><select id="gen-provider"></select></label>
+            <label class="gen-field gen-field-model"><span>模型</span>
+              <input type="text" id="gen-model" list="gen-model-list" placeholder="如 gpt-image-1 / dall-e-3" autocomplete="off" />
+              <datalist id="gen-model-list"></datalist>
+            </label>
+            <label class="gen-field gen-field-api"><span>API 模式</span>
+              <select id="gen-api-mode">
+                <option value="images">Images · 标准（兼容）</option>
+                <option value="responses">Responses · SSE 保活（防 524）</option>
+              </select>
+            </label>
+            <label class="gen-field gen-field-driver" id="gen-driver-field" hidden><span>文本驱动</span>
+              <input type="text" id="gen-driver" placeholder="gpt-4o / 留空" list="gen-driver-list" autocomplete="off" />
+              <datalist id="gen-driver-list">
+                <option value="gpt-4o"></option><option value="gpt-4o-mini"></option>
+                <option value="gpt-5"></option><option value="gpt-5-mini"></option>
+                <option value="claude-3-5-sonnet"></option><option value="claude-sonnet-4-5"></option>
+              </datalist>
+            </label>
+            <label class="gen-field"><span>尺寸</span><select id="gen-size"></select></label>
+            <label class="gen-field gen-field-custom" id="gen-custom-field" hidden><span>自定义</span>
+              <span class="gen-custom-row">
+                <input id="gen-custom-w" type="number" min="64" step="8" placeholder="宽" />
+                <em>×</em>
+                <input id="gen-custom-h" type="number" min="64" step="8" placeholder="高" />
+              </span>
+            </label>
+            <label class="gen-field"><span>质量</span><select id="gen-quality"></select></label>
+            <label class="gen-field"><span>张数</span>
+              <select id="gen-count">
+                <option>1</option><option>2</option><option>3</option><option>4</option>
+                <option>5</option><option>6</option><option>7</option><option>8</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="gen-actions">
+            <button type="button" class="btn-primary" id="gen-run">🎨 生成</button>
+            <button type="button" class="mini-btn danger" id="gen-cancel" hidden>■ 取消</button>
+            <span class="gen-status" id="gen-status"></span>
+          </div>
+
+          <div class="gen-results" id="gen-results"></div>
+        </section>
+
+        <!-- ===== 图库标签页 ===== -->
+        <section class="gallery-tabpanel" data-gpanel="library">
         <div class="gallery-toolbar">
           <div class="gallery-filters" role="tablist">
             <button type="button" class="gallery-filter is-active" data-filter="all" role="tab" aria-selected="true">全部</button>
@@ -1140,6 +1175,7 @@
         </div>
         <div id="gallery-grid" class="gallery-grid"></div>
         <p class="gallery-empty" id="gallery-empty" hidden>这里还没有图。生图或上传图片附件后会自动入库。</p>
+        </section>
       </div>
     </form>
   </dialog>
