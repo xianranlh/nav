@@ -6,7 +6,9 @@
 (function () {
   "use strict";
 
-  const STORAGE_REQUIRED = true;
+  // false = 优先用服务端存储；若没有同源 /api/data，则回退到浏览器本地存储，
+  //          而不是拦住整个应用（true 时无服务端会停在“服务端存储不可用”页）。
+  const STORAGE_REQUIRED = false;
 
   /** 仅 session token 留在本机；业务数据、账号哈希、设置、聊天等都进入服务端 bundle */
   const EXCLUDE_KEYS = new Set([
@@ -207,6 +209,16 @@
   let initReason = "";
 
   function blockBrowserBusinessStorage(reason, err) {
+    // 未强制服务端存储：不拦应用，回退为浏览器本地存储（保持原生 localStorage 直通，
+    // 业务键照常读写浏览器；等以后接上同源 /api/data 会自动切回服务端模式）。
+    if (!STORAGE_REQUIRED) {
+      remoteActive = false;
+      storageBlocked = false;
+      storageMode = "native";
+      initReason = "浏览器本地存储模式：" + reason;
+      console.info("[sakura-remote] " + initReason + "（未启用服务端存储要求）");
+      return;
+    }
     remoteActive = false;
     storageBlocked = true;
     storageMode = "blocked";
