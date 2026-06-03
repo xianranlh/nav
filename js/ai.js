@@ -139,6 +139,14 @@
       if (!["broadcast", "debate", "roundtable"].includes(this.data.council.mode)) this.data.council.mode = "broadcast";
       // 并行：服务端 hydrate 和反代 probe 一起走，整体阻塞的时间是两个里更长的那个
       await Promise.all([this._hydrateFromServer(), this._probeProxy()]);
+      // 生图已迁到「图库 → 生图」标签页，聊天面板永远是纯对话。
+      // 必须放在 hydrate 之后清：否则服务端/本地老存档里的 imageMode:true 会被 Object.assign
+      // 复活，导致聊天被错误路由进 /images/generations 生图分支（报「上游不接受当前模型用于图片生成」）。
+      // （app.js 里那处兜底在 IIFE 构造期执行、早于本方法，清不到 hydrate 回来的值。）
+      if (this.data.imageMode) {
+        this.data.imageMode = false;
+        try { this.save(); } catch (_) {}
+      }
     },
 
     /** 探测本机是否有 /api/ai-proxy 端点。

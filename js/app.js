@@ -2742,7 +2742,6 @@
     await AI.AIStore.load();
     // 茶话会按钮 + 模型/角色下拉的禁用态需要在 council 数据加载完成后再刷一次
     try { window.__syncCouncilBtnState?.(); } catch (_) {}
-    Blog.load();
     Cal.load();
     if (window.Sync) Sync.load();
     if (window.Weather) Weather.load();
@@ -2789,7 +2788,6 @@
     if (typeof UISuggest !== "undefined") UISuggest.init();
     if (typeof UIRecent !== "undefined") UIRecent.init();
     if (typeof UIStarred !== "undefined") UIStarred.init();
-    if (typeof UIBlogExport !== "undefined") UIBlogExport.init();
 
     // 自动同步：劫持 save
     if (window.SyncUtils) {
@@ -2801,7 +2799,6 @@
       };
       wrap(Store);
       wrap(Cal);
-      wrap(Blog);
       wrap(AI.AIStore);
       // Store.saveSettings 也单独拦截
       if (Store.saveSettings && !Store.__ssWrapped) {
@@ -2825,7 +2822,7 @@
     });
   }
 
-  // 将关键接口暴露给 AI / Blog 模块使用
+  // 将关键接口暴露给 AI 模块使用
   window.Store = Store;
   window.render = render;
   window.toast = toast;
@@ -2844,12 +2841,8 @@
     const modelSel = $("#ai-model-select");
     const personaSel = $("#ai-persona-select");
     // 🎨 生图已迁移到「图库 → 生图」标签页（见图库弹窗 + UIArchive 生图逻辑）。
-    // 聊天面板不再提供生图模式：这里只做一次性兜底，清掉历史持久化里可能残留的 imageMode，
-    // 避免发送时仍走到已废弃的生图分支；生图参数（imageOpts）仍由图库生图标签页复用。
-    if (AI.AIStore.data.imageMode) {
-      AI.AIStore.data.imageMode = false;
-      try { AI.AIStore.save(); } catch (_) {}
-    }
+    // 聊天面板恒为纯对话；清掉历史残留 imageMode 的兜底已下沉到 AIStore.load()
+    // （必须在服务端 hydrate 之后清，否则会被老存档复活）。
     if (input) input.placeholder = "输入消息...";
 
     let attachments = [];
@@ -3278,10 +3271,6 @@
         personaSelect.title = on
           ? `茶话会模式 · 每位成员有各自的角色（在 🍵 弹窗里改）`
           : "角色";
-      }
-      // 生图已迁移到图库；聊天不再有生图模式，这里仅兜底清残留状态
-      if (on && AI.AIStore.data.imageMode) {
-        AI.AIStore.data.imageMode = false;
       }
     }
 
@@ -4016,7 +4005,6 @@
           return;
         }
       }
-      const imageMode = !!AI.AIStore.data.imageMode && !councilOn; // 茶话会和生图互斥
 
       const userMsg = {
         role: "user",
@@ -4064,178 +4052,8 @@
       AI.AIStore.messages.push(asstMsg);
       renderMessages();
 
-      // 思考状态已经移到气泡里的动画指示器；tipEl 只在生图时仍给一句文字
-      tipEl.textContent = imageMode ? "正在生成图片…" : "";
-
-      // ========== 🎨 生图分支 ==========
-      if (imageMode) {
-        // 借鉴 ChatGpt-Image-Studio 的 turn 模型：把元数据 + 生图占位写到 assistant 消息上，渲染时走结构化卡片而不是 markdown 拼字符串
-        const opts = AI.AIStore.data.imageOpts || {};
-        let size = opts.size || "1024x1024";
-        if (size === "custom") {
-          const w = Math.max(64, +opts.customW || 3840);
-          const h = Math.max(64, +opts.customH || 2160);
-          size = `${w}x${h}`;
-        }
-        // 4K+ 大图 + OpenAI 系图模型 → 100% 会失败，前置警告让用户选择
-        const longSide = (() => {
-          const m = /^(\d+)x(\d+)$/.exec(size);
-          return m ? Math.max(+m[1], +m[2]) : 0;
-        })();
-        const isOpenAIImgModel = /^(gpt-image-|dall.?e[-\d])/i.test(model);
-        if (longSide >= 2048 && isOpenAIImgModel) {
-          const choice = confirm(
-            `⚠️ 你选的尺寸 ${size} 大概率会失败：\n\n` +
-            `${model} 这类 OpenAI 系图模型只支持 1024×1024 / 1024×1536 / 1536×1024 / 1792×1024（DALL·E 3）。\n\n` +
-            `点【确定】= 自动改用 1024×1024 继续生成\n` +
-            `点【取消】= 保留 ${size} 强行尝试（极可能 400）`
-          );
-          if (choice) {
-            size = "1024x1024";
-            tipEl.textContent = `⬇️ 尺寸已自动降为 1024×1024（原 ${opts.size} 不被 ${model} 支持）`;
-          }
-        }
-        const requestedCount = Math.max(1, +opts.n || 1);
-        asstMsg.imageMeta = {
-          size,
-          quality: opts.quality || "auto",
-          n: requestedCount,
-          model,
-          prompt: text || "",
-          startedAt: Date.now(),
-        };
-        // 占位 results：每张都是 loading
-        asstMsg.imageResults = Array.from({ length: requestedCount }, (_, i) => ({
-          id: "img-" + Date.now() + "-" + i,
-          status: "loading",
-        }));
-        // imageGenStatus 由 renderAssistantContent 用来显示"已等待 XXs"，发送中持续递增
-        asstMsg.imageGenStatus = { phase: "running", elapsedSec: 0 };
-        renderMessages();
-        const tickTimer = setInterval(() => {
-          if (!asstMsg.imageGenStatus || asstMsg.imageGenStatus.phase !== "running") return;
-          asstMsg.imageGenStatus.elapsedSec = Math.floor((Date.now() - asstMsg.imageMeta.startedAt) / 1000);
-          // 只重渲染当前最后一条助手 bubble，避免整列表重建
-          const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
-          if (bubble) bubble.innerHTML = renderAssistantContent(asstMsg.content, asstMsg);
-        }, 1000);
-
-        try {
-          const apiMode = opts.apiMode || "images";
-          // Responses 模式：希望上游每 ~25% 推一次 partial_image，便于实时显示进度
-          const partialN = apiMode === "responses" ? 2 : 0;
-          const arr = await AI.generateImage({
-            provider, model,
-            prompt: text || "请生成一张创意图片",
-            size,
-            quality: opts.quality || "auto",
-            n: requestedCount,
-            apiMode,
-            // Responses 模式专用：文本驱动模型。空字符串则 ai.js 用主 model 兜底（适合单模型中转）
-            textModel: opts.textModel || "",
-            signal: abortCtrl.signal,
-            retry: {
-              // Responses 用默认 3 次 + 15s 退避（Image-Studio 风格），Images 维持原 2 次
-              maxAttempts: apiMode === "responses" ? 3 : 2,
-              delayMs: apiMode === "responses" ? 15_000 : 1500,
-              onRetry: (n, total, err, stage) => {
-                if (stage === "fallback-images") {
-                  // Responses 全失败，正在改用 Images 模式
-                  tipEl.textContent = `⤵ Responses 模式失败 (HTTP ${err?.status || "?"})，自动改用 Images 模式…`;
-                  return;
-                }
-                const reason = err?.status ? ` (HTTP ${err.status})` : "";
-                tipEl.textContent = `生图重试 ${n}/${total - 1}${reason} · 15s 后再试…`;
-              },
-            },
-            // Responses 模式收到 partial_image 时立刻把半成品塞进第一张卡片
-            onPartial: ({ b64, revisedPrompt, heartbeats }) => {
-              if (!b64 || !asstMsg.imageResults?.length) return;
-              const slot = asstMsg.imageResults[0];
-              slot.status = "partial";
-              slot.dataUrl = "data:image/png;base64," + b64;
-              slot.revisedPrompt = revisedPrompt || slot.revisedPrompt || "";
-              if (!asstMsg.imageGenStatus) asstMsg.imageGenStatus = {};
-              asstMsg.imageGenStatus.heartbeats = heartbeats;
-              asstMsg.imageGenStatus.hasPartial = true;
-              const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
-              if (bubble) bubble.innerHTML = renderAssistantContent(asstMsg.content, asstMsg);
-            },
-          });
-          // 把返回结果 merge 到占位 results 上；多了的填，少了的标错（借鉴 mergeResultImages）
-          const merged = arr.map((it, i) => ({
-            id: asstMsg.imageResults[i]?.id || "img-" + Date.now() + "-" + i,
-            // Responses API 返回 sourceEvent，标记是否为 partial 兜底
-            status: it.degraded || it.sourceEvent === "partial" ? "partial" : "success",
-            dataUrl: it.dataUrl,
-            url: it.url,
-            revisedPrompt: it.revisedPrompt || "",
-            degraded: !!(it.degraded || it.sourceEvent === "partial"),
-          }));
-          while (merged.length < requestedCount) {
-            merged.push({
-              id: "img-err-" + merged.length,
-              status: "error",
-              error: "接口返回的图片数量不足",
-            });
-          }
-          asstMsg.imageResults = merged;
-          asstMsg.imageGenStatus = { phase: "done", elapsedSec: Math.floor((Date.now() - asstMsg.imageMeta.startedAt) / 1000) };
-          asstMsg.streaming = false;
-          // content 留空，渲染走 imageResults 卡片；存一个简短 markdown 描述用于历史导出/复制
-          asstMsg.content = `**🎨 生图** · \`${model}\` · ${size} · ${opts.quality || "auto"} · 张数 ${arr.length}`;
-          AI.AIStore.saveMessages();
-          renderMessages();
-          tipEl.textContent = "";
-          // 入图库（生图成功 → Gallery.addBatch）
-          if (window.Archive && window.Archive.Gallery) {
-            window.Archive.Gallery.addBatch(
-              merged
-                .filter((r) => r.status === "success" && (r.dataUrl || r.url))
-                .map((r) => ({
-                  source: "generated",
-                  dataUrl: r.dataUrl || r.url,
-                  prompt: text || "",
-                  revisedPrompt: r.revisedPrompt || "",
-                  model, size, quality: opts.quality || "auto",
-                }))
-            ).catch(() => {});
-          }
-        } catch (err) {
-          asstMsg.streaming = false;
-          asstMsg.imageGenStatus = { phase: "done", elapsedSec: Math.floor((Date.now() - asstMsg.imageMeta.startedAt) / 1000) };
-          if (err.name === "AbortError") {
-            // 取消：所有占位变成 cancelled
-            asstMsg.imageResults = (asstMsg.imageResults || []).map((r) => r.status === "loading"
-              ? { ...r, status: "cancelled" }
-              : r);
-            asstMsg.content = `**🎨 生图** · \`${model}\` · 已取消`;
-          } else {
-            // 失败：所有占位变成 error，每张都带友好翻译。content 只存一个简短摘要，
-            // 不存完整 formatAIError 文本，避免历史里塞重复内容；详细错误在 imageResults[i].error 里。
-            const friendly = AI.formatImageErrorMessage(err.message || "生图失败");
-            asstMsg.imageResults = (asstMsg.imageResults || []).map((r) => r.status === "loading"
-              ? { ...r, status: "error", error: friendly }
-              : r);
-            asstMsg.imageError = friendly;
-            asstMsg.error = true;
-            asstMsg.content = `**🎨 生图失败** · \`${model}\` · ${friendly.split("\n")[0]}`;
-          }
-          AI.AIStore.saveMessages();
-          renderMessages();
-          tipEl.classList.add("err");
-          tipEl.textContent = (err.message || "生图失败").replace(/\s+/g, " ").slice(0, 160);
-          setTimeout(() => { tipEl.classList.remove("err"); tipEl.textContent = ""; }, 6000);
-        } finally {
-          clearInterval(tickTimer);
-          abortCtrl = null;
-          stopBtn.hidden = true;
-          sendBtn.hidden = false;
-          panel.classList.remove("is-sending");
-          try { refreshModelStatus(); } catch (_) {}
-        }
-        return;
-      }
+      // 思考状态已经移到气泡里的动画指示器；tipEl 仅在出错时给文字
+      tipEl.textContent = "";
 
       // 构建候选模型链：用户选的优先，剩下按 provider.models 顺序补齐；
       // 本地台账里仍在冷却中的模型先排到末尾（保留作为兜底）；同时考虑 upstream 维度的冷却。
@@ -6276,167 +6094,6 @@
     UIAI.refreshPersonaOptions();
   });
 
-  // ===================== 博客 =====================
-  const UIBlog = (() => {
-    const panel = $("#blog-panel");
-    const listEl = $("#blog-list");
-    const detailEl = $("#blog-detail");
-    const tagsEl = $("#blog-tags");
-    const searchEl = $("#blog-search");
-    const newBtn = $("#blog-new-post");
-    const adminBtn = $("#blog-admin-toggle");
-    let activeTag = "";
-
-    function open() { panel.hidden = false; detailEl.hidden = true; render(); }
-    function close() { panel.hidden = true; }
-
-    function render() {
-      // 标签
-      const tags = Blog.allTags();
-      tagsEl.innerHTML = `<button class="blog-tag ${!activeTag ? "active" : ""}" data-tag="">全部</button>` +
-        tags.map((t) => `<button class="blog-tag ${t === activeTag ? "active" : ""}" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join("");
-      // 列表
-      const posts = Blog.list({
-        tag: activeTag || undefined,
-        query: searchEl.value.trim() || undefined,
-        includeDraft: Blog.data.adminMode,
-      });
-      if (!posts.length) {
-        listEl.innerHTML = `<div class="hint" style="grid-column:1/-1;text-align:center;padding:40px">暂无文章${Blog.data.adminMode ? "，点击"+ "写文章"+ "开始" : ""}。</div>`;
-      } else {
-        listEl.innerHTML = posts.map((p) => `
-          <article class="blog-card" data-id="${p.id}">
-            ${p.cover ? `<div class="cover" style="background-image:url(${JSON.stringify(p.cover)})"></div>` : ""}
-            ${!p.published ? `<span class="draft-badge">草稿</span>` : ""}
-            <h3>${escapeHtml(p.title)}</h3>
-            <p class="excerpt">${escapeHtml((p.content || "").replace(/^#\s+.*\n/, "").replace(/[#*\[\]`]/g, "").slice(0, 180))}</p>
-            <div class="meta">
-              <div class="tags">${(p.tags || []).slice(0, 3).map((t) => `<span>${escapeHtml(t)}</span>`).join("")}</div>
-              <span>${new Date(p.createdAt).toLocaleDateString()}</span>
-            </div>
-          </article>
-        `).join("");
-      }
-      adminBtn.textContent = Blog.data.adminMode ? "退出管理" : "后台管理";
-      newBtn.hidden = !Blog.data.adminMode;
-    }
-
-    tagsEl.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-tag]");
-      if (!b) return;
-      activeTag = b.dataset.tag;
-      render();
-    });
-    searchEl.addEventListener("input", () => render());
-
-    listEl.addEventListener("click", (e) => {
-      const card = e.target.closest(".blog-card");
-      if (!card) return;
-      const id = card.dataset.id;
-      if (Blog.data.adminMode) openPostDialog(Blog.get(id));
-      else openDetail(id);
-    });
-
-    $("#blog-close").addEventListener("click", close);
-    adminBtn.addEventListener("click", () => {
-      Blog.data.adminMode = !Blog.data.adminMode;
-      Blog.save();
-      render();
-    });
-    newBtn.addEventListener("click", () => openPostDialog(null));
-
-    function openDetail(id) {
-      const p = Blog.get(id);
-      if (!p) return;
-      detailEl.hidden = false;
-      listEl.style.display = "none";
-      tagsEl.style.display = "none";
-      detailEl.innerHTML = `
-        <button class="back-btn">← 返回列表</button>
-        ${p.cover ? `<img src="${escapeHtml(p.cover)}" style="width:100%;border-radius:14px;margin-bottom:20px" />` : ""}
-        <h1 style="font-size:30px;margin:0 0 8px">${escapeHtml(p.title)}</h1>
-        <div style="color:var(--text-faint);font-size:13px;margin-bottom:24px">
-          ${new Date(p.createdAt).toLocaleString()}
-          ${(p.tags || []).map((t) => `<span style="margin-left:8px;color:var(--accent)">#${escapeHtml(t)}</span>`).join("")}
-        </div>
-        ${AI.renderMarkdown(p.content || "")}
-      `;
-      detailEl.querySelector(".back-btn").addEventListener("click", () => {
-        detailEl.hidden = true;
-        listEl.style.display = "";
-        tagsEl.style.display = "";
-      });
-    }
-
-    return { open, close, render };
-  })();
-
-  const dlgPost = $("#dialog-post");
-  let currentPostId = null;
-
-  function openPostDialog(post) {
-    const f = $("#form-post");
-    $("#post-title-head").textContent = post ? "编辑文章" : "新建文章";
-    f.reset();
-    $("#post-preview").hidden = true;
-    currentPostId = post ? post.id : null;
-    if (post) {
-      f.title.value = post.title;
-      f.tags.value = (post.tags || []).join(", ");
-      f.cover.value = post.cover || "";
-      f.content.value = post.content || "";
-      f.published.checked = !!post.published;
-    }
-    $("#post-delete-btn").hidden = !post;
-    dlgPost.showModal();
-  }
-
-  $("#post-preview-btn").addEventListener("click", () => {
-    const pv = $("#post-preview");
-    if (pv.hidden) {
-      pv.innerHTML = AI.renderMarkdown($("#form-post").content.value);
-      pv.hidden = false;
-    } else pv.hidden = true;
-  });
-
-  $("#post-delete-btn").addEventListener("click", () => {
-    if (!currentPostId) return;
-    if (!confirm("删除这篇文章？此操作不可撤销。")) return;
-    Blog.remove(currentPostId);
-    dlgPost.close();
-    UIBlog.render();
-  });
-
-  $("#post-ai-assist").addEventListener("click", () => {
-    const title = $("#form-post").title.value.trim() || "随便写点什么";
-    UIAI.open();
-    // 提前输入给 AI
-    setTimeout(() => {
-      const input = $("#ai-input");
-      input.value = `帮我写一篇关于"${title}"的博客草稿（Markdown 格式），不超过 500 字，语气自然。`;
-      input.focus();
-    }, 200);
-    dlgPost.close();
-  });
-
-  $("#form-post").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const f = e.target;
-    const data = Object.fromEntries(new FormData(f));
-    const tags = (data.tags || "").split(/[,，]/).map((x) => x.trim()).filter(Boolean);
-    const patch = {
-      title: data.title, content: data.content, cover: data.cover,
-      tags, published: !!data.published,
-    };
-    if (currentPostId) Blog.update(currentPostId, patch);
-    else Blog.create(patch);
-    dlgPost.close();
-    UIBlog.render();
-    toast("已保存");
-  });
-
-  $("#btn-blog").addEventListener("click", () => UIBlog.open());
-
   // ===================== ✅ 提醒事项 UI (Mac Reminders 风格 v1.20.0) =====================
   const UITodo = (() => {
     const dlg = $("#dialog-todo");
@@ -8122,42 +7779,6 @@ priority: 0=无 1=低 2=中 3=高。items 6-12 条。只输出 JSON 对象本身
     }
 
     return { init, refresh };
-  })();
-
-  // ===================== 博客导出 UI =====================
-  const UIBlogExport = (() => {
-    function init() {
-      const rssBtn = $("#blog-export-rss");
-      const staticBtn = $("#blog-export-static");
-      if (rssBtn) rssBtn.addEventListener("click", () => {
-        const xml = Exporter.buildRss({ title: "樱 · 博客", description: "个人博客订阅源" });
-        const blob = new Blob([xml], { type: "application/rss+xml;charset=utf-8" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "sakura-blog.rss.xml";
-        a.click();
-        URL.revokeObjectURL(a.href);
-        toast("已导出 RSS 订阅源");
-      });
-      if (staticBtn) staticBtn.addEventListener("click", () => {
-        if (!window.Blog?.list?.().length) return toast("暂无文章可导出");
-        const run = window.NavProgress ? NavProgress.run : (_t, fn) => fn({ step() {}, done() {}, fail() {} });
-        run("导出静态博客站点 (ZIP)", async (p) => {
-          const posts = Blog.list();
-          p.step(0.25, `编排 ${posts.length} 篇文章…`);
-          const blob = Exporter.buildStaticSite();
-          p.step(0.85, `生成 ZIP (${(blob.size / 1024).toFixed(1)} KB)…`);
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = `sakura-blog-${new Date().toISOString().slice(0, 10)}.zip`;
-          a.click();
-          URL.revokeObjectURL(a.href);
-          p.done(`已打包 ${posts.length} 篇文章`);
-          toast("已打包静态博客站点");
-        });
-      });
-    }
-    return { init };
   })();
 
   // ===================== AI TTS =====================

@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.20.3" />
+  <link rel="stylesheet" href="styles.css?v=v1.20.5" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -108,7 +108,6 @@
         <button class="topbar-btn" id="btn-todo" title="打开待办事项（可选同步到日历）">
           <span class="topbar-ico">✅</span><span class="topbar-txt">待办</span><span class="icon-badge" id="todo-badge" hidden></span>
         </button>
-        <button class="topbar-btn" id="btn-blog" title="打开博客面板，写笔记和长文"><span class="topbar-ico">📝</span><span class="topbar-txt">博客</span></button>
         <button class="topbar-btn" id="btn-theme" title="切换亮色 / 暗色 / 跟随系统"><span class="topbar-ico">🌓</span><span class="topbar-txt">主题</span></button>
         <button class="topbar-btn" id="btn-settings" title="打开整站设置：账号、外观、组件、同步"><span class="topbar-ico">⚙</span><span class="topbar-txt">设置</span></button>
         <button class="topbar-btn" id="btn-logout" title="退出当前账号"><span class="topbar-ico">⎋</span><span class="topbar-txt">退出</span></button>
@@ -1435,27 +1434,6 @@
     </form>
   </dialog>
 
-  <!-- ===== 博客面板（全屏覆盖） ===== -->
-  <section id="blog-panel" class="blog-panel" hidden>
-    <header class="blog-head glass">
-      <div class="blog-head-left">
-        <h2>🌸 樱的博客</h2>
-        <input id="blog-search" class="filter-input" placeholder="🔎 搜索标题/标签/正文..." />
-      </div>
-      <div class="blog-head-right">
-        <button class="chip" id="blog-new-post" hidden>+ 写文章</button>
-        <button class="chip" id="blog-export-rss" title="导出 RSS 订阅">📡 RSS</button>
-        <button class="chip" id="blog-export-static" title="导出静态站 zip">💾 静态站</button>
-        <button class="chip" id="blog-admin-toggle">后台管理</button>
-        <button class="icon-btn" id="blog-close" title="关闭">✕</button>
-      </div>
-    </header>
-    <div id="blog-tags" class="blog-tags"></div>
-    <main id="blog-list" class="blog-list"></main>
-    <article id="blog-detail" class="blog-detail glass" hidden></article>
-  </section>
-
-  <!-- ===== 博客编辑器 ===== -->
   <!-- 快捷键速查 -->
   <dialog id="dialog-shortcuts" class="glass-dialog shortcuts-dialog">
     <form method="dialog">
@@ -1638,37 +1616,13 @@
     </form>
   </dialog>
 
-  <dialog id="dialog-post" class="glass-dialog post-dialog">
-    <form method="dialog" id="form-post">
-      <h3 id="post-title-head">新建文章</h3>
-      <label>标题 <input name="title" required /></label>
-      <label>标签（逗号分隔） <input name="tags" placeholder="如：技术, 生活" /></label>
-      <label>封面图 URL（可选） <input name="cover" placeholder="https://..." /></label>
-      <label>正文 (Markdown，支持代码块、图片、链接)
-        <textarea name="content" rows="14" placeholder="# 标题&#10;&#10;正文..."></textarea>
-      </label>
-      <div class="post-preview-toggle">
-        <button type="button" class="mini-btn" id="post-preview-btn">👁 预览</button>
-        <button type="button" class="mini-btn" id="post-ai-assist">🤖 AI 帮我写</button>
-      </div>
-      <div id="post-preview" class="post-preview" hidden></div>
-      <label class="row"><input type="checkbox" name="published" /> 发布（取消即为草稿）</label>
-      <div class="dialog-actions">
-        <button type="button" class="btn-secondary" id="post-delete-btn" hidden>删除</button>
-        <button type="button" class="btn-secondary" data-close>取消</button>
-        <button value="ok" type="submit" class="btn-primary">保存</button>
-      </div>
-    </form>
-  </dialog>
-
   <script src="js/homepage-theme.js"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.20.3"></script>
-  <script src="js/blog.js"></script>
+  <script src="js/ai.js?v=v1.20.5"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
@@ -1677,12 +1631,11 @@
   <script src="js/sakura-media.js"></script>
   <script src="js/weather.js"></script>
   <script src="js/suggest.js"></script>
-  <script src="js/exporter.js"></script>
   <script src="js/idb.js"></script>
   <script src="js/archive.js"></script>
   <script src="js/image-editor.js"></script>
   <script src="js/music.js"></script>
   <script src="js/storage-inspector.js"></script>
-  <script src="js/app.js?v=v1.20.3"></script>
+  <script src="js/app.js?v=v1.20.5"></script>
 </body>
 </html>

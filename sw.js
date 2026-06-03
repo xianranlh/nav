@@ -4,7 +4,7 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.20.3";
+const VERSION = "v1.20.5";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
 
@@ -22,14 +22,12 @@ const CORE_FILES = [
   "./js/bookmarks.js",
   "./js/auth.js",
   "./js/ai.js",
-  "./js/blog.js",
   "./js/calendar.js",
   "./js/holidays.js",
   "./js/todo.js",
   "./js/sync.js",
   "./js/weather.js",
   "./js/suggest.js",
-  "./js/exporter.js",
   "./js/idb.js",
   "./js/music.js",
   "./js/storage-inspector.js",

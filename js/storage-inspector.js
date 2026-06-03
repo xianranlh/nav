@@ -9,7 +9,6 @@
   const KNOWN_KEYS = {
     nav: { label: "导航数据", hint: "分组、链接、图标 URL" },
     settings: { label: "界面与组件设置", hint: "主题、背景、天气、樱花等" },
-    blog: { label: "博客", hint: "文章与草稿" },
     calendar: { label: "日历与任务", hint: "事件、提醒、规则" },
     sync: { label: "同步配置", hint: "WebDAV / Gist 后端与参数" },
     ai: { label: "AI 配置", hint: "供应商与参数（Key 看是否选择上传）" },
@@ -24,7 +23,6 @@
   const LEGACY_KEYS = [
     { key: "sakura_nav_v1", label: "导航数据" },
     { key: "sakura_nav_settings_v1", label: "界面与组件设置" },
-    { key: "sakura_nav_blog_v1", label: "博客" },
     { key: "sakura_nav_calendar_v1", label: "日历与任务" },
     { key: "sakura_nav_sync_v1", label: "同步配置" },
     { key: "sakura_nav_ai_v1", label: "AI 配置" },
@@ -54,7 +52,6 @@
         const links = (value.groups || []).reduce((s, g) => s + (g.links || []).length, 0);
         return `${(value.groups || []).length} 个分组，约 ${links} 个链接`;
       }
-      if (key === "blog") return `文章约 ${(value.posts || []).length} 篇`;
       if (key === "calendar") return `事件约 ${(value.events || []).length} 条`;
       if (key === "chat") return `消息约 ${Array.isArray(value) ? value.length : 0} 条`;
       if (key === "weather") return `城市 ${(value.cities || []).length} 个`;
@@ -324,7 +321,7 @@
     html += '<h4 class="storage-subh">🗄 服务端 SQLite（bundle 各项）</h4>';
     html += '<table class="storage-table"><thead><tr><th>键</th><th>体积</th><th>摘要</th><th style="min-width:140px"></th></tr></thead><tbody>';
 
-    const keyOrder = ["nav", "settings", "blog", "calendar", "ai", "chat", "music", "weather", "sync", "authCred", "schema", "savedAt"];
+    const keyOrder = ["nav", "settings", "calendar", "ai", "chat", "music", "weather", "sync", "authCred", "schema", "savedAt"];
     const seen = new Set();
     const byKey = new Map((inv.keys || []).map((k) => [k.key, k]));
 
