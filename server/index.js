@@ -903,3 +903,10 @@ if (SERVE_STATIC) {
 }
 
 const BIND_HOST = process.env.BIND_HOST || "0.0.0.0";
+
+app.listen(PORT, BIND_HOST, () => {
+  const staticHint = SERVE_STATIC ? `, 静态=${STATIC_ROOT}` : "";
+  console.log(
+    `[sakura-data] SQLite + media, listening on ${BIND_HOST}:${PORT}, DATA_DIR=${DATA_DIR}${staticHint}`
+  );
+});
