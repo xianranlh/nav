@@ -32,6 +32,9 @@ const CORE_FILES = [
   "./js/music.js",
   "./js/storage-inspector.js",
   `./js/ui/todo.ui.js?v=${VERSION}`,
+  `./js/ui/calendar.ui.js?v=${VERSION}`,
+  `./js/ui/weather.ui.js?v=${VERSION}`,
+  `./js/ui/sync.ui.js?v=${VERSION}`,
   `./js/app.js?v=${VERSION}`,
   "./manifest.json",
 ];
