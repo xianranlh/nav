@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
 test("particle canvas is a full-page background effects layer", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const block = /#sakura-canvas\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
   const appBlock = /\.app\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
 
@@ -17,7 +17,7 @@ test("particle canvas is a full-page background effects layer", () => {
 });
 
 test("calendar month grid keeps readable rows when the viewport is narrow", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const gridBlock = /\.cal-grid\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
   const narrowBlock = /@media \(max-width:\s*900px\)\s*\{(?<body>[\s\S]+?)\n\}/.exec(css)?.groups?.body || "";
 
@@ -28,14 +28,14 @@ test("calendar month grid keeps readable rows when the viewport is narrow", () =
 });
 
 test("calendar secondary views obey the hidden attribute", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
 
   assert.match(css, /\.cal-stats-view\[hidden\]\s*\{\s*display:\s*none/);
   assert.match(css, /\.cal-day-panel\[hidden\]\s*\{\s*display:\s*none/);
 });
 
 test("calendar header chip buttons center their labels", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const block = /\.cal-head-right\s*>\s*\.chip\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
 
   assert.match(block, /display:\s*inline-flex/);
@@ -45,13 +45,13 @@ test("calendar header chip buttons center their labels", () => {
 });
 
 test("group navigation tabs obey the hidden attribute when no tabs exist", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
 
   assert.match(css, /\.group-tabs\[hidden\]\s*\{\s*display:\s*none/);
 });
 
 test("AI composer hides scrollbars until typed content exceeds its max height", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const block = /#ai-input\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
 
   assert.match(block, /min-width:\s*0/);
@@ -59,7 +59,7 @@ test("AI composer hides scrollbars until typed content exceeds its max height", 
 });
 
 test("settings sections use plain flow instead of nested subcards", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const index = fs.readFileSync("index.html", "utf8");
   const rowBlock = /\.settings-dialog label\.row-block\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
   const sectionTitle = /\.settings-section-title\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
@@ -77,7 +77,7 @@ test("settings sections use plain flow instead of nested subcards", () => {
 });
 
 test("backup options do not override the shared row and form styling", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const index = fs.readFileSync("index.html", "utf8");
   const rowBlock = /\.glass-dialog\s+\.row-tight\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
 
@@ -101,7 +101,7 @@ test("backup options do not override the shared row and form styling", () => {
 });
 
 test("settings panel surfaces use theme-driven backgrounds", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const secBlock = /^\.sec\s*\{(?<body>[^}]+)\}/m.exec(css)?.groups?.body || "";
   const secHoverBlock = /^\.sec:hover\s*\{(?<body>[^}]+)\}/m.exec(css)?.groups?.body || "";
   const secOpenBlock = /^\.sec\[open\]\s*\{(?<body>[^}]+)\}/m.exec(css)?.groups?.body || "";
@@ -119,7 +119,7 @@ test("settings panel surfaces use theme-driven backgrounds", () => {
 });
 
 test("visual theme setting uses a select instead of preview cards", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const index = fs.readFileSync("index.html", "utf8");
   const app = fs.readFileSync("app.js", "utf8");
   const selectMarkup = /<select id="set-visual-theme">(?<body>[\s\S]+?)<\/select>/.exec(index)?.groups?.body || "";
@@ -135,7 +135,7 @@ test("visual theme setting uses a select instead of preview cards", () => {
 });
 
 test("stylesheet no longer carries removed music source search UI selectors", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
 
   assert.doesNotMatch(css, /\.music-sources-row\b/);
   assert.doesNotMatch(css, /\.music-search-dialog\b/);

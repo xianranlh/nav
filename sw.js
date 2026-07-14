@@ -19,6 +19,7 @@ const CORE_FILES = [
   "./js/homepage-theme.js",
   `./js/dialog.js?v=${VERSION}`,
   `./styles/dialogs.css?v=${VERSION}`,
+  `./styles/ai-chat.css?v=${VERSION}`,
   "./js/homepage-layout.js",
   "./js/sakura.js",
   "./js/bookmarks.js",

@@ -1127,16 +1127,18 @@
       }
     }
 
-    /** 局部更新某条茶话会 bubble 的 DOM，避免整列表 rerender 抢焦点 */
+    /** 局部更新某条茶话会 bubble 的 DOM，避免整列表 rerender 抢焦点。
+     *  rAF 节流：多路并行流式时每帧每条至多渲一次 markdown。 */
+    const _councilRaf = new Map(); // idx -> rafId
     function updateCouncilBubble(msg) {
-      // 找到这条消息在 AIStore.messages 中的索引
       const idx = AI.AIStore.messages.indexOf(msg);
-      if (idx < 0) return;
-      const el = messagesEl.querySelectorAll(".ai-msg")[idx];
-      if (!el) return;
-      const bubble = el.querySelector(".ai-bubble");
-      if (!bubble) return;
-      bubble.innerHTML = renderCouncilBubble(msg);
+      if (idx < 0 || _councilRaf.has(idx)) return;
+      _councilRaf.set(idx, requestAnimationFrame(() => {
+        _councilRaf.delete(idx);
+        const el = messagesEl.querySelector('.ai-msg[data-idx="' + idx + '"]');
+        const bubble = el && el.querySelector(".ai-bubble");
+        if (bubble) bubble.innerHTML = renderCouncilBubble(msg);
+      }));
     }
 
     function renderCouncilBubble(msg) {
@@ -1156,6 +1158,7 @@
     async function send() {
       const text = input.value.trim();
       if (!text && !attachments.length) return;
+      scrollToBottom(true); // 用户主动发送：强制回到底部并恢复跟随
       const councilCfg = AI.AIStore.data.council;
       const councilOn = !!councilCfg?.enabled && (councilCfg.members || []).length > 0;
       // 茶话会模式不需要 currentProvider/currentModel；每个成员有自己的
@@ -1299,9 +1302,7 @@
               },
               onDelta: (_d, full) => {
                 asstMsg.content = full;
-                const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
-                if (bubble) bubble.innerHTML = renderAssistantContent(full);
-                scrollToBottom();
+                scheduleLastBubbleRender(asstMsg);
               },
             });
             usedModel = tryModel;
@@ -1382,6 +1383,7 @@
           // 用空 div 占位以保持 idx 与 messages 对齐（updateCouncilBubble 用 querySelectorAll(.ai-msg)[idx] 查不能错位）
           const wrap = document.createElement("div");
           wrap.className = "ai-msg ai-msg-divider";
+          wrap.dataset.idx = idx;
           wrap.appendChild(div);
           messagesEl.appendChild(wrap);
           return;
@@ -1390,6 +1392,7 @@
         if (m.councilProgress) {
           const wrap = document.createElement("div");
           wrap.className = "ai-msg ai-msg-progress";
+          wrap.dataset.idx = idx;
           wrap.innerHTML = renderCouncilProgress(m);
           messagesEl.appendChild(wrap);
           return;
@@ -1397,6 +1400,7 @@
         const isCouncil = !!m.councilMember;
         const el = document.createElement("div");
         el.className = "ai-msg " + m.role + (isCouncil ? " is-council" : "");
+        el.dataset.idx = idx;
         if (isCouncil) el.style.setProperty("--member-color", m.councilMember.color || "#ff6b8a");
         el.innerHTML = `
           <div class="ai-avatar">${m.role === "user" ? "我" : (isCouncil ? escapeHtml(m.councilMember.emoji || "🌸") : "🌸")}</div>
@@ -1407,32 +1411,10 @@
           bubble.innerHTML = renderUserContent(m);
         } else if (isCouncil) {
           bubble.innerHTML = renderCouncilBubble(m);
-          if (m.content && !m.streaming) {
-            const tts = document.createElement("button");
-            tts.className = "tts-btn";
-            tts.type = "button";
-            tts.title = `朗读 ${m.councilMember.label || ""} 的这条回复`;
-            tts.innerHTML = '<span class="ai-tool-ico">🔊</span><span class="ai-tool-txt">朗读</span>';
-            tts.addEventListener("click", (e) => {
-              e.stopPropagation();
-              window.AITts.speak(m.content, tts);
-            });
-            bubble.appendChild(tts);
-          }
+          if (m.content && !m.streaming) bubble.insertAdjacentHTML("beforeend", msgActionsHtml());
         } else {
           bubble.innerHTML = renderAssistantContent(m.content, m);
-          if (m.content && !m.streaming) {
-            const tts = document.createElement("button");
-            tts.className = "tts-btn";
-            tts.type = "button";
-            tts.title = "朗读 / 停止朗读这条回复";
-            tts.innerHTML = '<span class="ai-tool-ico">🔊</span><span class="ai-tool-txt">朗读</span>';
-            tts.addEventListener("click", (e) => {
-              e.stopPropagation();
-              window.AITts.speak(m.content, tts);
-            });
-            bubble.appendChild(tts);
-          }
+          if (m.content && !m.streaming) bubble.insertAdjacentHTML("beforeend", msgActionsHtml());
         }
         messagesEl.appendChild(el);
       });
@@ -1579,6 +1561,7 @@
       let html = thinking
         ? `<div class="ai-thinking" aria-label="正在思考"><span></span><span></span><span></span></div>`
         : AI.renderMarkdown(text || "");
+      if (msg?.streaming && !thinking) html += '<span class="ai-stream-cursor" aria-hidden="true"></span>';
       // fallback 命中时在最前面挂一条提示
       if (msg?.routedTo && msg.routedFrom && msg.routedTo !== msg.routedFrom) {
         html = `<div class="ai-route-note">🔁 <code>${escapeHtml(msg.routedFrom)}</code> 当前不可用，已自动切到 <b>${escapeHtml(msg.routedTo)}</b> 完成回答</div>` + html;
@@ -1647,8 +1630,44 @@
       renderMessages();
     });
 
-    function scrollToBottom() {
+    /** 智能滚动：仅当用户位于底部附近（80px 内）才跟随；force 用于发送等主动场景 */
+    let _stickBottom = true;
+    function scrollToBottom(force) {
+      if (force) _stickBottom = true;
+      if (!_stickBottom) return;
       requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
+    }
+    const jumpBtn = document.createElement("button");
+    jumpBtn.type = "button";
+    jumpBtn.className = "ai-jump-bottom";
+    jumpBtn.title = "回到底部";
+    jumpBtn.textContent = "↓";
+    jumpBtn.hidden = true;
+    panel.appendChild(jumpBtn);
+    jumpBtn.addEventListener("click", () => { scrollToBottom(true); jumpBtn.hidden = true; });
+    messagesEl.addEventListener("scroll", () => {
+      _stickBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
+      jumpBtn.hidden = _stickBottom;
+    }, { passive: true });
+
+    /** 流式中的最后一条 assistant 气泡：rAF 节流渲染（每帧至多解析一次 markdown） */
+    let _lastBubbleRaf = 0;
+    function scheduleLastBubbleRender(msg) {
+      if (_lastBubbleRaf) return;
+      _lastBubbleRaf = requestAnimationFrame(() => {
+        _lastBubbleRaf = 0;
+        const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
+        if (bubble) bubble.innerHTML = renderAssistantContent(msg.content, msg);
+        scrollToBottom();
+      });
+    }
+
+    /** 消息 hover 操作条（复制 / 朗读），点击由 messagesEl 统一委托处理 */
+    function msgActionsHtml() {
+      return '<span class="ai-msg-actions">' +
+        '<button type="button" class="tts-btn" data-act="copy-msg" title="复制这条回复的原文"><span class="ai-tool-ico">📋</span><span class="ai-tool-txt">复制</span></button>' +
+        '<button type="button" class="tts-btn" data-act="tts-msg" title="朗读 / 停止朗读这条回复"><span class="ai-tool-ico">🔊</span><span class="ai-tool-txt">朗读</span></button>' +
+        '</span>';
     }
 
     /** 从最后一条 user 消息重新发送：抹掉 user 之后的所有助手消息，
@@ -1772,8 +1791,26 @@
       return rh ? `${d} 天 ${rh} 小时` : `${d} 天`;
     }
 
-    // 灯箱预览 / 图片悬浮按钮（下载、新窗口） / 错误气泡按钮
+    // 灯箱预览 / 图片悬浮按钮（下载、新窗口） / 错误气泡按钮 / 消息操作条
     messagesEl.addEventListener("click", (e) => {
+      // 0) 消息操作条：复制 / 朗读（事件委托，替代逐条挂 listener）
+      const actBtn = e.target.closest('[data-act="copy-msg"], [data-act="tts-msg"]');
+      if (actBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const idx = Number(actBtn.closest(".ai-msg")?.dataset.idx ?? -1);
+        const m = idx >= 0 ? AI.AIStore.messages[idx] : null;
+        if (!m) return;
+        if (actBtn.dataset.act === "copy-msg") {
+          navigator.clipboard?.writeText(m.content || "").then(
+            () => toast("已复制原文"),
+            () => toast("复制失败")
+          );
+        } else {
+          window.AITts.speak(m.content, actBtn);
+        }
+        return;
+      }
       // 0a) 错误气泡：立即重试
       if (e.target.closest("[data-retry-send]")) {
         e.preventDefault();
@@ -1798,7 +1835,7 @@
         const act = btn.dataset.imgAct;
         // 找所属消息：根据 DOM 顺序定位 messages 索引
         const msgEl = btn.closest(".ai-msg");
-        const idx = msgEl ? [...messagesEl.children].indexOf(msgEl) : -1;
+        const idx = msgEl ? Number(msgEl.dataset.idx ?? -1) : -1;
         const msg = idx >= 0 ? AI.AIStore.messages[idx] : null;
 
         if (act === "seed-prompt") {
