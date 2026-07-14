@@ -31,6 +31,7 @@ const CORE_FILES = [
   "./js/idb.js",
   "./js/music.js",
   "./js/storage-inspector.js",
+  `./js/ui/ai.ui.js?v=${VERSION}`,
   `./js/ui/todo.ui.js?v=${VERSION}`,
   `./js/ui/calendar.ui.js?v=${VERSION}`,
   `./js/ui/weather.ui.js?v=${VERSION}`,
