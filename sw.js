@@ -36,6 +36,7 @@ const CORE_FILES = [
   `./js/ui/calendar.ui.js?v=${VERSION}`,
   `./js/ui/weather.ui.js?v=${VERSION}`,
   `./js/ui/sync.ui.js?v=${VERSION}`,
+  `./js/ui/misc.ui.js?v=${VERSION}`,
   `./js/app.js?v=${VERSION}`,
   "./manifest.json",
 ];
