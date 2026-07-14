@@ -53,7 +53,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Authorization "Bearer ${SAKURA_API_KEY}";
+        # 多账号模式（v1.21+）：透传浏览器的 Authorization（session token），不再由 nginx 注入密钥
         proxy_connect_timeout 60s;
         proxy_send_timeout 600s;
         proxy_read_timeout 600s;
@@ -68,7 +68,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Authorization "Bearer ${SAKURA_API_KEY}";
+        # 多账号模式（v1.21+）：透传浏览器的 Authorization（session token），不再由 nginx 注入密钥
         proxy_connect_timeout 60s;
         proxy_send_timeout 600s;
         proxy_read_timeout 600s;
@@ -86,7 +86,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Authorization "Bearer ${SAKURA_API_KEY}";
+        # 多账号模式（v1.21+）：透传浏览器的 Authorization（session token），不再由 nginx 注入密钥
         proxy_connect_timeout 60s;
         proxy_send_timeout 600s;
         proxy_read_timeout 600s;
