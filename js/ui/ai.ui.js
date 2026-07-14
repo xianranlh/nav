@@ -541,8 +541,7 @@
       if (concEl) concEl.value = Math.max(1, Math.min(16, +cfg.concurrency || 4));
       applyCouncilModeUI();
       renderCouncilMembers();
-      if (typeof dlgCouncil.showModal === "function" && !dlgCouncil.open) dlgCouncil.showModal();
-      else dlgCouncil.setAttribute("open", "");
+      Dlg.open(dlgCouncil);
     }
     // 弹窗关闭时若没走 submit（用户点了取消 / X / Esc），把 in-memory state 回滚
     dlgCouncil.addEventListener("close", () => {
@@ -2056,8 +2055,7 @@
       }
       try {
         renderSessionsList();
-        if (typeof dlgSessions.showModal === "function" && !dlgSessions.open) dlgSessions.showModal();
-        else dlgSessions.setAttribute("open", "");
+        Dlg.open(dlgSessions);
       } catch (e) {
         console.error("[UIArchive.openSessions]", e);
         toast("打开会话弹窗出错：" + (e?.message || e), 4000);
@@ -2125,7 +2123,7 @@
         // 直接重写 localStorage，避免下一次 saveMessages 把旧的写回
         try { localStorage.setItem("sakura_nav_chat_v1", JSON.stringify(AI.AIStore.messages.slice(-200))); } catch (_) {}
         UIAI.renderMessages();
-        dlgSessions.close();
+        Dlg.close(dlgSessions);
         toast(`已切到「${rec.title || "会话"}」`);
       }
       if (act === "rename") {
@@ -2197,8 +2195,7 @@
         refreshPresetSelect();
         renderGallery();
         renderSelThumbStrip();
-        if (typeof dlgGallery.showModal === "function" && !dlgGallery.open) dlgGallery.showModal();
-        else dlgGallery.setAttribute("open", "");
+        Dlg.open(dlgGallery);
       } catch (e) {
         console.error("[UIArchive.openGallery]", e);
         toast("打开图库出错：" + (e?.message || e), 4000);
@@ -2335,7 +2332,7 @@
       } catch (_) {}
 
       toast(`✨ 已应用 ${urls.length} 张为背景轮播 · 每 ${intervalSec}s 一张 ${shuffle ? "(随机)" : ""}`);
-      dlgGallery.close();
+      Dlg.close(dlgGallery);
       setGallerySelectMode(false);
     }
 
@@ -2453,7 +2450,7 @@
       const intEl = $("#gallery-bg-interval"); if (intEl) intEl.value = Store.settings.bgInterval;
       const shEl  = $("#gallery-bg-shuffle"); if (shEl) shEl.checked = Store.settings.bgShuffle;
       toast(`✨ 已加载预设「${p.name}」· ${(p.urls || []).length} 张 · 每 ${Store.settings.bgInterval}s${Store.settings.bgShuffle ? " · 随机" : ""}`);
-      dlgGallery.close();
+      Dlg.close(dlgGallery);
       setGallerySelectMode(false);
     }
 
@@ -3006,7 +3003,7 @@
     $("#ai-signature").value = AI.AIStore.data.customSignature || "";
     $("#ai-auto-apply").checked = !!AI.AIStore.data.autoApply;
     const sm = $("#ai-smart-mode"); if (sm) sm.checked = !!AI.AIStore.data.smartMode;
-    dlgAI.showModal();
+    Dlg.open(dlgAI);
   }
 
   $("#ai-signature").addEventListener("change", (e) => {
@@ -3124,7 +3121,7 @@
       f.dataset.fetchedModels = "[]";
     }
     f.dataset.editId = existing ? existing.id : "";
-    dlgProvider.showModal();
+    Dlg.open(dlgProvider);
   }
 
   $("#provider-fetch-models")?.addEventListener("click", async () => {
@@ -3202,7 +3199,7 @@
       }
     }
     AI.AIStore.save();
-    dlgProvider.close();
+    Dlg.close(dlgProvider);
     renderAIProviders();
     UIAI.refreshModelOptions();
   });
@@ -3254,7 +3251,7 @@
     f.reset();
     if (existing) { f.name.value = existing.name; f.prompt.value = existing.prompt; f.dataset.editId = existing.id; }
     else f.dataset.editId = "";
-    dlgPersona.showModal();
+    Dlg.open(dlgPersona);
   }
 
   $("#form-persona").addEventListener("submit", (e) => {
@@ -3269,7 +3266,7 @@
       AI.AIStore.data.personas.push({ id: AI.uid(), name: data.name, prompt: data.prompt });
     }
     AI.AIStore.save();
-    dlgPersona.close();
+    Dlg.close(dlgPersona);
     renderAIPersonas();
     UIAI.refreshPersonaOptions();
   });

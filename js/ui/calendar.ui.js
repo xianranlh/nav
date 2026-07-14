@@ -464,7 +464,7 @@
     tEl("remindBefore").value = String(task?.remindBefore || 0);
 
     updateRepeatUI();
-    dlgTask.showModal();
+    Dlg.open(dlgTask);
   }
 
   function updateRepeatUI() {
@@ -487,7 +487,7 @@
     if (!editingTaskId) return;
     if (!confirm("删除这个任务？所有历史记录都会消失。")) return;
     Cal.remove(editingTaskId);
-    dlgTask.close();
+    Dlg.close(dlgTask);
     UICal.refreshAll();
   });
 
@@ -528,7 +528,7 @@
     } else {
       Cal.create(patch);
     }
-    dlgTask.close();
+    Dlg.close(dlgTask);
     UICal.refreshAll();
     toast("已保存");
   });

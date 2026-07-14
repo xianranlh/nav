@@ -622,7 +622,7 @@
         if (!dlgUrl) return;
         const f = dlgUrl.querySelector("form");
         f.reset();
-        dlgUrl.showModal();
+        Dlg.open(dlgUrl);
       });
       dlgUrl?.querySelector("form")?.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -634,7 +634,7 @@
         });
         if (id) {
           toast("已添加到播放列表");
-          dlgUrl.close();
+          Dlg.close(dlgUrl);
         }
       });
 
@@ -661,7 +661,7 @@
         const raw = (new FormData(formLrc).get("lrc") || "").toString();
         Music.setLyrics(tid, raw);
         feedbackLrcBind(raw);
-        dlgLrc.close();
+        Dlg.close(dlgLrc);
       });
 
       btnLrcFile?.addEventListener("click", () => lrcFileInp && lrcFileInp.click());
@@ -724,7 +724,7 @@
             dlgLrc.dataset.tid = id;
             const tr = Music.data.tracks.find((x) => x.id === id);
             ta.value = tr && tr.lrc ? tr.lrc : "";
-            dlgLrc.showModal();
+            Dlg.open(dlgLrc);
             requestAnimationFrame(() => { try { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (_) {} });
             return;
           }

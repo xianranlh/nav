@@ -508,8 +508,7 @@
 
     // 显示 + 加载
     state.originalDataUrl = record.dataUrl || record.serverUrl;
-    if (typeof state.dialog.showModal === "function" && !state.dialog.open) state.dialog.showModal();
-    else state.dialog.setAttribute("open", "");
+    Dlg.open(state.dialog);
     state.open = true;
     // 等 dialog 打开 + layout 后再 fit
     await new Promise((r) => requestAnimationFrame(r));
@@ -530,7 +529,7 @@
     document.removeEventListener("keydown", onKey);
     document.removeEventListener("keyup", onKeyUp);
     if (state._resizeHandler) window.removeEventListener("resize", state._resizeHandler);
-    if (state.dialog && state.dialog.open) state.dialog.close();
+    if (state.dialog && state.dialog.open) { if (window.Dlg) Dlg.close(state.dialog); else state.dialog.close(); }
     state.history = []; state.future = [];
     state.record = null;
   }

@@ -30,7 +30,7 @@
       if (!window.Todo) return;
       if (!Todo.__loaded) { Todo.load(); Todo.__loaded = true; }
       render();
-      if (!dlg.open && typeof dlg.showModal === "function") dlg.showModal();
+      Dlg.open(dlg);
       setTimeout(() => addInput?.focus(), 80);
     }
 
@@ -270,14 +270,14 @@
         renderMain();
         renderSidebar();
       }));
-      if (typeof detailDlg.showModal === "function" && !detailDlg.open) detailDlg.showModal();
+      Dlg.open(detailDlg);
     }
     // detailBody 上的 change/input：一次性绑定（事件委托），openDetailId 守门
     detailBody.addEventListener("change", () => { if (openDetailId) saveDetailFromDOM(); });
     detailBody.addEventListener("input", () => { if (openDetailId) saveDetailFromDOM(); });
 
     function closeDetail() {
-      if (detailDlg.open) detailDlg.close();
+      if (detailDlg.open) Dlg.close(detailDlg);
       openDetailId = null;
     }
     // 关闭时清理状态
@@ -323,7 +323,7 @@
         form.color.value = b.dataset.c;
         colorBox.querySelectorAll(".rem-color-swatch").forEach((x) => x.classList.toggle("is-on", x.dataset.c === b.dataset.c));
       }));
-      if (typeof dlgEditList.showModal === "function" && !dlgEditList.open) dlgEditList.showModal();
+      Dlg.open(dlgEditList);
     }
 
     $("#form-rem-list").addEventListener("submit", (e) => {
@@ -339,7 +339,7 @@
         const l = Todo.addList({ name, emoji, color });
         Todo.setActiveList(l.id);
       }
-      dlgEditList.close();
+      Dlg.close(dlgEditList);
       render();
     });
 
@@ -350,7 +350,7 @@
       const msg = n > 0 ? `删除「${l?.name}」会同时删除其中 ${n} 项提醒，确定？` : `删除列表「${l?.name}」？`;
       if (!confirm(msg)) return;
       Todo.removeList(editingListId);
-      dlgEditList.close();
+      Dlg.close(dlgEditList);
       render();
     });
 
@@ -385,11 +385,11 @@
       `).join("");
       grid.querySelectorAll(".rem-tpl-card").forEach((b) => b.addEventListener("click", () => {
         const list = Todo.createFromTemplate(b.dataset.tpl);
-        dlgTpl.close();
+        Dlg.close(dlgTpl);
         render();
         if (list) toast(`已从模板创建「${list.name}」`);
       }));
-      if (typeof dlgTpl.showModal === "function" && !dlgTpl.open) dlgTpl.showModal();
+      Dlg.open(dlgTpl);
     });
 
     // ✨ AI 一句话生成列表
@@ -403,7 +403,7 @@
       }
       aiPrompt.value = "";
       aiStatus.hidden = true;
-      if (typeof dlgAiGen.showModal === "function" && !dlgAiGen.open) dlgAiGen.showModal();
+      Dlg.open(dlgAiGen);
       setTimeout(() => aiPrompt.focus(), 50);
     });
     // 示例 chip 点击填入 prompt
@@ -455,7 +455,7 @@ priority: 0=无 1=低 2=中 3=高。items 6-12 条。只输出 JSON 对象本身
         });
         Todo.addManyItems(list.id, parsed.items);
         Todo.setActiveList(list.id);
-        dlgAiGen.close();
+        Dlg.close(dlgAiGen);
         render();
         toast(`✨ AI 已生成「${list.name}」· ${parsed.items.length} 条`);
       } catch (err) {

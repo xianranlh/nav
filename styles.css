@@ -674,224 +674,7 @@ body[data-edit="1"] .card .del {
 }
 
 /* ===================== Dialog ===================== */
-.glass-dialog {
-  border: none;
-  padding: 0;
-  border-radius: var(--radius-lg);
-  background: transparent;
-  color: var(--text);
-  max-width: 460px;
-  width: calc(100% - 32px);
-  overflow: visible;
-}
-.glass-dialog::backdrop {
-  background: rgba(40, 20, 30, 0.35);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: opacity 0.3s ease;
-}
-
-.glass-dialog > form,
-.glass-dialog > .dialog-form {
-  background: var(--glass-bg);
-  backdrop-filter: blur(35px) saturate(var(--glass-sat, 1.5));
-  -webkit-backdrop-filter: blur(35px) saturate(var(--glass-sat, 1.5));
-  border: 1px solid var(--glass-border);
-  padding: 0;
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--glass-shadow);
-  animation: dialog-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  max-height: 90vh;
-  overflow: hidden;
-}
-
-@keyframes dialog-appear {
-  from { opacity: 0; transform: translateY(20px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.dialog-header {
-  padding: 20px 24px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(var(--accent-rgb), 0.1);
-  background: linear-gradient(to bottom, rgba(var(--accent-rgb), 0.05), transparent);
-}
-
-.dialog-header h3 {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.dialog-header h3 .ai-build-tag {
-  font-size: 0.62rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: rgba(214, 51, 108, 0.10);
-  color: rgba(214, 51, 108, 0.85);
-  border: 1px solid rgba(214, 51, 108, 0.18);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  user-select: text;
-  cursor: text;
-}
-[data-theme="dark"] .dialog-header h3 .ai-build-tag {
-  background: rgba(255, 122, 168, 0.12);
-  color: rgba(255, 158, 188, 0.95);
-  border-color: rgba(255, 122, 168, 0.22);
-}
-
-.dialog-body {
-  padding: 20px 24px 28px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--accent-rgb), 0.2) transparent;
-  /* 关键：作为 flex 子元素必须 flex: 1 + min-height: 0 才能正确收缩 + 触发 overflow-y 滚动；
-     默认 flex: 0 1 auto 会按内容高度撑开，超出时被父级 form 的 overflow:hidden 截断（之前
-     "添加网址 → 卡片背景媒体" 展开后下半段被遮的根因）。 */
-  flex: 1 1 auto;
-  min-height: 0;
-}
-.dialog-actions { flex: 0 0 auto; }
-.dialog-header { flex: 0 0 auto; }
-/* 弹窗里的 <details class="sec">（折叠节）必须 flex-shrink:0，否则 flex 会强行压缩它，
-   配合 `.sec { overflow: hidden }` 把展开后的内容裁掉。同时让 details 自身 overflow 可见，
-   依赖外层 .dialog-body 的滚动条。 */
-.dialog-body > details.sec,
-.dialog-body > .sec {
-  flex-shrink: 0;
-  overflow: visible;
-}
-.dialog-body::-webkit-scrollbar { width: 5px; }
-.dialog-body::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb), 0.2); border-radius: 10px; }
-
-.dialog-actions {
-  padding: 14px 24px 18px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  border-top: 1px solid rgba(var(--accent-rgb), 0.06);
-  background: rgba(var(--accent-rgb), 0.02);
-}
-
-.close-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--text-soft);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 20px;
-  line-height: 1;
-}
-[data-theme="dark"] .close-btn { background: rgba(255, 255, 255, 0.08); }
-.close-btn:hover {
-  background: rgba(var(--accent-rgb), 0.15);
-  color: var(--accent);
-  transform: rotate(90deg);
-}
-
-.glass-dialog label {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-soft);
-}
-
-.glass-dialog label.row {
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-/* 字段栅格布局 */
-.field-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
-  align-items: flex-end;
-}
-@media (max-width: 440px) {
-  .field-grid { grid-template-columns: 1fr; }
-}
-
-.glass-dialog input[type="text"],
-.glass-dialog input[type="url"],
-.glass-dialog input[type="password"],
-.glass-dialog input[type="number"],
-.glass-dialog input[type="date"],
-.glass-dialog input[type="time"],
-.glass-dialog input[type="email"],
-.glass-dialog input:not([type]),
-.glass-dialog select,
-.glass-dialog input[type="range"] {
-  background: var(--card-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-size: 14px;
-  color: var(--text);
-  outline: none;
-  transition: all 0.25s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-[data-theme="dark"] .glass-dialog input[type="text"],
-[data-theme="dark"] .glass-dialog input[type="url"],
-[data-theme="dark"] .glass-dialog input[type="password"],
-[data-theme="dark"] .glass-dialog input[type="number"],
-[data-theme="dark"] .glass-dialog input[type="date"],
-[data-theme="dark"] .glass-dialog input[type="time"],
-[data-theme="dark"] .glass-dialog input[type="email"],
-[data-theme="dark"] .glass-dialog input:not([type]),
-[data-theme="dark"] .glass-dialog select {
-  background: var(--card-bg);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.glass-dialog input:hover,
-.glass-dialog select:hover {
-  border-color: rgba(var(--accent-rgb), 0.35);
-  background: var(--card-hover);
-}
-[data-theme="dark"] .glass-dialog input:hover,
-[data-theme="dark"] .glass-dialog select:hover {
-  background: var(--card-hover);
-}
-
-.glass-dialog input:focus,
-.glass-dialog select:focus {
-  border-color: var(--accent);
-  background: var(--glass-bg);
-  box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.16);
-}
-[data-theme="dark"] .glass-dialog input:focus,
-[data-theme="dark"] .glass-dialog select:focus {
-  background: var(--glass-bg);
-}
-
-.glass-dialog input::placeholder {
-  color: var(--text-faint);
-  font-weight: 300;
-  opacity: 0.75;
-}
+/* ===== 对话框体系已迁移至 styles/dialogs.css（P1 重构） ===== */
 
 /* 图标选择器 */
 .hint-inline { color: var(--text-faint); font-size: 11px; margin-left: 6px; font-weight: 400; }
@@ -934,12 +717,7 @@ body[data-edit="1"] .card .del {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 8px;
-}
-
-.btn-primary {
-  background: var(--accent);
-  color: #fff;
+/* .dialog-actions → styles/dialogs.css */
   border: none;
   padding: 8px 18px;
   border-radius: 10px;
@@ -1292,9 +1070,6 @@ body.pre-auth #upcoming-card { display: none !important; }
 .chip-menu-pop button:hover { background: var(--accent-soft); color: var(--accent); }
 
 /* ===================== 设置分区 ===================== */
-.settings-dialog {
-  max-width: 540px;
-}
 
 /* 设置弹窗专用：避免 .sec 的 overflow/入场动画在部分浏览器下裁切或“卡住”表单项；
  * 同时让 range 不再套用文本框的厚 padding（否则像多条灰条、标签像消失） */
@@ -2263,9 +2038,6 @@ body.pre-auth #upcoming-card { display: none !important; }
 .ai-tip.err { color: #e04e75; }
 
 /* ===================== AI 设置 ===================== */
-.ai-dialog {
-  max-width: 600px;
-}
 
 .ai-dialog .dialog-body {
   padding: 20px 24px 24px;
@@ -2317,9 +2089,6 @@ body.pre-auth #upcoming-card { display: none !important; }
 }
 
 /* ===================== AI 子弹窗（供应商 / 角色） ===================== */
-.ai-subdialog {
-  max-width: 520px;
-}
 
 .ai-subdialog .dialog-header h3 {
   font-size: 1.05rem;
@@ -3360,7 +3129,6 @@ body.pre-auth #upcoming-card { display: none !important; }
 }
 
 /* 任务编辑器 */
-.task-dialog { max-width: 520px; }
 .task-dialog form { gap: 0; }
 .task-dialog .dialog-body {
   padding: 18px 22px 8px;
@@ -5737,13 +5505,6 @@ html[data-hero-mode="hidden"] .header-bar .clock {
   outline-offset: 2px;
 }
 
-.shortcuts-dialog {
-  max-width: 600px;
-}
-.shortcuts-dialog form {
-  width: min(560px, 92vw);
-  max-height: 85vh;
-}
 .shortcuts-dialog .dialog-body {
   padding: 18px 22px 6px;
   display: flex;
@@ -5970,7 +5731,6 @@ body.has-offline-banner #ai-panel { top: 56px; }
  * v1.20.0 ✅ 提醒事项（Mac Reminders 风格）
  * 双栏：sidebar + main，可选 detail 滑出
  * ===================================================================*/
-.reminders-dialog { max-width: 1100px; }
 .reminders-dialog form {
   width: min(1080px, 96vw);
   max-height: 92vh;
@@ -6886,11 +6646,6 @@ body.has-offline-banner #ai-panel { top: 56px; }
 }
 
 /* ---- 配置弹窗 ---- */
-.council-dialog { max-width: 640px; }
-.council-dialog form {
-  width: min(620px, 92vw);
-  max-height: 90vh;
-}
 .council-dialog .dialog-body {
   padding: 18px 22px 6px;
   display: flex;
@@ -7574,7 +7329,6 @@ body.has-offline-banner #ai-panel { top: 56px; }
    ===================================================================== */
 
 /* ---------- 多会话弹窗 ---------- */
-.sessions-dialog { max-width: 560px; width: 92vw; }
 .sessions-dialog .dialog-body {
   padding: 16px 20px 20px;
   max-height: calc(85vh - 90px);
@@ -7675,7 +7429,6 @@ body.has-offline-banner #ai-panel { top: 56px; }
 }
 
 /* ---------- 图库弹窗 ---------- */
-.gallery-dialog { max-width: 920px; width: 94vw; }
 .gallery-dialog .dialog-body {
   padding: 14px 20px 20px;
   max-height: calc(85vh - 90px);
@@ -8609,15 +8362,6 @@ body.has-offline-banner #ai-panel { top: 56px; }
 /* =====================================================================
    图像编辑器（image-editor.js） · 借鉴 Image-Studio
    ===================================================================== */
-.image-editor-dialog {
-  max-width: 96vw;
-  width: 96vw;
-  max-height: 96vh;
-  height: 96vh;
-  padding: 0 !important;
-  overflow: hidden;
-  border-radius: 14px;
-}
 .image-editor-dialog::backdrop {
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(8px);

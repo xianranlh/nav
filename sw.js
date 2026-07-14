@@ -17,6 +17,8 @@ const CORE_FILES = [
   "./themes/dark-minimal.css",
   "./themes/paper.css",
   "./js/homepage-theme.js",
+  `./js/dialog.js?v=${VERSION}`,
+  `./styles/dialogs.css?v=${VERSION}`,
   "./js/homepage-layout.js",
   "./js/sakura.js",
   "./js/bookmarks.js",

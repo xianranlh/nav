@@ -996,7 +996,7 @@
       if (bgDetails) bgDetails.open = moreDetails.open;
     }
 
-    dlgLink.showModal();
+    Dlg.open(dlgLink);
     setTimeout(() => formLink.url.focus(), 50);
   }
 
@@ -1094,7 +1094,7 @@
     }
     Store.save();
     render();
-    dlgLink.close();
+    Dlg.close(dlgLink);
   });
 
   // ===================== 分组 弹窗 =====================
@@ -1108,7 +1108,7 @@
     formGroup.dataset.editId = existing ? existing.id : "";
     formGroup.dataset.prevBgUrl = existing && existing.bg && existing.bg.url ? existing.bg.url : "";
     if (groupBgEditor) groupBgEditor.setValue(existing ? existing.bg : null);
-    dlgGroup.showModal();
+    Dlg.open(dlgGroup);
     setTimeout(() => formGroup.name.focus(), 50);
   }
 
@@ -1139,7 +1139,7 @@
       SakuraMedia.removeByUrl(prevBgUrl).catch(() => {});
     }
     Store.save(); render();
-    dlgGroup.close();
+    Dlg.close(dlgGroup);
   });
 
   function pickColor(initial) {
@@ -1237,7 +1237,7 @@
 
     Store.save();
     render();
-    dlgImport.close();
+    Dlg.close(dlgImport);
 
     if (!auto) {
       prog?.step(1, `已导入 ${mergedCount} 个链接`);
@@ -1630,7 +1630,7 @@
         if (msg) { msg.textContent = r.reason || "保存失败"; msg.style.color = ""; }
         return;
       }
-      try { dlgSettings.close(); } catch (_) {}
+      Dlg.close(dlgSettings);
       toast("账号已更新，请重新登录…");
       location.reload();
     });
@@ -2505,14 +2505,14 @@
   // ===================== 顶部按钮 =====================
   $("#btn-add").addEventListener("click", () => openLinkDialog(null));
   $("#btn-add-group").addEventListener("click", () => openGroupDialog(null));
-  $("#btn-settings").addEventListener("click", () => { bindSettings(); dlgSettings.showModal(); });
+  $("#btn-settings").addEventListener("click", () => { bindSettings(); Dlg.open(dlgSettings); });
   $("#btn-import").addEventListener("click", () => {
     pendingImportGroups = null;
     importFileInput.value = "";
     importPreview.classList.remove("show");
     importPreview.innerHTML = "";
     btnDoImport.disabled = true;
-    dlgImport.showModal();
+    Dlg.open(dlgImport);
   });
 
   // chip 菜单展开/收起（导出）
@@ -2650,13 +2650,7 @@
     input.click();
   });
 
-  // dialog 关闭按钮
-  document.addEventListener("click", (e) => {
-    if (e.target.matches("[data-close]")) {
-      const d = e.target.closest("dialog");
-      if (d) d.close();
-    }
-  });
+  // dialog 关闭按钮 / 遮罩点击 / Esc 动画 → 已集中到 js/dialog.js（window.Dlg）
 
   // 设置弹窗里某些区块使用独立 form（用于消除浏览器 DOM 警告）。
   // 其中账号 form 会在 bindSettings() 里接管 submit；这里只兜底其它 form 的 submit 默认行为。
@@ -2726,13 +2720,7 @@
   });
 
   function openShortcutsDialog() {
-    const dlg = $("#dialog-shortcuts");
-    if (!dlg) return;
-    if (typeof dlg.showModal === "function") {
-      if (!dlg.open) dlg.showModal();
-    } else {
-      dlg.setAttribute("open", "");
-    }
+    Dlg.open("dialog-shortcuts");
   }
   // 暴露给底部 hint 点击使用
   $("#footer-hotkey-hint")?.addEventListener("click", openShortcutsDialog);

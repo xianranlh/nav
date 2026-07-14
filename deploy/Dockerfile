@@ -18,6 +18,7 @@ COPY server/index.js server/database.js ./
 
 COPY index.html styles.css manifest.json sw.js /usr/share/nginx/html/
 COPY js/ /usr/share/nginx/html/js/
+COPY styles/ /usr/share/nginx/html/styles/
 COPY themes/ /usr/share/nginx/html/themes/
 
 COPY deploy/nginx.conf.template /docker/nginx.conf.template

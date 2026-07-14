@@ -9,6 +9,7 @@
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
   <link rel="stylesheet" href="styles.css?v=v1.20.5" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.20.5" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -316,7 +317,7 @@
   </dialog>
 
   <!-- 设置 弹窗 -->
-  <dialog id="dialog-settings" class="glass-dialog settings-dialog">
+  <dialog id="dialog-settings" data-backdrop-close class="glass-dialog settings-dialog">
     <div id="form-settings" class="dialog-form">
       <div class="dialog-header">
         <h3><span>⚙️</span> 设置</h3>
@@ -874,7 +875,7 @@
     </footer>
   </aside>
 
-  <dialog id="dialog-ai" class="glass-dialog ai-dialog">
+  <dialog id="dialog-ai" data-backdrop-close class="glass-dialog ai-dialog">
     <form method="dialog">
       <div class="dialog-header">
         <h3><span>🤖</span> AI 助手设置 <small class="ai-build-tag" title="前端 ai.js 构建版本">v1.19.0</small></h3>
@@ -1050,7 +1051,7 @@
   </dialog>
 
   <!-- ===== 历史会话管理 ===== -->
-  <dialog id="dialog-sessions" class="glass-dialog sessions-dialog">
+  <dialog id="dialog-sessions" data-backdrop-close class="glass-dialog sessions-dialog">
     <form method="dialog">
       <div class="dialog-header">
         <h3><span>💬</span> 历史会话</h3>
@@ -1068,7 +1069,7 @@
   </dialog>
 
   <!-- ===== 图库 ===== -->
-  <dialog id="dialog-gallery" class="glass-dialog gallery-dialog">
+  <dialog id="dialog-gallery" data-backdrop-close class="glass-dialog gallery-dialog">
     <form method="dialog">
       <div class="dialog-header">
         <h3><span>🖼</span> 图库 <small class="gallery-stat" id="gallery-stat"></small></h3>
@@ -1455,7 +1456,7 @@
   </dialog>
 
   <!-- 快捷键速查 -->
-  <dialog id="dialog-shortcuts" class="glass-dialog shortcuts-dialog">
+  <dialog id="dialog-shortcuts" data-backdrop-close class="glass-dialog shortcuts-dialog">
     <form method="dialog">
       <div class="dialog-header">
         <h3><span>⌨️</span> 快捷键速查</h3>
@@ -1493,7 +1494,7 @@
   </dialog>
 
   <!-- ✅ 提醒事项（Mac Reminders 风格，v1.20.0） -->
-  <dialog id="dialog-todo" class="glass-dialog reminders-dialog">
+  <dialog id="dialog-todo" data-backdrop-close class="glass-dialog reminders-dialog">
     <form method="dialog">
       <div class="reminders-shell">
         <!-- 侧边栏：搜索 + 智能列表 + 用户列表 -->
@@ -1555,7 +1556,7 @@
   </dialog>
 
   <!-- 提醒事项 · 详情子弹窗（独立 dialog，居中浮起，时间选择器不会被遮） -->
-  <dialog id="dialog-rem-detail" class="glass-dialog rem-detail-dialog">
+  <dialog id="dialog-rem-detail" data-backdrop-close class="glass-dialog rem-detail-dialog">
     <form method="dialog" id="form-rem-detail">
       <div class="dialog-header">
         <h3><span>✏️</span> 提醒详情</h3>
@@ -1637,6 +1638,7 @@
   </dialog>
 
   <script src="js/homepage-theme.js"></script>
+  <script src="js/dialog.js?v=v1.20.5"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
