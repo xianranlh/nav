@@ -38,6 +38,16 @@ import {
   listGalleryFiles,
   deleteGalleryFile,
   countGalleryFiles,
+  findUserByCredHash,
+  getUser,
+  listUsers,
+  createUser,
+  updateUserCred,
+  deleteUser,
+  createSession,
+  getSession,
+  deleteSession,
+  listMediaFiles,
 } from "./database.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -107,18 +117,141 @@ function safeJoinMedia(cat, filename) {
   return filePath;
 }
 
+/** 多账号鉴权中间件：
+ *  1. Bearer <session-token>（正常登录会话）→ req.user = { userId, username, isAdmin }
+ *  2. Bearer SAKURA_API_KEY（运维/脚本兼容）→ 视为用户 #1（admin）
+ *  3. ?token= 查询参数（sendBeacon 无法带 header 的兜底，仅同样走 session 校验） */
 function auth(req, res, next) {
-  if (!API_KEY) {
-    return next();
-  }
   const h = req.headers.authorization || "";
   const m = /^Bearer\s+(.+)$/i.exec(h);
-  const key = m ? m[1].trim() : "";
-  if (key !== API_KEY) {
-    return res.status(401).json({ error: "未授权" });
+  const key = (m ? m[1] : String(req.query.token || "")).trim();
+  if (!key) return res.status(401).json({ error: "未登录" });
+  if (API_KEY && key === API_KEY) {
+    req.user = { userId: 1, username: "api-key", isAdmin: true };
+    return next();
   }
+  const sess = getSession(key);
+  if (!sess) return res.status(401).json({ error: "会话无效或已过期" });
+  req.user = sess;
+  req.sessionToken = key;
   next();
 }
+
+function adminOnly(req, res, next) {
+  if (!req.user?.isAdmin) return res.status(403).json({ error: "需要管理员权限" });
+  next();
+}
+
+// ===================== 登录 / 会话 =====================
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;       // 7 天
+const SESSION_TTL_LONG_MS = 30 * 24 * 60 * 60 * 1000; // 「保持登录」30 天
+
+/** 登录限速：每 IP 15 分钟内最多 10 次失败 */
+const _loginFails = new Map(); // ip -> { count, resetAt }
+function loginRateLimited(ip) {
+  const rec = _loginFails.get(ip);
+  if (!rec || Date.now() > rec.resetAt) return false;
+  return rec.count >= 10;
+}
+function noteLoginFail(ip) {
+  const rec = _loginFails.get(ip);
+  if (!rec || Date.now() > rec.resetAt) {
+    _loginFails.set(ip, { count: 1, resetAt: Date.now() + 15 * 60 * 1000 });
+  } else {
+    rec.count += 1;
+  }
+  if (_loginFails.size > 5000) _loginFails.clear();
+}
+
+/** 登录：前端提交 sha256("用户名::密码") 哈希，明文不过线 */
+app.post("/api/auth/login", (req, res) => {
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "?";
+  if (loginRateLimited(ip)) {
+    return res.status(429).json({ error: "尝试过于频繁，请 15 分钟后再试" });
+  }
+  const body = req.body || {};
+  const hash = String(body.hash || "").trim().toLowerCase();
+  const u = findUserByCredHash(hash);
+  if (!u) {
+    noteLoginFail(ip);
+    return res.status(401).json({ error: "用户名或密码错误" });
+  }
+  const ttl = body.remember ? SESSION_TTL_LONG_MS : SESSION_TTL_MS;
+  const sess = createSession(u.id, ttl);
+  return res.json({
+    ok: true,
+    token: sess.token,
+    expiresAt: sess.expiresAt,
+    user: { id: u.id, username: u.username, isAdmin: !!u.is_admin },
+  });
+});
+
+app.post("/api/auth/logout", auth, (req, res) => {
+  if (req.sessionToken) deleteSession(req.sessionToken);
+  res.json({ ok: true });
+});
+
+app.get("/api/auth/me", auth, (req, res) => {
+  res.json({ ok: true, user: { id: req.user.userId, username: req.user.username, isAdmin: !!req.user.isAdmin } });
+});
+
+/** 修改自己的用户名/密码：提交新 sha256 哈希；成功后所有会话失效，需重新登录 */
+app.put("/api/auth/password", auth, (req, res) => {
+  try {
+    const body = req.body || {};
+    const u = updateUserCred(req.user.userId, {
+      username: body.username,
+      credHash: body.hash,
+    });
+    res.json({ ok: true, user: u });
+  } catch (e) {
+    res.status(400).json({ error: String(e.message || e) });
+  }
+});
+
+// ===================== 用户管理（仅 admin） =====================
+app.get("/api/users", auth, adminOnly, (_req, res) => {
+  res.json({ users: listUsers().map((u) => ({ id: u.id, username: u.username, isAdmin: !!u.is_admin, createdAt: u.created_at })) });
+});
+
+app.post("/api/users", auth, adminOnly, (req, res) => {
+  try {
+    const body = req.body || {};
+    const u = createUser({ username: body.username, credHash: body.hash, isAdmin: !!body.isAdmin });
+    res.json({ ok: true, user: { id: u.id, username: u.username, isAdmin: !!u.is_admin } });
+  } catch (e) {
+    const msg = String(e.message || e);
+    res.status(/UNIQUE/i.test(msg) ? 409 : 400).json({ error: /UNIQUE/i.test(msg) ? "用户名或凭据已存在" : msg });
+  }
+});
+
+app.put("/api/users/:id/password", auth, adminOnly, (req, res) => {
+  try {
+    const u = updateUserCred(Number(req.params.id), { username: req.body?.username, credHash: req.body?.hash });
+    res.json({ ok: true, user: u });
+  } catch (e) {
+    res.status(400).json({ error: String(e.message || e) });
+  }
+});
+
+app.delete("/api/users/:id", auth, adminOnly, (req, res) => {
+  const id = Number(req.params.id);
+  if (id === req.user.userId) return res.status(400).json({ error: "不能删除自己" });
+  if (id === 1) return res.status(400).json({ error: "不能删除初始管理员" });
+  const r = deleteUser(id);
+  if (!r) return res.status(404).json({ error: "用户不存在" });
+  // 清理该用户的媒体与图库磁盘文件
+  let removed = 0;
+  for (const f of r.media) {
+    const fp = safeJoinMedia(f.category, f.filename);
+    if (fp && fs.existsSync(fp)) { try { fs.unlinkSync(fp); removed++; } catch (_) {} }
+  }
+  for (const g of r.gallery) {
+    const fp = path.join(DATA_DIR, "media", "gallery", path.basename(g.filename || ""));
+    if (g.filename && fs.existsSync(fp)) { try { fs.unlinkSync(fp); removed++; } catch (_) {} }
+  }
+  res.json({ ok: true, removedFiles: removed });
+});
 
 function makeUploader(cat) {
   return multer({
@@ -146,10 +279,10 @@ app.get("/healthz", (_req, res) => {
   res.type("text/plain").send("ok\n");
 });
 
-app.get("/api/data", auth, (_req, res) => {
+app.get("/api/data", auth, (req, res) => {
   ensureDir();
   try {
-    const data = getBundle();
+    const data = getBundle(req.user.userId);
     if (!data) {
       return res.status(404).json({ empty: true, message: "尚无数据，使用前端默认或首次保存后生成" });
     }
@@ -160,10 +293,10 @@ app.get("/api/data", auth, (_req, res) => {
 });
 
 /** 浏览器经 nginx 会带上注入的 Bearer，用于「存储一览」里展示服务端库体积 */
-app.get("/api/storage-stats", auth, (_req, res) => {
+app.get("/api/storage-stats", auth, (req, res) => {
   try {
     ensureDir();
-    const sqlite = getSqliteStorageStats();
+    const sqlite = getSqliteStorageStats(req.user.userId);
     let mediaBytes = 0;
     let bgFiles = 0;
     let musicFiles = 0;
@@ -197,10 +330,10 @@ app.get("/api/storage-stats", auth, (_req, res) => {
 });
 
 /** AI 设置独立存储（不走 bundle；避免浏览器 localStorage 持久化） */
-app.get("/api/ai-settings", auth, (_req, res) => {
+app.get("/api/ai-settings", auth, (req, res) => {
   ensureDir();
   try {
-    const data = getAiSettings();
+    const data = getAiSettings(req.user.userId);
     if (!data) return res.json({ empty: true });
     return res.json(data);
   } catch (e) {
@@ -215,7 +348,7 @@ app.put("/api/ai-settings", auth, (req, res) => {
     if (!body || typeof body !== "object") {
       return res.status(400).json({ error: "请求体须为 JSON 对象" });
     }
-    setAiSettings(body);
+    setAiSettings(req.user.userId, body);
     return res.json({ ok: true, savedAt: Date.now() });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
@@ -229,7 +362,7 @@ app.put("/api/data", auth, (req, res) => {
     if (!body || typeof body !== "object") {
       return res.status(400).json({ error: "请求体须为 JSON 对象" });
     }
-    setBundle(body);
+    setBundle(req.user.userId, body);
     return res.json({ ok: true, savedAt: Date.now() });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
@@ -237,9 +370,9 @@ app.put("/api/data", auth, (req, res) => {
 });
 
 /** 按 key 清单：bundle 顶层 + 媒体文件（带文件大小/名称） */
-app.get("/api/inventory", auth, (_req, res) => {
+app.get("/api/inventory", auth, (req, res) => {
   try {
-    const keys = getKeyInventory();
+    const keys = getKeyInventory(req.user.userId);
     const media = { bg: [], music: [], lrc: [] };
     for (const cat of ["bg", "music", "lrc"]) {
       const dir = mediaBase(cat);
@@ -266,7 +399,7 @@ app.get("/api/inventory", auth, (_req, res) => {
 
 app.get("/api/data/key/:key", auth, (req, res) => {
   try {
-    const v = getKeyValue(req.params.key);
+    const v = getKeyValue(req.params.key, req.user.userId);
     if (v == null) return res.status(404).json({ error: "不存在或为空" });
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader(
@@ -281,7 +414,7 @@ app.get("/api/data/key/:key", auth, (req, res) => {
 
 app.delete("/api/data/key/:key", auth, (req, res) => {
   try {
-    const ok = deleteKey(req.params.key);
+    const ok = deleteKey(req.params.key, req.user.userId);
     if (!ok) return res.status(404).json({ error: "不存在" });
     return res.json({ ok: true });
   } catch (e) {
@@ -293,7 +426,7 @@ app.post("/api/media/bg", auth, uploadBg.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "无文件" });
   const fn = req.file.filename;
   try {
-    recordMediaFile({ filename: fn, category: "bg", bytes: req.file.size });
+    recordMediaFile({ filename: fn, category: "bg", bytes: req.file.size, userId: req.user.userId });
   } catch (_) {}
   const url = `/api/media/file/bg/${encodeURIComponent(fn)}`;
   return res.json({ ok: true, url, filename: fn, category: "bg" });
@@ -303,7 +436,7 @@ app.post("/api/media/music", auth, uploadMusic.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "无文件" });
   const fn = req.file.filename;
   try {
-    recordMediaFile({ filename: fn, category: "music", bytes: req.file.size });
+    recordMediaFile({ filename: fn, category: "music", bytes: req.file.size, userId: req.user.userId });
   } catch (_) {}
   const url = `/api/media/file/music/${encodeURIComponent(fn)}`;
   return res.json({ ok: true, url, filename: fn, category: "music" });
@@ -313,7 +446,7 @@ app.post("/api/media/lrc", auth, uploadLrc.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "无文件" });
   const fn = req.file.filename;
   try {
-    recordMediaFile({ filename: fn, category: "lrc", bytes: req.file.size });
+    recordMediaFile({ filename: fn, category: "lrc", bytes: req.file.size, userId: req.user.userId });
   } catch (_) {}
   const url = `/api/media/file/lrc/${encodeURIComponent(fn)}`;
   return res.json({ ok: true, url, filename: fn, category: "lrc" });
@@ -346,7 +479,7 @@ app.delete("/api/media/file/:category/:filename", auth, (req, res) => {
   try {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     try {
-      deleteMediaRecord(req.params.filename);
+      deleteMediaRecord(req.params.filename, req.user.userId);
     } catch (_) {}
     return res.json({ ok: true });
   } catch (e) {
@@ -355,7 +488,7 @@ app.delete("/api/media/file/:category/:filename", auth, (req, res) => {
 });
 
 /** 导出：把 SQLite + 所有媒体打成 ZIP 下载 */
-app.get("/api/export", auth, (_req, res) => {
+app.get("/api/export", auth, adminOnly, (_req, res) => {
   try {
     ensureDir();
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sakura-export-"));
@@ -403,7 +536,7 @@ const importUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 500 * 1024 * 1024 },
 });
-app.post("/api/import", auth, importUpload.single("file"), (req, res) => {
+app.post("/api/import", auth, adminOnly, importUpload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "无文件" });
   let zip;
   try {
@@ -612,7 +745,7 @@ app.post("/api/gallery/upload", auth, async (req, res) => {
 
     // 已上传过同一个 client_id（IDB id）的图，直接复用，避免重复占用磁盘
     if (body.client_id) {
-      const exist = findGalleryByClientId(String(body.client_id));
+      const exist = findGalleryByClientId(String(body.client_id), req.user.userId);
       if (exist) {
         return res.json({
           ok: true,
@@ -668,6 +801,7 @@ app.post("/api/gallery/upload", auth, async (req, res) => {
       original_name: body.name || "",
       client_id:     body.client_id || "",
       created_at:    Date.now(),
+      user_id:       req.user.userId,
     });
 
     return res.json({
@@ -706,7 +840,7 @@ app.get("/api/gallery/list", auth, (req, res) => {
     const source = req.query.source ? String(req.query.source) : "";
     const limit  = Math.min(Math.max(parseInt(req.query.limit) || 200, 1), 1000);
     const offset = Math.max(parseInt(req.query.offset) || 0, 0);
-    const rows = listGalleryFiles({ source: source || undefined, limit, offset });
+    const rows = listGalleryFiles({ source: source || undefined, limit, offset, userId: req.user.userId });
     const items = rows.map((r) => ({
       id: r.id,
       url: galleryPublicUrl(r.filename),
@@ -722,7 +856,7 @@ app.get("/api/gallery/list", auth, (req, res) => {
       clientId: r.client_id || "",
       createdAt: r.created_at,
     }));
-    const stat = countGalleryFiles();
+    const stat = countGalleryFiles(req.user.userId);
     return res.json({ items, total: stat.count, bytes: stat.bytes });
   } catch (e) {
     return res.status(500).json({ error: String(e?.message || e) });
@@ -732,7 +866,7 @@ app.get("/api/gallery/list", auth, (req, res) => {
 app.delete("/api/gallery/image/:idExt", auth, (req, res) => {
   const { id } = _splitIdExt(req.params.idExt);
   if (!id) return res.status(400).json({ error: "id 无效" });
-  const row = deleteGalleryFile(id);
+  const row = deleteGalleryFile(id, req.user.userId);
   if (row) {
     const filePath = path.join(DATA_DIR, "media", GALLERY_CAT, row.filename);
     try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) {}
