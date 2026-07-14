@@ -1417,6 +1417,11 @@
           bubble.innerHTML = renderAssistantContent(m.content, m);
           if (m.content && !m.streaming) bubble.insertAdjacentHTML("beforeend", msgActionsHtml());
         }
+        // 媒体消息脱壳：assistant 的生图卡/内联图为主体时，气泡让位给媒体（去背景放宽度）；
+        // user 带图附件不脱壳（通常还有文字，保留气泡底色），仅由 CSS 放大缩略图
+        if (m.role !== "user" && bubble.querySelector(".ai-img-card-wrap, .ai-img-figure, .ai-inline-video")) {
+          el.classList.add("has-media");
+        }
         messagesEl.appendChild(el);
       });
       scrollToBottom();
@@ -1661,7 +1666,14 @@
       _lastBubbleRaf = requestAnimationFrame(() => {
         _lastBubbleRaf = 0;
         const bubble = messagesEl.querySelector(".ai-msg:last-child .ai-bubble");
-        if (bubble) bubble.innerHTML = renderAssistantContent(msg.content, msg);
+        if (bubble) {
+          bubble.innerHTML = renderAssistantContent(msg.content, msg);
+          // 流式中出现媒体（如内联图 URL）时同步脱壳
+          bubble.closest(".ai-msg")?.classList.toggle(
+            "has-media",
+            !!bubble.querySelector(".ai-img-card-wrap, .ai-img-figure, .ai-inline-video")
+          );
+        }
         scrollToBottom();
       });
     }

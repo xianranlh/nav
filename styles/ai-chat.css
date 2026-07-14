@@ -2466,3 +2466,50 @@
 /* 头像微悬浮 */
 .ai-msg .ai-avatar { transition: transform 0.18s ease; }
 .ai-msg:hover .ai-avatar { transform: translateY(-1px) scale(1.05); }
+
+/* ===== 媒体消息脱壳（has-media：生图卡/内联图为主体的消息） =====
+ * 问题：气泡 max-width:80% + padding + 图片 max-height 联合作用，
+ *       图片实际只占面板一半宽且被"文字气泡"包着，观感突兀。
+ * 方案：媒体消息的气泡让位——去背景/边框/内边距，宽度放开到 96%，
+ *       视觉主体变成媒体卡片本身（类似主流 IM 的图片消息）。 */
+.ai-msg.has-media .ai-bubble {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  max-width: 96%;
+  width: fit-content;
+}
+.ai-msg.has-media:hover .ai-bubble { box-shadow: none; }
+[data-theme="dark"] .ai-msg.has-media .ai-bubble { background: transparent; box-shadow: none; }
+/* 媒体消息里若还有文字段落，给文字一个轻量底衬保持可读性 */
+.ai-msg.has-media .ai-bubble > p {
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(0,0,0,0.05);
+  border-radius: 12px;
+  padding: 8px 12px;
+  width: fit-content;
+  max-width: 100%;
+}
+[data-theme="dark"] .ai-msg.has-media .ai-bubble > p {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.08);
+}
+/* 生图卡在脱壳后自带完整卡片感，撑满可用宽 */
+.ai-msg.has-media .ai-img-card-wrap { width: 100%; }
+/* 内联图（对话中贴图/URL 图）也放开尺寸：占满气泡宽、高度上限提高 */
+.ai-msg.has-media .ai-img-figure { margin: 2px 0; }
+.ai-msg.has-media .ai-inline-img {
+  max-height: 420px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 3px 12px rgba(15,23,42,0.10);
+}
+[data-theme="dark"] .ai-msg.has-media .ai-inline-img {
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.35);
+}
+/* 用户消息带图附件：不脱壳（保留气泡底色），仅放大缩略图 140px → 200px */
+.ai-msg.user .ai-bubble .ai-inline-img[style*="max-height:140px"] { max-height: 200px !important; }
+/* 操作条在脱壳消息中挂在媒体下方而不是悬浮在透明气泡里 */
+.ai-msg.has-media .ai-msg-actions { margin-top: 4px; }
