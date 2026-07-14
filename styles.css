@@ -1168,6 +1168,8 @@ body[data-edit="1"] .card .del {
 /* 未登录时隐藏主界面，避免闪烁 */
 body.pre-auth .app { visibility: hidden; }
 body.pre-auth .ai-fab,
+body.pre-auth #music-fab,
+body.pre-auth #music-panel,
 body.pre-auth #blog-panel,
 body.pre-auth #ai-panel,
 body.pre-auth #calendar-panel,

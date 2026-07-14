@@ -932,6 +932,8 @@
     MusicUI.init();
     // 全局快捷键：Alt+M 打开音乐；Esc 关闭；空格 播/停
     window.addEventListener("keydown", (e) => {
+      // 未登录（pre-auth）时禁用音乐快捷键，避免登录页可唤出/播放音乐
+      if (document.body.classList.contains("pre-auth")) return;
       const tag = document.activeElement?.tagName;
       const inInput = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
       if (e.altKey && (e.key === "m" || e.key === "M")) {
