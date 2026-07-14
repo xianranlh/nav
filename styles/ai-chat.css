@@ -1195,20 +1195,24 @@
   color: var(--accent);
 }
 .ai-msg .ai-bubble {
-  padding: 11px 14px;
+  position: relative;
+  padding: 11px 15px;
   border-radius: 18px 18px 18px 6px;
-  background: rgba(255,255,255,0.85);
+  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78));
   border: 1px solid rgba(0,0,0,0.05);
   color: var(--text);
-  box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+  box-shadow: 0 2px 10px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
   font-size: 13.5px;
-  line-height: 1.65;
+  line-height: 1.7;
+  transition: box-shadow 0.18s ease;
 }
+.ai-msg:hover .ai-bubble { box-shadow: 0 4px 16px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.9); }
 [data-theme="dark"] .ai-msg .ai-bubble {
-  background: rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.045));
   border-color: rgba(255,255,255,0.08);
   box-shadow: none;
 }
+[data-theme="dark"] .ai-msg:hover .ai-bubble { box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
 .ai-msg.user .ai-bubble {
   border-radius: 18px 18px 6px 18px;
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #fff));
@@ -1219,6 +1223,21 @@
 [data-theme="dark"] .ai-msg.user .ai-bubble {
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000));
 }
+/* hover 时间戳：渲染层写入 data-time，展示在气泡上缘外侧 */
+.ai-msg[data-time]::after {
+  content: attr(data-time);
+  position: absolute;
+  top: -14px;
+  font-size: 10px;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.ai-msg { position: relative; }
+.ai-msg[data-time]:hover::after { opacity: 0.9; }
+.ai-msg.user[data-time]::after { right: 40px; }
+.ai-msg.assistant[data-time]::after { left: 40px; }
 /* ---- 输入区：更整洁的胶囊 ---- */
 .ai-foot {
   padding: 10px 14px 12px;
@@ -2372,3 +2391,78 @@
   animation: ai-cursor-blink 0.9s steps(2, start) infinite;
 }
 @keyframes ai-cursor-blink { to { visibility: hidden; } }
+
+/* ===== 消息泡视觉升级：代码卡片 / 引用 / 表格 / 连续消息紧凑化 ===== */
+/* 代码卡片（renderAssistantContent 把 <pre> 包成 .ai-code） */
+.ai-code {
+  margin: 8px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #1e1f26;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.22);
+}
+.ai-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px 5px 12px;
+  background: rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.ai-code-lang {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+.ai-code-copy {
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ai-code-copy:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.ai-code pre {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 10px 12px !important;
+}
+/* 引用块 */
+.ai-msg .ai-bubble blockquote {
+  margin: 6px 0;
+  padding: 6px 12px;
+  border-left: 3px solid rgba(var(--accent-rgb), 0.55);
+  background: rgba(var(--accent-rgb), 0.06);
+  border-radius: 4px 10px 10px 4px;
+  color: var(--text-soft);
+}
+/* 表格（模型偶尔输出 HTML 表格） */
+.ai-msg .ai-bubble table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12.5px;
+  width: 100%;
+}
+.ai-msg .ai-bubble th,
+.ai-msg .ai-bubble td {
+  border: 1px solid rgba(127,127,127,0.25);
+  padding: 4px 8px;
+  text-align: left;
+}
+.ai-msg .ai-bubble th { background: rgba(var(--accent-rgb), 0.10); font-weight: 600; }
+/* 同角色连续消息紧凑化：间距收窄 + 圆角连贯 */
+.ai-msg.assistant + .ai-msg.assistant:not(.is-council) { margin-top: -6px; }
+.ai-msg.assistant + .ai-msg.assistant:not(.is-council) .ai-bubble { border-top-left-radius: 8px; }
+.ai-msg.user + .ai-msg.user { margin-top: -6px; }
+.ai-msg.user + .ai-msg.user .ai-bubble { border-top-right-radius: 8px; }
+/* 头像微悬浮 */
+.ai-msg .ai-avatar { transition: transform 0.18s ease; }
+.ai-msg:hover .ai-avatar { transform: translateY(-1px) scale(1.05); }

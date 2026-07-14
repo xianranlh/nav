@@ -1401,6 +1401,7 @@
         const el = document.createElement("div");
         el.className = "ai-msg " + m.role + (isCouncil ? " is-council" : "");
         el.dataset.idx = idx;
+        if (m.ts) el.dataset.time = new Date(m.ts).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
         if (isCouncil) el.style.setProperty("--member-color", m.councilMember.color || "#ff6b8a");
         el.innerHTML = `
           <div class="ai-avatar">${m.role === "user" ? "我" : (isCouncil ? escapeHtml(m.councilMember.emoji || "🌸") : "🌸")}</div>
@@ -1561,6 +1562,9 @@
       let html = thinking
         ? `<div class="ai-thinking" aria-label="正在思考"><span></span><span></span><span></span></div>`
         : AI.renderMarkdown(text || "");
+      // 代码块 → 卡片：语言标签头 + 复制按钮（点击走 messagesEl 事件委托 data-act）
+      html = html.replace(/<pre><code class="lang-([^"]*)">([\s\S]*?)<\/code><\/pre>/g, (_m, lang, code) =>
+        `<div class="ai-code"><div class="ai-code-head"><span class="ai-code-lang">${lang || "text"}</span><button type="button" class="ai-code-copy" data-act="copy-code" title="复制这段代码">📋 复制</button></div><pre><code class="lang-${lang}">${code}</code></pre></div>`);
       if (msg?.streaming && !thinking) html += '<span class="ai-stream-cursor" aria-hidden="true"></span>';
       // fallback 命中时在最前面挂一条提示
       if (msg?.routedTo && msg.routedFrom && msg.routedTo !== msg.routedFrom) {
@@ -1793,6 +1797,18 @@
 
     // 灯箱预览 / 图片悬浮按钮（下载、新窗口） / 错误气泡按钮 / 消息操作条
     messagesEl.addEventListener("click", (e) => {
+      // 0-) 代码卡片：复制代码
+      const codeBtn = e.target.closest('[data-act="copy-code"]');
+      if (codeBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const code = codeBtn.closest(".ai-code")?.querySelector("pre code")?.textContent || "";
+        navigator.clipboard?.writeText(code).then(
+          () => { codeBtn.textContent = "✓ 已复制"; setTimeout(() => { codeBtn.innerHTML = "📋 复制"; }, 1200); },
+          () => toast("复制失败")
+        );
+        return;
+      }
       // 0) 消息操作条：复制 / 朗读（事件委托，替代逐条挂 listener）
       const actBtn = e.target.closest('[data-act="copy-msg"], [data-act="tts-msg"]');
       if (actBtn) {
