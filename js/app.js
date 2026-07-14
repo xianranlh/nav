@@ -1507,6 +1507,32 @@
   // 避免重复绑定事件
   let settingsBound = false;
 
+  /** 👥 多账号管理：仅 admin 显示；拉取用户列表并渲染 */
+  async function refreshUserAdmin() {
+    const sec = $("#sec-user-admin");
+    if (!sec) return;
+    const me = window.Auth && Auth.currentUser ? Auth.currentUser() : null;
+    if (!me || !me.isAdmin) { sec.hidden = true; return; }
+    sec.hidden = false;
+    const listEl = $("#user-admin-list");
+    if (!listEl) return;
+    try {
+      const r = await fetch("/api/users");
+      const j = await r.json();
+      if (!r.ok || !Array.isArray(j.users)) throw new Error(j?.error || "加载失败");
+      listEl.innerHTML = j.users.map((u) => `
+        <li class="user-admin-row">
+          <span class="user-admin-name">${escapeHtml(u.username)}${u.isAdmin ? ' <em class="user-admin-badge">admin</em>' : ""}${u.id === me.id ? ' <em class="user-admin-badge me">我</em>' : ""}</span>
+          <span class="user-admin-actions">
+            <button type="button" class="btn-secondary" data-act="reset" data-id="${u.id}" data-name="${escapeHtml(u.username)}">重置密码</button>
+            ${u.id !== 1 && u.id !== me.id ? `<button type="button" class="btn-secondary danger" data-act="del" data-id="${u.id}" data-name="${escapeHtml(u.username)}">删除</button>` : ""}
+          </span>
+        </li>`).join("");
+    } catch (e) {
+      listEl.innerHTML = `<li class="hint">用户列表加载失败：${escapeHtml(String(e?.message || e))}</li>`;
+    }
+  }
+
   function bindSettings() {
     const s = Store.settings;
     const setV = (id, v) => { const el = $(id); if (el) el.value = v; };
@@ -1565,6 +1591,7 @@
     if (typeof StorageInspector !== "undefined" && StorageInspector.refresh) {
       StorageInspector.refresh();
     }
+    refreshUserAdmin();
 
     if (settingsBound) return;
     settingsBound = true;
@@ -1606,6 +1633,63 @@
       try { dlgSettings.close(); } catch (_) {}
       toast("账号已更新，请重新登录…");
       location.reload();
+    });
+
+    // --- 👥 多账号管理（仅 admin） ---
+    $("#form-user-add")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = $("#user-admin-msg");
+      const name = String($("#user-add-name")?.value || "").trim();
+      const pass = String($("#user-add-pass")?.value || "");
+      if (!name || pass.length < 4) {
+        if (msg) msg.textContent = "请填写用户名和至少 4 位密码";
+        return;
+      }
+      const hash = await Auth._sha256(`${name}::${pass}`);
+      const r = await fetch("/api/users", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: name, hash, isAdmin: $("#user-add-admin")?.checked }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) {
+        if (msg) msg.textContent = (j && j.error) || "添加失败";
+        return;
+      }
+      if (msg) msg.textContent = "";
+      $("#user-add-name").value = "";
+      $("#user-add-pass").value = "";
+      $("#user-add-admin").checked = false;
+      toast(`已添加账号「${name}」`);
+      refreshUserAdmin();
+    });
+
+    $("#user-admin-list")?.addEventListener("click", async (e) => {
+      const btn = e.target.closest("button[data-act]");
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      const name = btn.dataset.name || "";
+      if (btn.dataset.act === "del") {
+        if (!confirm(`确定删除账号「${name}」？其全部数据与媒体文件将被永久删除！`)) return;
+        const r = await fetch("/api/users/" + id, { method: "DELETE" });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) { toast((j && j.error) || "删除失败"); return; }
+        toast(`已删除账号「${name}」`);
+        refreshUserAdmin();
+      } else if (btn.dataset.act === "reset") {
+        const np = prompt(`为「${name}」设置新密码（至少 4 个字符）：`);
+        if (np == null) return;
+        if (np.length < 4) { toast("密码至少 4 个字符"); return; }
+        const hash = await Auth._sha256(`${name}::${np}`);
+        const r = await fetch(`/api/users/${id}/password`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: name, hash }),
+        });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) { toast((j && j.error) || "重置失败"); return; }
+        toast(`已重置「${name}」的密码（其所有会话已退出）`);
+      }
     });
 
     // --- 外观 ---
@@ -2708,10 +2792,8 @@
     loginMsg.classList.add("ok");
     loginMsg.textContent = "登录成功 🌸";
     loginPass.value = "";
-    setTimeout(async () => {
-      hideLogin();
-      await bootApp();
-    }, 250);
+    // 多账号：登录前 /api/data 是 401，SakuraRemote 未水合；整页刷新用新 token 重新初始化
+    setTimeout(() => { location.reload(); }, 250);
   });
 
   $("#btn-logout").addEventListener("click", () => {
@@ -2854,7 +2936,9 @@
   // 入口：先鉴权，通过才加载主应用
   (async function entry() {
     if (window.SakuraRemote && SakuraRemote.ready) await SakuraRemote.ready;
-    if (serverStorageUnavailable()) {
+    // 多账号：401（authPending）= 服务端可用但未登录 → 直接进登录页，而不是存储错误页
+    const needLogin = !!(window.SakuraRemote && SakuraRemote.authPending && SakuraRemote.authPending());
+    if (!needLogin && serverStorageUnavailable()) {
       applyTheme();
       applyStyle();
       applySiteTitle();
@@ -2889,7 +2973,7 @@
     applyVisualTheme();
     applyHeroMode();
 
-    if (await Auth.isAuthed()) {
+    if (!needLogin && (await Auth.isAuthed())) {
       await bootApp();
     } else {
       showLogin();

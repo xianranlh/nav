@@ -142,17 +142,20 @@
     }, 1000);
   }
 
-  /** 页面卸载时用 sendBeacon 兜底：不受防抖窗口影响，保证最新数据写入服务端 */
+  /** 页面卸载时用 sendBeacon 兜底：不受防抖窗口影响，保证最新数据写入服务端。
+   *  sendBeacon / 同步 XHR 无法带 Authorization header，改用 ?token= 查询参数鉴权。 */
   function flushOnUnload() {
     if (!remoteActive || !pending || !window.SyncUtils) return;
     try {
+      const t = window.Auth && typeof Auth.getToken === "function" ? Auth.getToken() : null;
+      const url = "/api/data" + (t ? "?token=" + encodeURIComponent(t) : "");
       const body = JSON.stringify(SyncUtils.collect(false));
       if (navigator.sendBeacon) {
         const blob = new Blob([body], { type: "application/json" });
-        navigator.sendBeacon("/api/data", blob);
+        navigator.sendBeacon(url, blob);
       } else {
         const x = new XMLHttpRequest();
-        x.open("PUT", "/api/data", false);
+        x.open("PUT", url, false);
         x.setRequestHeader("Content-Type", "application/json");
         x.send(body);
       }
@@ -205,6 +208,7 @@
   let resolveReady;
   const ready = new Promise((r) => { resolveReady = r; });
   let initReason = "";
+  let authPending = false;
 
   function blockBrowserBusinessStorage(reason, err) {
     remoteActive = false;
@@ -246,7 +250,10 @@
     }
 
     if (r.status === 401) {
-      blockBrowserBusinessStorage("服务端存储鉴权失败（SAKURA_API_KEY 不匹配）");
+      // 多账号模式：401 = 服务端存储可用但尚未登录（或会话过期）。
+      // 不算“存储不可用”；标记 authPending，由入口逻辑显示登录页，登录成功后整页刷新重新水合。
+      authPending = true;
+      blockBrowserBusinessStorage("等待登录（服务端存储需要有效会话）");
       return;
     }
     if (r.status === 503) {
@@ -332,6 +339,7 @@
     isRemote: () => remoteActive,
     isRequired: () => STORAGE_REQUIRED,
     isBlocked: () => storageBlocked,
+    authPending: () => authPending,
     reason: () => initReason,
     pushNow,
     pullNow,

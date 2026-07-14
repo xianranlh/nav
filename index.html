@@ -357,6 +357,26 @@
           </form>
         </details>
 
+        <!-- 多账号管理（仅管理员可见；由 app.js 按 Auth.currentUser().isAdmin 控制显示） -->
+        <details class="sec" id="sec-user-admin" hidden>
+          <summary>👥 多账号管理</summary>
+          <p class="hint">每个账号的数据（导航、AI 会话、媒体、图库等）完全隔离。删除账号会连带删除其全部数据与文件，不可恢复。</p>
+          <ul id="user-admin-list" class="user-admin-list"></ul>
+          <form id="form-user-add" autocomplete="off">
+            <label>新用户名
+              <input type="text" id="user-add-name" maxlength="64" spellcheck="false" required />
+            </label>
+            <label>密码（至少 4 个字符）
+              <input type="password" id="user-add-pass" autocomplete="new-password" required />
+            </label>
+            <label class="row row-tight"><input type="checkbox" id="user-add-admin" /> 设为管理员</label>
+            <div class="row" style="margin-top:8px">
+              <button type="submit" class="btn-primary" id="btn-user-add">添加账号</button>
+            </div>
+            <p class="hint" id="user-admin-msg" style="min-height:1.2em;color:var(--text-soft)"></p>
+          </form>
+        </details>
+
         <!-- 站点信息 -->
         <details class="sec">
           <summary>🏷️ 站点信息</summary>

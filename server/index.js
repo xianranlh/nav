@@ -355,7 +355,10 @@ app.put("/api/ai-settings", auth, (req, res) => {
   }
 });
 
-app.put("/api/data", auth, (req, res) => {
+app.put("/api/data", auth, saveBundleHandler);
+// sendBeacon 只能发 POST（页面卸载兜底保存），语义同 PUT
+app.post("/api/data", auth, saveBundleHandler);
+function saveBundleHandler(req, res) {
   ensureDir();
   try {
     const body = req.body;
@@ -367,7 +370,7 @@ app.put("/api/data", auth, (req, res) => {
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }
-});
+}
 
 /** 按 key 清单：bundle 顶层 + 媒体文件（带文件大小/名称） */
 app.get("/api/inventory", auth, (req, res) => {

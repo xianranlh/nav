@@ -8970,3 +8970,13 @@ body.has-offline-banner #ai-panel { top: 56px; }
   .gen-config { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .gen-results { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
+
+/* ===== 👥 多账号管理（设置弹窗，仅 admin 可见） ===== */
+.user-admin-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.user-admin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); }
+.user-admin-name { font-weight: 600; }
+.user-admin-badge { font-style: normal; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--accent, #ff6b8a); color: #fff; vertical-align: 1px; }
+.user-admin-badge.me { background: rgba(255, 255, 255, 0.22); }
+.user-admin-actions { display: flex; gap: 6px; }
+.user-admin-actions .btn-secondary { padding: 3px 10px; font-size: 12px; }
+.user-admin-actions .btn-secondary.danger { color: #ff6b6b; border-color: rgba(255, 107, 107, 0.4); }
