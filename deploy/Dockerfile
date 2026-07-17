@@ -16,10 +16,11 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 COPY server/index.js server/database.js ./
 
-COPY index.html styles.css manifest.json sw.js /usr/share/nginx/html/
+COPY index.html pet.html styles.css manifest.json sw.js /usr/share/nginx/html/
 COPY js/ /usr/share/nginx/html/js/
 COPY styles/ /usr/share/nginx/html/styles/
 COPY themes/ /usr/share/nginx/html/themes/
+COPY assets/ /usr/share/nginx/html/assets/
 
 COPY deploy/nginx.conf.template /docker/nginx.conf.template
 COPY deploy/docker-entrypoint.sh /docker/docker-entrypoint.sh

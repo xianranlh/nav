@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>小樱 · 宠物乐园</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🐾%3C/text%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#ff8fab" />
+  <link rel="stylesheet" href="styles/pet.css" />
+</head>
+<body>
+  <!-- 背景与飘落花瓣 -->
+  <div class="pet-bg" aria-hidden="true"></div>
+  <canvas id="petal-canvas" aria-hidden="true"></canvas>
+
+  <main class="pet-app">
+    <!-- 顶栏 -->
+    <header class="glass pet-header">
+      <a class="back-link" href="index.html" title="返回导航首页">← 返回导航</a>
+      <h1>🐾 小樱的宠物乐园</h1>
+      <span class="pet-clock" id="pet-clock">--:--</span>
+    </header>
+
+    <!-- 状态卡片 -->
+    <section class="glass pet-card">
+      <div class="pet-portrait">
+        <img src="assets/pet/xiaoying-portrait.png" alt="小樱立绘" draggable="false" />
+      </div>
+      <div class="pet-info">
+        <div class="pet-name-row">
+          <h2 id="pet-name">小樱</h2>
+          <span class="pet-level" id="pet-level">Lv.1</span>
+          <span class="pet-mood" id="pet-mood">😊 心情不错</span>
+        </div>
+        <div class="pet-bar">
+          <span class="bar-label">亲密度</span>
+          <div class="bar-track"><div class="bar-fill" id="affection-bar"></div></div>
+          <span class="bar-num" id="affection-num">0</span>
+        </div>
+        <div class="pet-bar">
+          <span class="bar-label">饱食度</span>
+          <div class="bar-track"><div class="bar-fill hunger" id="hunger-bar"></div></div>
+          <span class="bar-num" id="hunger-num">0</span>
+        </div>
+        <div class="pet-actions">
+          <button class="pet-btn" id="btn-feed" title="喂点小点心">🍡 喂食</button>
+          <button class="pet-btn" id="btn-pat" title="摸摸头">🤚 摸摸头</button>
+          <button class="pet-btn" id="btn-play" title="一起玩耍">🎀 玩耍</button>
+          <button class="pet-btn" id="btn-sleep" title="哄她睡觉 / 叫醒她">🌙 睡觉</button>
+        </div>
+        <p class="pet-tip">小提示：点击草地让小樱跑过去，点击她本人会有惊喜哦～</p>
+      </div>
+    </section>
+
+    <!-- 游乐场：小樱在这里活动 -->
+    <section class="glass playground" id="playground">
+      <div class="pg-sky">
+        <span class="pg-cloud c1">☁️</span>
+        <span class="pg-cloud c2">☁️</span>
+        <span class="pg-sun" id="pg-sun">☀️</span>
+      </div>
+      <div class="pg-ground" id="pg-ground">
+        <span class="pg-flower" style="left:8%">🌼</span>
+        <span class="pg-flower" style="left:28%">🌷</span>
+        <span class="pg-flower" style="left:55%">🌸</span>
+        <span class="pg-flower" style="left:76%">🌻</span>
+        <span class="pg-flower" style="left:92%">🌺</span>
+      </div>
+      <!-- 宠物本体（会动！） -->
+      <div class="pet-sprite" id="pet-sprite" title="小樱">
+        <div class="pet-bubble" id="pet-bubble" hidden></div>
+        <div class="pet-shadow"></div>
+      </div>
+      <div class="fx-layer" id="fx-layer"></div>
+    </section>
+
+    <footer class="pet-footer">🌸 樱 · 个人导航 — 宠物乐园</footer>
+  </main>
+
+  <script src="js/pet.js"></script>
+</body>
+</html>

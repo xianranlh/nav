@@ -3742,6 +3742,7 @@ html[data-hero-mode="hidden"] .header-bar .clock {
   transform: translateY(-1px);
 }
 .topbar-btn:active { transform: translateY(0); }
+a.topbar-btn { text-decoration: none; font-size: 13px; }
 .topbar-btn .topbar-ico { font-size: 15px; line-height: 1; }
 .topbar-btn .topbar-txt { font-size: 12px; line-height: 1; letter-spacing: 0.02em; }
 .topbar-btn .icon-badge {
