@@ -1,306 +1,236 @@
 /* ===============================
-   宠物乐园 pet.js
-   小樱 —— 精灵图逐帧动画 + 行为状态机
-   精灵图：assets/pet/xiaoying-sheet.png
-   网格：8 列 × 9 行，单帧 52 × 56
+   宠物乐园 pet.js（页面逻辑）
+   依赖 pet-engine.js（SakuraPet）
+   · 状态卡片 / 互动按钮 / 昼夜 / 花瓣
+   · 上传图片生成自定义宠物（前端抠图）
    =============================== */
 (() => {
   "use strict";
-
-  /* ---------- 精灵图动作表 ---------- */
-  // row: 精灵图行号；frames: 帧数；fps: 播放速度
-  // once: 只播一遍并停在最后一帧（如入睡）
-  const ANIM = {
-    idle:   { row: 0, frames: 6, fps: 4 },   // 站立眨眼
-    runR:   { row: 1, frames: 8, fps: 10 },  // 向右跑
-    runL:   { row: 2, frames: 8, fps: 10 },  // 向左跑
-    walk:   { row: 3, frames: 4, fps: 5 },   // 原地踏步
-    sit:    { row: 4, frames: 5, fps: 4 },   // 坐下休息
-    sleep:  { row: 5, frames: 8, fps: 2.2, once: true }, // 揉眼→躺下入睡
-    joy:    { row: 6, frames: 6, fps: 7 },   // 开心蹦跳
-    wave:   { row: 7, frames: 6, fps: 6 },   // 打招呼
-    shy:    { row: 8, frames: 6, fps: 6 },   // 害羞扭捏
-  };
-  const CELL_W = 52, CELL_H = 56, SCALE = 2;
-  const RUN_SPEED = 95; // px / s
-
-  /* ---------- 台词 ---------- */
-  const LINES = {
-    greet:  ["主人来啦～", "今天也要元气满满！", "想我了吗？", "嘿嘿，欢迎回来～"],
-    pat:    ["嘿嘿，好舒服～", "再摸一下嘛…", "♪(´▽｀)", "最喜欢主人了！"],
-    feed:   ["开动啦～", "唔，好好吃！", "谢谢主人的点心！", "甜甜的～"],
-    play:   ["一起玩耍吧！", "转圈圈～", "耶！好开心！", "看我的舞步～"],
-    sleepy: ["有点困了呢…", "晚安，主人…", "呼…呼…", "zzZ…"],
-    wake:   ["唔…早上好？", "醒来啦！", "睡得好香呀～"],
-    run:    ["马上到！", "冲鸭！", "跑起来～"],
-    bored:  ["主人在忙什么呀？", "陪我玩嘛～", "看看花开得多好呀", "哼哼哼～♪"],
-    full:   ["吃不下啦…", "肚子圆滚滚了～"],
-  };
-  const pick = (arr) => arr[(Math.random() * arr.length) | 0];
-  const rand = (min, max) => min + Math.random() * (max - min);
-
-  /* ---------- DOM ---------- */
+  const { Config, PetActor, LINES, pick, rand } = window.SakuraPet;
   const $ = (id) => document.getElementById(id);
-  const sprite = $("pet-sprite");
-  const bubble = $("pet-bubble");
+
+  const cfg = Config.load();
   const playground = $("playground");
   const fxLayer = $("fx-layer");
+  const DEFAULT_PORTRAIT = "assets/pet/xiaoying-portrait.png";
 
-  /* ---------- 存档 ---------- */
-  const SAVE_KEY = "sakura-pet@1";
-  const save = loadSave();
-  function loadSave() {
-    try {
-      const s = JSON.parse(localStorage.getItem(SAVE_KEY));
-      if (!s) return { affection: 0, hunger: 60, last: 0 };
-      return { affection: s.affection | 0, hunger: Math.min(100, s.hunger | 0), last: s.last || 0 };
-    } catch { return { affection: 0, hunger: 60, last: 0 }; }
-  }
-  function persist() {
-    save.last = Date.now();
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch {}
-  }
+  /* ---------- 宠物本体 ---------- */
+  const actor = new PetActor({
+    container: playground,
+    fxLayer,
+    scale: 2,
+    custom: cfg.custom ? cfg.custom.img : null,
+    onPetClick(a) {
+      a.hearts(3);
+      gainAffection(1);
+      a.say(pick(LINES.pat));
+      a.emote(Math.random() < 0.5 ? "shy" : "joy");
+    },
+  });
+  actor.onStateChange = refreshUI;
 
-  /* ---------- 状态 ---------- */
-  const pet = {
-    x: 0,               // 相对游乐场左边缘
-    targetX: null,      // 跑动目标
-    anim: "idle",
-    frame: 0,
-    frameTimer: 0,
-    stateTimer: 0,      // 当前行为剩余时间（秒）
-    sleeping: false,
-    busy: false,        // 播放一次性动作（emote）中
-  };
-  const petW = CELL_W * SCALE;
-
-  function bounds() {
-    return { min: 8, max: playground.clientWidth - petW - 8 };
-  }
-
-  /* ---------- 渲染 ---------- */
-  function applyFrame() {
-    const a = ANIM[pet.anim];
-    sprite.style.backgroundPosition =
-      `${-pet.frame * CELL_W * SCALE}px ${-a.row * CELL_H * SCALE}px`;
-    sprite.style.left = `${pet.x}px`;
-  }
-
-  function setAnim(name) {
-    if (pet.anim === name) return;
-    pet.anim = name;
-    pet.frame = 0;
-    pet.frameTimer = 0;
-    applyFrame();
-  }
-
-  /* ---------- 气泡 ---------- */
-  let bubbleTimer = 0;
-  function say(text, ms = 2600) {
-    bubble.textContent = text;
-    bubble.hidden = false;
-    clearTimeout(bubbleTimer);
-    bubbleTimer = setTimeout(() => { bubble.hidden = true; }, ms);
-  }
-
-  /* ---------- 粒子 ---------- */
-  function spawnFx(cls, emoji, n = 1) {
-    for (let i = 0; i < n; i++) {
-      const el = document.createElement("span");
-      el.className = cls;
-      el.textContent = emoji;
-      el.style.left = `${pet.x + petW / 2 + rand(-24, 24)}px`;
-      el.style.bottom = `${34 + petW * 0.9 + rand(-8, 12)}px`;
-      el.style.animationDelay = `${i * 0.12}s`;
-      fxLayer.appendChild(el);
-      setTimeout(() => el.remove(), 2800);
-    }
-  }
-  const hearts = (n = 3) => spawnFx("fx-heart", pick(["💗", "💕", "🩷", "✨"]), n);
-
-  /* ---------- 行为状态机 ---------- */
-  function decide() {
-    if (pet.sleeping || pet.busy) return;
-    const roll = Math.random();
-    const { min, max } = bounds();
-    if (roll < 0.42) {                      // 去别处逛逛
-      pet.targetX = rand(min, max);
-      pet.stateTimer = 99;
-    } else if (roll < 0.58) {               // 坐下休息
-      setAnim("sit");
-      pet.stateTimer = rand(3, 6);
-    } else if (roll < 0.7) {                // 原地踏步
-      setAnim("walk");
-      pet.stateTimer = rand(2, 4);
-    } else if (roll < 0.78) {               // 自言自语
-      setAnim("wave");
-      say(pick(LINES.bored));
-      pet.stateTimer = rand(2, 3.5);
-    } else if (roll < 0.86) {               // 开心一下
-      setAnim("joy");
-      pet.stateTimer = rand(2, 3.5);
-    } else {                                // 发呆
-      setAnim("idle");
-      pet.stateTimer = rand(2.5, 5);
-    }
-  }
-
-  // 播放一段一次性动作（互动反馈），结束后回到 idle
-  function emote(name, dur = 2.2) {
-    if (pet.sleeping) return;
-    pet.busy = true;
-    pet.targetX = null;
-    setAnim(name);
-    setTimeout(() => {
-      pet.busy = false;
-      setAnim("idle");
-      pet.stateTimer = rand(1.5, 3);
-    }, dur * 1000);
-  }
-
-  /* ---------- 主循环 ---------- */
-  let lastTs = performance.now();
-  let zzzTimer = 0;
-  function tick(ts) {
-    const dt = Math.min(0.1, (ts - lastTs) / 1000);
-    lastTs = ts;
-
-    // 逐帧动画
-    const a = ANIM[pet.anim];
-    pet.frameTimer += dt;
-    if (pet.frameTimer >= 1 / a.fps) {
-      pet.frameTimer = 0;
-      if (a.once) {
-        if (pet.frame < a.frames - 1) pet.frame++;
-      } else {
-        pet.frame = (pet.frame + 1) % a.frames;
-      }
-    }
-
-    // 睡觉时冒 Zzz
-    if (pet.sleeping) {
-      zzzTimer += dt;
-      if (zzzTimer > 1.6) { zzzTimer = 0; spawnFx("fx-zzz", "💤"); }
-    }
-
-    // 移动
-    if (!pet.sleeping && !pet.busy && pet.targetX != null) {
-      const dir = Math.sign(pet.targetX - pet.x);
-      setAnim(dir >= 0 ? "runR" : "runL");
-      pet.x += dir * RUN_SPEED * dt;
-      const { min, max } = bounds();
-      pet.x = Math.max(min, Math.min(max, pet.x));
-      if (Math.abs(pet.targetX - pet.x) < 4) {   // 到达目的地
-        pet.targetX = null;
-        setAnim("idle");
-        pet.stateTimer = rand(1.5, 3.5);
-      }
-    } else if (!pet.sleeping && !pet.busy) {
-      pet.stateTimer -= dt;
-      if (pet.stateTimer <= 0) decide();
-    }
-
-    applyFrame();
-    requestAnimationFrame(tick);
-  }
-
-  /* ---------- 数值 / UI ---------- */
-  function level() { return 1 + Math.floor(Math.sqrt(save.affection / 8)); }
-  function refreshUI() {
-    $("pet-level").textContent = `Lv.${level()}`;
-    const lvNext = 8 * Math.pow(level(), 2);
-    $("affection-bar").style.width = `${Math.min(100, (save.affection / lvNext) * 100)}%`;
-    $("affection-num").textContent = save.affection;
-    $("hunger-bar").style.width = `${save.hunger}%`;
-    $("hunger-num").textContent = save.hunger;
-    const mood = pet.sleeping ? "😴 睡着了"
-      : save.hunger < 25 ? "🥺 肚子饿了"
-      : save.affection >= 80 ? "🥰 无比亲密"
-      : save.affection >= 30 ? "😊 心情不错"
-      : "🙂 慢慢熟悉中";
-    $("pet-mood").textContent = mood;
-  }
-  function gainAffection(n) {
-    save.affection += n;
-    persist();
-    refreshUI();
-  }
-
-  /* ---------- 睡觉 ---------- */
-  function fallAsleep(sayLine = true) {
-    if (pet.sleeping) return;
-    pet.sleeping = true;
-    pet.busy = false;
-    pet.targetX = null;
-    setAnim("sleep");
-    if (sayLine) say(pick(LINES.sleepy));
-    refreshUI();
-  }
-  function wakeUp() {
-    if (!pet.sleeping) return;
-    pet.sleeping = false;
-    setAnim("idle");
-    pet.stateTimer = rand(1, 2);
-    say(pick(LINES.wake));
-    refreshUI();
-  }
-
-  /* ---------- 交互 ---------- */
   // 点击草地：跑过去
   playground.addEventListener("click", (e) => {
-    if (e.target === sprite || sprite.contains(e.target)) return;
-    if (pet.sleeping) return;
+    if (actor.el.contains(e.target)) return;
+    if (actor.sleeping) return;
     const rect = playground.getBoundingClientRect();
-    const { min, max } = bounds();
-    pet.targetX = Math.max(min, Math.min(max, e.clientX - rect.left - petW / 2));
-    pet.busy = false;
-    if (Math.random() < 0.4) say(pick(LINES.run), 1500);
+    actor.runTo(e.clientX - rect.left - actor.w / 2);
   });
 
-  // 点击小樱：撒娇 + 加亲密度
-  sprite.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (pet.sleeping) { wakeUp(); return; }
-    hearts(3);
-    gainAffection(1);
-    say(pick(LINES.pat));
-    emote(Math.random() < 0.5 ? "shy" : "joy");
-  });
+  /* ---------- 数值 / UI ---------- */
+  function level() { return 1 + Math.floor(Math.sqrt(cfg.affection / 8)); }
+  function refreshUI() {
+    $("pet-name").textContent = cfg.name;
+    $("pet-level").textContent = `Lv.${level()}`;
+    const lvNext = 8 * Math.pow(level(), 2);
+    $("affection-bar").style.width = `${Math.min(100, (cfg.affection / lvNext) * 100)}%`;
+    $("affection-num").textContent = cfg.affection;
+    $("hunger-bar").style.width = `${cfg.hunger}%`;
+    $("hunger-num").textContent = cfg.hunger;
+    const mood = actor.sleeping ? "😴 睡着了"
+      : cfg.hunger < 25 ? "🥺 肚子饿了"
+      : cfg.affection >= 80 ? "🥰 无比亲密"
+      : cfg.affection >= 30 ? "😊 心情不错"
+      : "🙂 慢慢熟悉中";
+    $("pet-mood").textContent = mood;
+    // 自定义宠物 → 立绘同步
+    $("pet-portrait-img").src = cfg.custom ? cfg.custom.img : DEFAULT_PORTRAIT;
+    $("btn-restore").hidden = !cfg.custom;
+    $("chk-home").checked = cfg.homeWidget;
+  }
+  function gainAffection(n) {
+    cfg.affection += n;
+    Config.save(cfg);
+    refreshUI();
+  }
 
-  // 按钮
+  /* ---------- 互动按钮 ---------- */
+  const asleepGuard = () => { if (actor.sleeping) { actor.say("嘘——她睡着啦", 1600); return true; } return false; };
   $("btn-pat").addEventListener("click", () => {
-    if (pet.sleeping) { say("嘘——她睡着啦", 1600); return; }
-    hearts(4);
+    if (asleepGuard()) return;
+    actor.hearts(4);
     gainAffection(2);
-    say(pick(LINES.pat));
-    emote("shy");
+    actor.say(pick(LINES.pat));
+    actor.emote("shy");
   });
   $("btn-feed").addEventListener("click", () => {
-    if (pet.sleeping) { say("嘘——她睡着啦", 1600); return; }
-    if (save.hunger >= 100) { say(pick(LINES.full)); emote("shy", 1.6); return; }
-    save.hunger = Math.min(100, save.hunger + 15);
+    if (asleepGuard()) return;
+    if (cfg.hunger >= 100) { actor.say(pick(LINES.full)); actor.emote("shy", 1.6); return; }
+    cfg.hunger = Math.min(100, cfg.hunger + 15);
     gainAffection(2);
-    spawnFx("fx-heart", "🍡", 2);
-    hearts(2);
-    say(pick(LINES.feed));
-    emote("joy");
+    actor.spawnFx("pe-heart", "🍡", 2);
+    actor.hearts(2);
+    actor.say(pick(LINES.feed));
+    actor.emote("joy");
   });
   $("btn-play").addEventListener("click", () => {
-    if (pet.sleeping) { say("嘘——她睡着啦", 1600); return; }
+    if (asleepGuard()) return;
     gainAffection(3);
-    hearts(5);
-    say(pick(LINES.play));
-    emote("joy", 3);
+    actor.hearts(5);
+    actor.say(pick(LINES.play));
+    actor.emote("joy", 3);
   });
   $("btn-sleep").addEventListener("click", () => {
-    pet.sleeping ? wakeUp() : fallAsleep();
+    actor.sleeping ? actor.wakeUp() : actor.fallAsleep();
+    refreshUI();
   });
 
-  // 饱食度随时间缓慢下降
+  /* ---------- 上传图片生成宠物 ---------- */
+  $("btn-upload").addEventListener("click", () => $("pet-file").click());
+  $("pet-file").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const dataUrl = await processImage(file);
+      cfg.custom = { img: dataUrl };
+      cfg.name = (file.name.replace(/\.[^.]+$/, "").slice(0, 12)) || "我的宠物";
+      Config.save(cfg);
+      actor.setCustom(dataUrl);
+      refreshUI();
+      actor.hearts(5);
+      actor.say("新形象登场！好看吗？", 3000);
+      actor.emote("joy", 2.5);
+    } catch (err) {
+      console.error(err);
+      actor.say("这张图片读取不了呢…", 2600);
+    }
+  });
+  $("btn-restore").addEventListener("click", () => {
+    cfg.custom = null;
+    cfg.name = "小樱";
+    Config.save(cfg);
+    actor.setCustom(null);
+    refreshUI();
+    actor.say("小樱回来啦～", 2600);
+    actor.emote("wave", 2.2);
+  });
+
+  // 点击名字改名
+  $("pet-name").addEventListener("click", () => {
+    const n = prompt("给宠物起个名字吧（12 字以内）", cfg.name);
+    if (n && n.trim()) {
+      cfg.name = n.trim().slice(0, 12);
+      Config.save(cfg);
+      refreshUI();
+    }
+  });
+
+  /**
+   * 前端抠图：缩放至 ≤240px → 若四角颜色一致则视作背景色，
+   * 从边框 BFS 泛洪去除背景 → 裁剪空白 → PNG dataURL
+   */
+  function processImage(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        try {
+          const MAX = 240;
+          const k = Math.min(1, MAX / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * k));
+          const h = Math.max(1, Math.round(img.height * k));
+          const cv = document.createElement("canvas");
+          cv.width = w; cv.height = h;
+          const ctx = cv.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          const id = ctx.getImageData(0, 0, w, h);
+          removeUniformBg(id, w, h);
+          ctx.putImageData(id, 0, 0);
+          resolve(trimCanvas(cv, id, w, h).toDataURL("image/png"));
+        } catch (err) { reject(err); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
+      img.src = url;
+    });
+  }
+
+  function removeUniformBg(id, w, h) {
+    const d = id.data;
+    const px = (x, y) => (y * w + x) * 4;
+    const corners = [px(0, 0), px(w - 1, 0), px(0, h - 1), px(w - 1, h - 1)];
+    // 图片本身带透明 → 不处理
+    if (corners.some((i) => d[i + 3] < 250)) return;
+    const cr = d[corners[0]], cg = d[corners[0] + 1], cb = d[corners[0] + 2];
+    const dist = (i) => Math.abs(d[i] - cr) + Math.abs(d[i + 1] - cg) + Math.abs(d[i + 2] - cb);
+    // 四角颜色需一致，否则认为没有纯色背景
+    if (!corners.every((i) => dist(i) < 90)) return;
+    const TOL = 110;
+    const seen = new Uint8Array(w * h);
+    const queue = [];
+    for (let x = 0; x < w; x++) { queue.push(x, x + (h - 1) * w); }
+    for (let y = 0; y < h; y++) { queue.push(y * w, y * w + w - 1); }
+    while (queue.length) {
+      const p = queue.pop();
+      if (seen[p]) continue;
+      seen[p] = 1;
+      const i = p * 4;
+      if (dist(i) > TOL) continue;
+      d[i + 3] = 0;
+      const x = p % w, y = (p / w) | 0;
+      if (x > 0) queue.push(p - 1);
+      if (x < w - 1) queue.push(p + 1);
+      if (y > 0) queue.push(p - w);
+      if (y < h - 1) queue.push(p + w);
+    }
+  }
+
+  function trimCanvas(cv, id, w, h) {
+    const d = id.data;
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) return cv; // 全透明？原样返回
+    const pad = 2;
+    minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+    maxX = Math.min(w - 1, maxX + pad); maxY = Math.min(h - 1, maxY + pad);
+    const out = document.createElement("canvas");
+    out.width = maxX - minX + 1; out.height = maxY - minY + 1;
+    out.getContext("2d").drawImage(cv, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  /* ---------- 首页小宠物开关 ---------- */
+  $("chk-home").addEventListener("change", (e) => {
+    cfg.homeWidget = e.target.checked;
+    Config.save(cfg);
+    actor.say(cfg.homeWidget ? "我会去首页陪你哦～" : "那我就待在乐园里啦", 2400);
+  });
+
+  /* ---------- 饱食度随时间缓慢下降 ---------- */
   setInterval(() => {
-    if (save.hunger > 0) {
-      save.hunger = Math.max(0, save.hunger - 1);
-      persist();
+    if (cfg.hunger > 0) {
+      cfg.hunger = Math.max(0, cfg.hunger - 1);
+      Config.save(cfg);
       refreshUI();
     }
   }, 45000);
@@ -356,14 +286,9 @@
   })();
 
   /* ---------- 启动 ---------- */
-  pet.x = playground.clientWidth * 0.4;
-  applyFrame();
   refreshUI();
-  requestAnimationFrame(tick);
-
-  // 欢迎词
   setTimeout(() => {
-    say(pick(LINES.greet));
-    emote("wave", 2.4);
+    actor.say(pick(LINES.greet));
+    actor.emote("wave", 2.4);
   }, 600);
 })();

@@ -25,11 +25,11 @@
     <!-- 状态卡片 -->
     <section class="glass pet-card">
       <div class="pet-portrait">
-        <img src="assets/pet/xiaoying-portrait.png" alt="小樱立绘" draggable="false" />
+        <img id="pet-portrait-img" src="assets/pet/xiaoying-portrait.png" alt="宠物立绘" draggable="false" />
       </div>
       <div class="pet-info">
         <div class="pet-name-row">
-          <h2 id="pet-name">小樱</h2>
+          <h2 id="pet-name" title="点击改名">小樱</h2>
           <span class="pet-level" id="pet-level">Lv.1</span>
           <span class="pet-mood" id="pet-mood">😊 心情不错</span>
         </div>
@@ -49,7 +49,15 @@
           <button class="pet-btn" id="btn-play" title="一起玩耍">🎀 玩耍</button>
           <button class="pet-btn" id="btn-sleep" title="哄她睡觉 / 叫醒她">🌙 睡觉</button>
         </div>
-        <p class="pet-tip">小提示：点击草地让小樱跑过去，点击她本人会有惊喜哦～</p>
+        <div class="pet-actions pet-actions-secondary">
+          <button class="pet-btn" id="btn-upload" title="上传任意图片，自动抠除纯色背景生成你的专属宠物">🖼 上传图片生成宠物</button>
+          <button class="pet-btn" id="btn-restore" hidden title="换回默认的小樱">↩ 恢复小樱</button>
+          <label class="pet-toggle" title="让宠物在导航首页底部自由活动">
+            <input type="checkbox" id="chk-home" checked /> 在导航首页显示宠物
+          </label>
+        </div>
+        <input type="file" id="pet-file" accept="image/*" hidden />
+        <p class="pet-tip">小提示：点击草地让宠物跑过去，点击宠物本人会有惊喜；点击名字可以改名哦～</p>
       </div>
     </section>
 
@@ -67,17 +75,14 @@
         <span class="pg-flower" style="left:76%">🌻</span>
         <span class="pg-flower" style="left:92%">🌺</span>
       </div>
-      <!-- 宠物本体（会动！） -->
-      <div class="pet-sprite" id="pet-sprite" title="小樱">
-        <div class="pet-bubble" id="pet-bubble" hidden></div>
-        <div class="pet-shadow"></div>
-      </div>
+      <!-- 宠物本体由 pet-engine.js 动态创建 -->
       <div class="fx-layer" id="fx-layer"></div>
     </section>
 
     <footer class="pet-footer">🌸 樱 · 个人导航 — 宠物乐园</footer>
   </main>
 
+  <script src="js/pet-engine.js"></script>
   <script src="js/pet.js"></script>
 </body>
 </html>

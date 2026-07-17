@@ -93,6 +93,8 @@ body.night .pet-bg {
 }
 .pet-portrait img {
   width: 118px;
+  max-height: 170px;
+  object-fit: contain;
   height: auto;
   display: block;
   filter: drop-shadow(0 6px 12px rgba(184, 169, 232, 0.45));
@@ -170,6 +172,19 @@ body.night .pet-bg {
   box-shadow: 0 6px 14px rgba(229, 99, 138, 0.25);
 }
 .pet-btn:active { transform: translateY(0) scale(0.96); }
+.pet-actions-secondary { margin-top: 8px; align-items: center; }
+.pet-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  opacity: 0.85;
+  cursor: pointer;
+  user-select: none;
+}
+.pet-toggle input { accent-color: var(--pk-deep); }
+.pet-name-row h2 { cursor: pointer; }
+.pet-name-row h2:hover { color: var(--pk-deep); }
 .pet-tip { margin: 10px 0 0; font-size: 12px; opacity: 0.6; }
 
 /* ---------- 游乐场 ---------- */
@@ -236,70 +251,10 @@ body.night .playground {
   50% { transform: rotate(6deg); }
 }
 
-/* ---------- 宠物本体：精灵图动画 ---------- */
-.pet-sprite {
-  --cell-w: 52px;   /* 精灵图单帧尺寸 */
-  --cell-h: 56px;
-  --scale: 2;
-  position: absolute;
-  bottom: 34px;
-  left: 40%;
-  width: calc(var(--cell-w) * var(--scale));
-  height: calc(var(--cell-h) * var(--scale));
-  background-image: url("../assets/pet/xiaoying-sheet.png");
-  background-repeat: no-repeat;
-  background-size: calc(416px * var(--scale)) calc(504px * var(--scale));
-  background-position: 0 0;
-  image-rendering: pixelated;
-  cursor: pointer;
-  z-index: 3;
-  transition: filter 0.5s;
-}
-body.night .pet-sprite { filter: brightness(0.88); }
-
-.pet-shadow {
-  position: absolute;
-  left: 50%;
-  bottom: -8px;
-  width: 62%;
-  height: 12px;
-  transform: translateX(-50%);
-  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.22), transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-/* 对话气泡 */
-.pet-bubble {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 210px;
-  white-space: nowrap;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(229, 99, 138, 0.35);
-  border-radius: 12px;
-  padding: 6px 12px;
-  font-size: 13px;
-  box-shadow: 0 4px 12px rgba(229, 99, 138, 0.2);
-  animation: bubble-pop 0.25s ease;
-  pointer-events: none;
-  z-index: 4;
-}
-.pet-bubble::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 6px solid transparent;
-  border-top-color: rgba(255, 255, 255, 0.95);
-}
-@keyframes bubble-pop {
-  from { opacity: 0; transform: translateX(-50%) scale(0.7); }
-  to   { opacity: 1; transform: translateX(-50%) scale(1); }
-}
+/* ---------- 宠物本体 ----------
+   精灵元素与气泡/爱心等组件样式由 pet-engine.js 统一注入（.pe- 前缀），
+   这里只保留页面相关的补充样式 */
+body.night .pe-sprite { filter: brightness(0.88); }
 
 /* 爱心 / 食物 粒子层 */
 .fx-layer {
@@ -307,26 +262,6 @@ body.night .pet-sprite { filter: brightness(0.88); }
   inset: 0;
   pointer-events: none;
   z-index: 5;
-}
-.fx-heart {
-  position: absolute;
-  font-size: 18px;
-  animation: heart-rise 1.2s ease-out forwards;
-}
-@keyframes heart-rise {
-  0%   { opacity: 0; transform: translateY(0) scale(0.6); }
-  20%  { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-70px) scale(1.15); }
-}
-.fx-zzz {
-  position: absolute;
-  font-size: 15px;
-  animation: zzz-rise 2.4s ease-out forwards;
-}
-@keyframes zzz-rise {
-  0%   { opacity: 0; transform: translate(0, 0) scale(0.7); }
-  25%  { opacity: 0.9; }
-  100% { opacity: 0; transform: translate(18px, -46px) scale(1.2); }
 }
 
 .pet-footer {
