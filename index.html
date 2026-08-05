@@ -8,9 +8,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.21.3" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.21.3" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.21.3" />
+  <link rel="stylesheet" href="styles.css?v=v1.21.4" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.21.4" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.21.4" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -1552,11 +1552,11 @@
   <dialog aria-modal="true" id="dialog-todo" data-backdrop-close class="glass-dialog reminders-dialog">
     <form method="dialog">
       <div class="reminders-shell">
+        <button type="button" class="close-btn rem-close" data-close title="关闭" aria-label="关闭待办">&times;</button>
         <!-- 侧边栏：搜索 + 智能列表 + 用户列表 -->
         <aside class="rem-sidebar">
           <div class="rem-sb-head">
             <h3 class="rem-title">提醒事项</h3>
-            <button type="button" class="close-btn rem-close" data-close title="关闭" aria-label="关闭">&times;</button>
           </div>
           <div class="rem-search">
             <span class="rem-search-icon">🔍</span>
@@ -1693,13 +1693,13 @@
   </dialog>
 
   <script src="js/homepage-theme.js"></script>
-  <script src="js/dialog.js?v=v1.21.3"></script>
+  <script src="js/dialog.js?v=v1.21.4"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.21.3"></script>
+  <script src="js/ai.js?v=v1.21.4"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
@@ -1717,12 +1717,12 @@
   <script src="js/pet-engine.js"></script>
   <script src="js/pet-widget.js"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.21.3"></script>
-  <script src="js/ui/todo.ui.js?v=v1.21.3"></script>
-  <script src="js/ui/calendar.ui.js?v=v1.21.3"></script>
-  <script src="js/ui/weather.ui.js?v=v1.21.3"></script>
-  <script src="js/ui/sync.ui.js?v=v1.21.3"></script>
-  <script src="js/ui/misc.ui.js?v=v1.21.3"></script>
+  <script src="js/ui/ai.ui.js?v=v1.21.4"></script>
+  <script src="js/ui/todo.ui.js?v=v1.21.4"></script>
+  <script src="js/ui/calendar.ui.js?v=v1.21.4"></script>
+  <script src="js/ui/weather.ui.js?v=v1.21.4"></script>
+  <script src="js/ui/sync.ui.js?v=v1.21.4"></script>
+  <script src="js/ui/misc.ui.js?v=v1.21.4"></script>
   <script>
     // Petrichor 知识库入口：同域 /blog 路由（openresty 反代 → 127.0.0.1:3100）；
     // 可在控制台 localStorage.setItem('sakura_nav_blog_url', 'https://...') 覆盖
@@ -1734,6 +1734,6 @@
       a.href = custom || "/blog";
     })();
   </script>
-  <script src="js/app.js?v=v1.21.3"></script>
+  <script src="js/app.js?v=v1.21.4"></script>
 </body>
 </html>
