@@ -243,3 +243,28 @@ test("AI and music panels use shared SVG icon class and polished shells", () => 
   assert.match(css, /\.ai-input-row\s*\{[^}]*border-radius:\s*16px/);
   assert.match(css, /\.music-panel\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(var\(--accent-rgb\)/);
 });
+
+
+test("Web Interface Guidelines: skip link, focus safety, reduced motion, no transition:all", () => {
+  const css =
+    fs.readFileSync("styles.css", "utf8") +
+    fs.readFileSync("styles/ai-chat.css", "utf8") +
+    fs.readFileSync("styles/dialogs.css", "utf8");
+  const index = fs.readFileSync("index.html", "utf8");
+
+  assert.match(index, /class="skip-link"[^>]*href="#main-content"/);
+  assert.match(index, /id="main-content"/);
+  assert.match(index, /id="login-msg"[^>]*aria-live="polite"/);
+  assert.match(index, /placeholder="搜索书签或网页…"/);
+  assert.match(index, /placeholder="过滤已添加网址…"/);
+  assert.match(css, /touch-action:\s*manipulation/);
+  assert.match(css, /-webkit-tap-highlight-color/);
+  assert.match(css, /env\(safe-area-inset-bottom/);
+  assert.match(css, /100dvh/);
+  assert.match(css, /\.skip-link\s*\{/);
+  assert.doesNotMatch(css, /transition:\s*all\b/);
+  assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
+  assert.match(css, /:focus-visible/);
+  // viewport must not disable zoom
+  assert.doesNotMatch(index, /user-scalable\s*=\s*no|maximum-scale\s*=\s*1/);
+});

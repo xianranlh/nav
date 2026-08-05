@@ -1608,7 +1608,7 @@ body.pre-auth #upcoming-card { display: none !important; }
   border-radius: 16px;
   background: var(--card-bg);
   padding: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   margin-bottom: 2px;
 }
@@ -1673,7 +1673,7 @@ body.pre-auth #upcoming-card { display: none !important; }
   outline: none;
   resize: vertical;
   width: 100%;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
 }
 [data-theme="dark"] .sec textarea { background: rgba(255, 255, 255, 0.08); }
 .sec textarea:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -3252,7 +3252,7 @@ body.pre-auth #weather-card { display: none !important; }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* 樱花主题 (默认/Sakura) 暗色适配 */
@@ -4199,7 +4199,7 @@ html[data-hero-mode="hidden"] .header-bar .clock {
   cursor: pointer;
   font-size: .9em;
   font-family: inherit;
-  transition: all .15s;
+  transition: background .15s, border-color .15s, color .15s, transform .15s;
 }
 .group-tab:hover { color: var(--text); border-color: var(--accent); }
 .group-tab.is-active {
@@ -6742,7 +6742,7 @@ body.has-offline-banner #ai-panel { top: 56px; }
   padding: 9px 12px;
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
 }
 [data-theme="dark"] .gen-mode-btn { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
 .gen-mode-btn.is-active {
@@ -7332,3 +7332,159 @@ body.has-offline-banner #ai-panel { top: 56px; }
 .mt-num .ui-ico { font-size: 14px; color: var(--accent); }
 .mt-name .ui-ico { font-size: 12px; margin-right: 4px; vertical-align: -1px; color: var(--text-faint); }
 .music-track.is-playing .mt-num { color: var(--accent); }
+
+
+/* ============================================================
+ * v1.21.0 Web Interface Guidelines compliance layer
+ * (vercel-labs web-design-guidelines)
+ * ============================================================ */
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 10000;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 0.2s ease;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Touch / interaction */
+button,
+a,
+[role="button"],
+.chip,
+.topbar-btn,
+.icon-btn,
+.music-btn,
+.ai-tool-btn,
+.ai-fab,
+.music-fab,
+input,
+select,
+textarea,
+label {
+  -webkit-tap-highlight-color: rgba(var(--accent-rgb), 0.18);
+  touch-action: manipulation;
+}
+
+/* Global focus-visible safety net (never bare outline:none) */
+:where(button, a, input, select, textarea, summary, [role="button"], .chip, .topbar-btn, .icon-btn, .music-btn, .ai-tool-btn, .gv-btn):focus {
+  outline: none;
+}
+:where(button, a, input, select, textarea, summary, [role="button"], .chip, .topbar-btn, .icon-btn, .music-btn, .ai-tool-btn, .gv-btn):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Headings: reduce widows */
+h1, h2, h3, .greet h1, .dialog-header h3, .music-title {
+  text-wrap: balance;
+}
+
+/* Numeric tables */
+.music-time,
+.cal-count-value,
+.stat-value,
+#clock-time,
+.mt-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Safe areas for fabs / full-bleed panels */
+.ai-fab {
+  right: max(14px, env(safe-area-inset-right, 0px));
+  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+}
+.music-fab {
+  left: max(14px, env(safe-area-inset-left, 0px));
+  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+}
+.ai-panel {
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  max-height: calc(100vh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+.music-panel {
+  top: max(12px, env(safe-area-inset-top, 0px));
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  left: max(12px, env(safe-area-inset-left, 0px));
+}
+.calendar-panel {
+  padding-top: max(10px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(10px, env(safe-area-inset-left, 0px));
+  padding-right: max(10px, env(safe-area-inset-right, 0px));
+}
+
+/* Modals / drawers overscroll already contain; reinforce dialogs */
+.glass-dialog,
+.glass-dialog .dialog-body,
+.ai-panel,
+.music-panel {
+  overscroll-behavior: contain;
+}
+
+/* Dark mode native form controls */
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Reduced motion: kill decorative float/spin where possible */
+@media (prefers-reduced-motion: reduce) {
+  .ai-fab,
+  .music-fab,
+  .card,
+  .chip,
+  .topbar-btn,
+  .music-btn,
+  .ai-tool-btn {
+    transition: none !important;
+  }
+  .ai-fab:hover,
+  .music-fab:hover,
+  .card:hover {
+    transform: none !important;
+  }
+  .login-logo,
+  .ai-empty-logo,
+  .ai-fab,
+  .music-fab-wave i {
+    animation: none !important;
+  }
+  .music-fab-wave { display: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* Long content in flex rows */
+.toolbar-left,
+.toolbar-right,
+.ai-head-left,
+.ai-head-right,
+.music-head-left,
+.group-head {
+  min-width: 0;
+}
+.mt-name,
+.music-title,
+.music-meta,
+.card .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
