@@ -769,7 +769,15 @@
       const t = Music.currentTrack();
       const audio = Music.audio;
       const playing = audio && !audio.paused && audio.src;
-      $("#music-play").textContent = playing ? "❚❚" : "▶";
+      const ICO_PLAY = `<span class="ui-ico" data-ico="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="8 5 19 12 8 19 8 5"/></svg></span>`;
+      const ICO_PAUSE = `<span class="ui-ico" data-ico="pause" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span>`;
+      const ICO_LOOP = `<span class="ui-ico" data-ico="loop" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>`;
+      const ICO_LOOP_ONE = `<span class="ui-ico" data-ico="loop-one" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/><path d="M10 14h3"/></svg></span>`;
+      const playBtn = $("#music-play");
+      if (playBtn) {
+        playBtn.innerHTML = playing ? ICO_PAUSE : ICO_PLAY;
+        playBtn.setAttribute("aria-label", playing ? "暂停" : "播放");
+      }
       $("#music-title").textContent = t ? t.name : "— 没有歌曲 —";
       $("#music-meta").textContent = t
         ? (t.kind === "url"
@@ -782,8 +790,9 @@
       const lb = $("#music-loop");
       lb.classList.toggle("active", Music.data.loop !== "none");
       lb.dataset.mode = Music.data.loop;
-      lb.textContent = Music.data.loop === "one" ? "🔂" : "🔁";
+      lb.innerHTML = Music.data.loop === "one" ? ICO_LOOP_ONE : ICO_LOOP;
       lb.title = { none: "关闭循环", all: "列表循环", one: "单曲循环" }[Music.data.loop];
+      lb.setAttribute("aria-label", lb.title);
 
       const list = $("#music-list");
       const allTracks = Music.data.tracks;
@@ -792,7 +801,7 @@
 
       if (!allTracks.length) {
         list.innerHTML = `<li class="music-empty">
-          点击右上角 <b>📁</b> 导入本地文件，或 <b>🌐</b> 添加在线 URL；<br>
+          点击右上角 <b>+</b> 导入本地文件，或 <b>链接</b> 添加在线 URL；<br>
           也可以直接拖拽音乐/LRC 文件到此面板。<br>
           <small>支持 mp3 · m4a · flac · wav · ogg · aac · opus</small>
         </li>`;
@@ -835,7 +844,7 @@
       if (!box) return;
       const lines = Music._lrcLines || [];
       if (!lines.length) {
-        box.innerHTML = `<div class="lyric-empty">此曲暂无歌词，点列表上的 📝 粘贴或导入 .lrc</div>`;
+        box.innerHTML = `<div class="lyric-empty">此曲暂无歌词，点列表上的「歌词」按钮粘贴或导入 .lrc</div>`;
         return;
       }
       if (lines[0].plain) {

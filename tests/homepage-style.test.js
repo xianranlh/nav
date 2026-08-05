@@ -219,3 +219,27 @@ test("homepage shell uses responsive app gap tokens and toolbar grid", () => {
   assert.match(calBodyBlock, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(css, /\.filter-wrap\s*\{[^}]*flex:\s*1\s+1\s+180px/);
 });
+
+
+test("AI and music panels use shared SVG icon class and polished shells", () => {
+  const css =
+    fs.readFileSync("styles.css", "utf8") +
+    fs.readFileSync("styles/ai-chat.css", "utf8");
+  const index = fs.readFileSync("index.html", "utf8");
+  const music = fs.readFileSync("js/music.js", "utf8");
+
+  assert.match(css, /\.ui-ico\s*\{/);
+  assert.match(css, /\.ui-ico\s+svg\s*\{/);
+  assert.match(css, /\.ai-fab\s*\{[^}]*border-radius:\s*18px/);
+  assert.match(css, /\.music-fab\s*\{[^}]*border-radius:\s*18px/);
+  assert.match(css, /\.music-btn\.primary\s*\{[^}]*border-radius:\s*16px/);
+  assert.match(index, /id="ai-fab"[\s\S]*?class="[^"]*ui-ico/);
+  assert.match(index, /id="music-fab"[\s\S]*?class="[^"]*ui-ico/);
+  assert.match(index, /id="ai-send"[\s\S]*?ui-ico/);
+  assert.match(index, /id="music-play"[\s\S]*?ui-ico/);
+  assert.match(music, /ICO_PLAY/);
+  assert.match(music, /ICO_PAUSE/);
+  assert.match(music, /innerHTML\s*=\s*playing \? ICO_PAUSE : ICO_PLAY/);
+  assert.match(css, /\.ai-input-row\s*\{[^}]*border-radius:\s*16px/);
+  assert.match(css, /\.music-panel\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(var\(--accent-rgb\)/);
+});
