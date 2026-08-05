@@ -8,9 +8,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.21.2" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.21.2" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.21.2" />
+  <link rel="stylesheet" href="styles.css?v=v1.21.3" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.21.3" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.21.3" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -77,7 +77,7 @@
           id="search-input"
           placeholder="搜索书签或网页…"
           spellcheck="false"
-        / autocomplete="off">
+        autocomplete="off" inputmode="search">
         <button type="submit" aria-label="搜索">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
         </button>
@@ -100,7 +100,7 @@
         </div>
         <button type="button" class="chip" id="btn-import-json">导入 JSON</button>
         <div class="filter-wrap">
-          <input id="filter-input" class="filter-input" placeholder="过滤已添加网址…" aria-label="过滤已添加网址" / autocomplete="off" spellcheck="false">
+          <input id="filter-input" class="filter-input" placeholder="过滤已添加网址…" aria-label="过滤已添加网址" autocomplete="off" spellcheck="false" inputmode="search">
           <button type="button" id="filter-clear" class="filter-clear" hidden title="清除" aria-label="清除过滤">✕</button>
         </div>
       </div>
@@ -179,7 +179,7 @@
 
   <!-- 添加/编辑 链接 弹窗 -->
   <dialog aria-modal="true" id="dialog-link" class="glass-dialog">
-    <form method="dialog" id="form-link">
+    <form method="dialog" id="form-link" data-guard-unsaved>
       <div class="dialog-header">
         <h3 id="link-title"><span>🔗</span> 添加网址</h3>
         <button type="button" class="close-btn" data-close title="关闭" aria-label="关闭">&times;</button>
@@ -187,8 +187,8 @@
 
       <div class="dialog-body">
         <!-- 简化版：默认只显示 网址 + 名称 + 分组 这三项；其余字段折叠在"更多设置"里 -->
-        <label>网址 <input name="url" type="url" required placeholder="https://…" autocomplete="off" /></label>
-        <label>名称 <input name="name" maxlength="60" placeholder="留空自动用网页标题" / autocomplete="off"></label>
+        <label>网址 <input name="url" type="url" required placeholder="https://…" autocomplete="off" inputmode="url"></label>
+        <label>名称 <input name="name" maxlength="60" placeholder="留空自动用网页标题" autocomplete="off"></label>
         <div class="link-group-field">
           <label for="link-group-select">所属分组</label>
           <div class="input-with-btn">
@@ -196,7 +196,7 @@
             <button type="button" class="btn-secondary btn-inline" id="link-new-group-toggle">+ 新建</button>
           </div>
           <div class="inline-group-create" id="link-inline-group" hidden>
-            <input type="text" id="link-inline-group-name" maxlength="30" placeholder="新分组名称" / autocomplete="off">
+            <input type="text" id="link-inline-group-name" maxlength="30" placeholder="新分组名称" autocomplete="off">
             <input type="color" id="link-inline-group-color" value="#f6a5c0" title="分组颜色" />
             <button type="button" class="btn-primary btn-inline" id="link-inline-group-save">创建并选中</button>
             <button type="button" class="btn-secondary btn-inline" id="link-inline-group-cancel">取消</button>
@@ -212,7 +212,7 @@
                 <span class="icon-picker-placeholder">AUTO</span>
               </div>
               <div class="icon-picker-controls">
-                <input name="icon" id="icon-url-input" placeholder="图标 URL / data URL" / autocomplete="url">
+                <input name="icon" id="icon-url-input" placeholder="图标 URL / data URL" autocomplete="url" inputmode="url">
                 <div class="icon-picker-actions">
                   <label class="mini-btn" title="从本地选择图片">
                     📁 本地图片
@@ -223,7 +223,7 @@
               </div>
             </div>
           </label>
-          <label>描述备注 <input name="desc" maxlength="80" placeholder="可选，一句话介绍…" / autocomplete="off"></label>
+          <label>描述备注 <input name="desc" maxlength="80" placeholder="可选，一句话介绍…" autocomplete="off"></label>
 
           <details class="sec bg-editor" data-target="link">
             <summary>🖼 卡片背景媒体</summary>
@@ -234,7 +234,7 @@
               </div>
               <div class="bg-editor-controls">
                 <div class="input-with-btn">
-                  <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" / autocomplete="off">
+                  <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" autocomplete="off">
                   <label class="btn-secondary btn-inline">
                     📁 本地
                     <input type="file" data-bg-file accept="image/*,video/*" hidden />
@@ -268,7 +268,7 @@
 
   <!-- 分组 弹窗 -->
   <dialog aria-modal="true" id="dialog-group" class="glass-dialog">
-    <form method="dialog" id="form-group">
+    <form method="dialog" id="form-group" data-guard-unsaved>
       <div class="dialog-header">
         <h3 id="group-title"><span>📂</span> 新建分组</h3>
         <button type="button" class="close-btn" data-close title="关闭" aria-label="关闭">&times;</button>
@@ -276,7 +276,7 @@
 
       <div class="dialog-body">
         <div class="field-grid">
-          <label>名称 <input name="name" required maxlength="30" placeholder="给分组起个名字…" / autocomplete="off"></label>
+          <label>名称 <input name="name" required maxlength="30" placeholder="给分组起个名字…" autocomplete="off"></label>
           <label>颜色 <input name="color" type="color" value="#f6a5c0" /></label>
         </div>
 
@@ -289,7 +289,7 @@
             </div>
             <div class="bg-editor-controls">
               <div class="input-with-btn">
-                <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" / autocomplete="off">
+                <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" autocomplete="off">
                 <label class="btn-secondary btn-inline">
                   📁 本地
                   <input type="file" data-bg-file accept="image/*,video/*" hidden />
@@ -369,7 +369,7 @@
           <ul id="user-admin-list" class="user-admin-list"></ul>
           <form id="form-user-add" autocomplete="off">
             <label>新用户名
-              <input type="text" id="user-add-name" maxlength="64" spellcheck="false" required / autocomplete="off">
+              <input type="text" id="user-add-name" maxlength="64" spellcheck="false" required autocomplete="off">
             </label>
             <label>密码（至少 4 个字符）
               <input type="password" id="user-add-pass" autocomplete="new-password" required />
@@ -505,7 +505,7 @@
 
           <div class="bg-panel" data-when="single">
             <label>图片 / 视频 URL
-              <input id="set-bg-single" placeholder="https://…" / autocomplete="url">
+              <input id="set-bg-single" placeholder="https://…" autocomplete="url" inputmode="url">
             </label>
             <p class="hint">支持图片直链或视频文件链接。</p>
           </div>
@@ -523,7 +523,7 @@
 
           <div class="bg-panel" data-when="random">
             <label>随机图 API URL
-              <input id="set-bg-random" placeholder="https://…" / autocomplete="url">
+              <input id="set-bg-random" placeholder="https://…" autocomplete="url" inputmode="url">
             </label>
             <label class="row">刷新间隔 (秒)
               <input type="range" id="set-bg-interval2" min="10" max="600" step="5" />
@@ -605,7 +605,7 @@
           <div class="city-search-wrap">
             <label class="settings-field-label">
               添加城市
-              <input type="text" id="weather-city-search" placeholder="输入城市名称…" autocomplete="off" />
+              <input type="text" id="weather-city-search" placeholder="输入城市名称…" autocomplete="off" inputmode="search">
             </label>
             <div class="city-search-results" id="weather-city-results" hidden></div>
           </div>
@@ -653,12 +653,12 @@
 
           <form id="form-sync-webdav" autocomplete="on">
             <div id="sync-webdav-conf">
-              <label class="row row-block">URL <input type="url" id="sync-webdav-url" / autocomplete="url"></label>
+              <label class="row row-block">URL <input type="url" id="sync-webdav-url" autocomplete="url" inputmode="url"></label>
               <div class="settings-inline-pair">
                 <label class="row row-block">用户 <input type="text" id="sync-webdav-user" autocomplete="username" /></label>
                 <label class="row row-block">密码 <input type="password" id="sync-webdav-pass" autocomplete="current-password" /></label>
               </div>
-              <label class="row row-block">路径 <input type="text" id="sync-webdav-path" placeholder="sakura-nav.json" / autocomplete="off"></label>
+              <label class="row row-block">路径 <input type="text" id="sync-webdav-path" placeholder="sakura-nav.json" autocomplete="off"></label>
               <div class="settings-btn-row">
                 <button type="submit" class="btn-primary" id="btn-sync-save-webdav">保存 WebDAV 配置</button>
               </div>
@@ -801,14 +801,14 @@
 
   <!-- 音乐 · 在线导入 -->
   <dialog aria-modal="true" id="dialog-music-url" class="glass-dialog">
-    <form method="dialog" id="form-music-url">
+    <form method="dialog" id="form-music-url" data-guard-unsaved>
       <h3>🌐 在线导入音乐</h3>
       <label>音频直链 URL
         <input name="url" type="url" required
-          placeholder="https://example.com/song.mp3（支持 mp3 / m4a / aac / ogg / wav / flac）" / autocomplete="url">
+          placeholder="https://example.com/song.mp3（支持 mp3 / m4a / aac / ogg / wav / flac）" autocomplete="url" inputmode="url">
       </label>
       <label>显示名称（可选）
-        <input name="name" maxlength="120" placeholder="留空将取文件名" / autocomplete="off">
+        <input name="name" maxlength="120" placeholder="留空将取文件名" autocomplete="off">
       </label>
       <label>歌词 LRC 文本（可选，直接粘贴）
         <textarea name="lrc" rows="3" placeholder="[00:12.00]第一行歌词&#10;[00:15.00]第二行歌词" autocomplete="off"></textarea>
@@ -826,7 +826,7 @@
 
   <!-- 音乐 · 粘贴 / 文件绑定 LRC -->
   <dialog aria-modal="true" id="dialog-music-lrc" class="glass-dialog">
-    <form id="form-music-lrc">
+    <form id="form-music-lrc" data-guard-unsaved>
       <h3>📝 绑定歌词</h3>
       <p class="hint">
         直接粘贴带时间轴的 LRC（如 <code>[00:09.360]</code> 一行一句），或点「从文件」选择 <code>.lrc</code> 后再点「应用」。
@@ -968,14 +968,14 @@
 
   <!-- ===== 供应商编辑子弹窗 ===== -->
   <dialog aria-modal="true" id="dialog-provider" class="glass-dialog ai-subdialog">
-    <form method="dialog" id="form-provider">
+    <form method="dialog" id="form-provider" data-guard-unsaved>
       <div class="dialog-header">
         <h3 id="provider-title">🔌 添加 AI 供应商</h3>
         <button type="button" class="close-btn" data-close title="关闭" aria-label="关闭">&times;</button>
       </div>
       <div class="dialog-body">
         <label>名称 <input name="name" required placeholder="如：OpenAI / 我的 Kimi" autocomplete="organization" /></label>
-        <label>Base URL <input name="baseUrl" type="url" required placeholder="https://api.openai.com/v1" autocomplete="url" /></label>
+        <label>Base URL <input name="baseUrl" type="url" required placeholder="https://api.openai.com/v1" autocomplete="url" inputmode="url"></label>
         <label>API Key <input name="apiKey" type="password" placeholder="sk-…" autocomplete="current-password" /></label>
         <label class="provider-proxy-row">
           <input name="disableProxy" type="checkbox" />
@@ -1038,7 +1038,7 @@
           <div data-mode-only="roundtable" class="council-mode-row" hidden>
             <label class="council-field">
               <span>轮数</span>
-              <input type="number" id="council-rounds" min="1" max="3" value="1" / autocomplete="off">
+              <input type="number" id="council-rounds" min="1" max="3" value="1" autocomplete="off" inputmode="numeric">
             </label>
             <label class="council-field">
               <span>顺序</span>
@@ -1064,7 +1064,7 @@
           </div>
           <label class="council-field council-concurrency">
             <span>并发上限</span>
-            <input type="number" id="council-concurrency" min="1" max="16" value="4" / autocomplete="off">
+            <input type="number" id="council-concurrency" min="1" max="16" value="4" autocomplete="off" inputmode="numeric">
             <span class="council-tip-inline">同一时刻最多多少成员在飞（防止被供应商限速）</span>
           </label>
           <div id="council-members-list" class="council-members-list"></div>
@@ -1087,7 +1087,7 @@
       </div>
       <div class="dialog-body">
         <div class="sessions-toolbar">
-          <input type="search" id="sessions-search" placeholder="搜索会话标题或消息内容…" / autocomplete="off">
+          <input type="search" id="sessions-search" placeholder="搜索会话标题或消息内容…" autocomplete="off" inputmode="search">
           <button type="button" class="mini-btn" id="sessions-new">+ 新建会话</button>
         </div>
         <div id="sessions-list" class="sessions-list"></div>
@@ -1151,9 +1151,9 @@
             <label class="gen-field"><span>尺寸</span><select id="gen-size" autocomplete="off"></select></label>
             <label class="gen-field gen-field-custom" id="gen-custom-field" hidden><span>自定义</span>
               <span class="gen-custom-row">
-                <input id="gen-custom-w" type="number" min="64" step="8" placeholder="宽" / autocomplete="off">
+                <input id="gen-custom-w" type="number" min="64" step="8" placeholder="宽" autocomplete="off" inputmode="numeric">
                 <em>×</em>
-                <input id="gen-custom-h" type="number" min="64" step="8" placeholder="高" / autocomplete="off">
+                <input id="gen-custom-h" type="number" min="64" step="8" placeholder="高" autocomplete="off" inputmode="numeric">
               </span>
             </label>
             <label class="gen-field"><span>质量</span><select id="gen-quality" autocomplete="off"></select></label>
@@ -1183,7 +1183,7 @@
             <button type="button" class="gallery-filter" data-filter="uploaded" role="tab" aria-selected="false">上传</button>
             <button type="button" class="gallery-filter" data-filter="favorite" role="tab" aria-selected="false">⭐ 收藏</button>
           </div>
-          <input type="search" id="gallery-search" placeholder="搜索 prompt / 文件名 / 模型…" / autocomplete="off">
+          <input type="search" id="gallery-search" placeholder="搜索 prompt / 文件名 / 模型…" autocomplete="off" inputmode="search">
           <button type="button" class="mini-btn" id="gallery-select-toggle" title="进入选择模式：勾选若干张当作背景轮询" aria-label="进入选择模式：勾选若干张当作背景轮询">☑ 选择</button>
           <button type="button" class="mini-btn gallery-danger" id="gallery-clear" title="清空整个图库" aria-label="清空整个图库">清空</button>
         </div>
@@ -1198,7 +1198,7 @@
             </label>
             <label class="gallery-sel-interval" title="背景切换间隔（秒）">
               <span>间隔</span>
-              <input type="number" id="gallery-bg-interval" min="5" max="3600" step="5" value="60" / autocomplete="url">
+              <input type="number" id="gallery-bg-interval" min="5" max="3600" step="5" value="60" autocomplete="url" inputmode="numeric">
               <span>s</span>
             </label>
             <button type="button" class="mini-btn primary" id="gallery-use-bg" title="把选中的图作为桌面背景，按设定间隔轮播" aria-label="把选中的图作为桌面背景，按设定间隔轮播">🖼 用作背景</button>
@@ -1297,13 +1297,13 @@
 
   <!-- ===== Persona 编辑子弹窗 ===== -->
   <dialog aria-modal="true" id="dialog-persona" class="glass-dialog ai-subdialog">
-    <form method="dialog" id="form-persona">
+    <form method="dialog" id="form-persona" data-guard-unsaved>
       <div class="dialog-header">
         <h3 id="persona-title">🎭 添加角色</h3>
         <button type="button" class="close-btn" data-close title="关闭" aria-label="关闭">&times;</button>
       </div>
       <div class="dialog-body">
-        <label>名称（显示用） <input name="name" required placeholder="给角色起个名字" / autocomplete="off"></label>
+        <label>名称（显示用） <input name="name" required placeholder="给角色起个名字" autocomplete="off"></label>
         <label>System Prompt（可以很长）
           <textarea name="prompt" rows="8" required placeholder="描述 AI 该扮演的角色…" autocomplete="off"></textarea>
         </label>
@@ -1425,7 +1425,7 @@
 
   <!-- ===== 任务编辑器 ===== -->
   <dialog aria-modal="true" id="dialog-task" class="glass-dialog task-dialog">
-    <form method="dialog" id="form-task">
+    <form method="dialog" id="form-task" data-guard-unsaved>
       <div class="dialog-header">
         <h3 id="task-title-head"><span>📅</span> 新建任务</h3>
         <button type="button" class="close-btn" data-close title="关闭" aria-label="关闭">&times;</button>
@@ -1443,10 +1443,10 @@
         </label>
 
         <div class="row-2">
-          <label>开始日期 <input type="date" name="date" required / autocomplete="off"></label>
+          <label>开始日期 <input type="date" name="date" required autocomplete="off"></label>
           <label class="col-time">时间
             <div class="task-time-row">
-              <input type="time" name="time" / autocomplete="off">
+              <input type="time" name="time" autocomplete="off">
               <label class="task-allday"><input type="checkbox" name="allDay" /><span>全天</span></label>
             </div>
           </label>
@@ -1475,7 +1475,7 @@
             </select>
           </label>
           <label class="repeat-interval" hidden>每
-            <input type="number" name="interval" min="1" max="99" value="1" / autocomplete="off">
+            <input type="number" name="interval" min="1" max="99" value="1" autocomplete="off" inputmode="numeric">
             <span id="interval-unit">天</span>
           </label>
           <div class="weekdays-picker" hidden>
@@ -1487,7 +1487,7 @@
             <label><input type="checkbox" name="wd" value="5" /><span>五</span></label>
             <label><input type="checkbox" name="wd" value="6" /><span>六</span></label>
           </div>
-          <label class="repeat-until">结束日期（可选） <input type="date" name="until" / autocomplete="off"></label>
+          <label class="repeat-until">结束日期（可选） <input type="date" name="until" autocomplete="off"></label>
         </fieldset>
 
         <label>提前提醒
@@ -1560,7 +1560,7 @@
           </div>
           <div class="rem-search">
             <span class="rem-search-icon">🔍</span>
-            <input type="search" id="rem-search" placeholder="搜索" / autocomplete="off">
+            <input type="search" id="rem-search" placeholder="搜索" autocomplete="off" inputmode="search">
           </div>
 
           <div class="rem-smart-grid" id="rem-smart-grid"></div>
@@ -1598,7 +1598,7 @@
 
           <div class="rem-add-row">
             <span class="rem-add-plus">+</span>
-            <input type="text" id="rem-add-input" placeholder="添加提醒事项…" maxlength="200" / autocomplete="off">
+            <input type="text" id="rem-add-input" placeholder="添加提醒事项…" maxlength="200" autocomplete="off">
           </div>
 
           <div class="rem-items" id="rem-items"></div>
@@ -1677,8 +1677,8 @@
         <button type="button" class="close-btn" data-close title="关闭" aria-label="关闭">&times;</button>
       </div>
       <div class="dialog-body">
-        <label>列表名 <input name="name" required maxlength="30" placeholder="如：购物、工作、阅读…" / autocomplete="off"></label>
-        <label>Emoji <input name="emoji" maxlength="4" placeholder="🌸" / autocomplete="off"></label>
+        <label>列表名 <input name="name" required maxlength="30" placeholder="如：购物、工作、阅读…" autocomplete="off"></label>
+        <label>Emoji <input name="emoji" maxlength="4" placeholder="🌸" autocomplete="off"></label>
         <label>颜色
           <div class="rem-list-colors" id="rem-list-colors"></div>
           <input type="hidden" name="color" />
@@ -1693,13 +1693,13 @@
   </dialog>
 
   <script src="js/homepage-theme.js"></script>
-  <script src="js/dialog.js?v=v1.21.2"></script>
+  <script src="js/dialog.js?v=v1.21.3"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.21.2"></script>
+  <script src="js/ai.js?v=v1.21.3"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
@@ -1717,12 +1717,12 @@
   <script src="js/pet-engine.js"></script>
   <script src="js/pet-widget.js"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.21.2"></script>
-  <script src="js/ui/todo.ui.js?v=v1.21.2"></script>
-  <script src="js/ui/calendar.ui.js?v=v1.21.2"></script>
-  <script src="js/ui/weather.ui.js?v=v1.21.2"></script>
-  <script src="js/ui/sync.ui.js?v=v1.21.2"></script>
-  <script src="js/ui/misc.ui.js?v=v1.21.2"></script>
+  <script src="js/ui/ai.ui.js?v=v1.21.3"></script>
+  <script src="js/ui/todo.ui.js?v=v1.21.3"></script>
+  <script src="js/ui/calendar.ui.js?v=v1.21.3"></script>
+  <script src="js/ui/weather.ui.js?v=v1.21.3"></script>
+  <script src="js/ui/sync.ui.js?v=v1.21.3"></script>
+  <script src="js/ui/misc.ui.js?v=v1.21.3"></script>
   <script>
     // Petrichor 知识库入口：同域 /blog 路由（openresty 反代 → 127.0.0.1:3100）；
     // 可在控制台 localStorage.setItem('sakura_nav_blog_url', 'https://...') 覆盖
@@ -1734,6 +1734,6 @@
       a.href = custom || "/blog";
     })();
   </script>
-  <script src="js/app.js?v=v1.21.2"></script>
+  <script src="js/app.js?v=v1.21.3"></script>
 </body>
 </html>

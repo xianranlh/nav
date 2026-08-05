@@ -7512,3 +7512,30 @@ h1, h2, h3, .greet h1, .dialog-header h3, .music-title {
 .toast[hidden] {
   display: none !important;
 }
+
+
+/* v1.21.3 guidelines: list perf + long content */
+.music-list,
+.ai-messages,
+.cal-day-list,
+#groups-container .cards {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+}
+.music-list > .music-track,
+.ai-messages > .ai-msg {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 56px;
+}
+/* tabular nums for time/seek */
+.music-time,
+#music-list-count {
+  font-variant-numeric: tabular-nums;
+}
+/* reduce layout thrash: sticky group tabs already; ensure will-change sparingly */
+.group-tabs {
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .group-tabs { will-change: auto; }
+}

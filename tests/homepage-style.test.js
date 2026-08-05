@@ -309,3 +309,17 @@ test("PanelRouter deep-link helpers exist for main panels", () => {
   assert.match(music, /PanelRouter\?\.set\("music"\)/);
   assert.match(music, /PanelRouter\?\.clearIf\("music"\)/);
 });
+
+
+test("unsaved-changes guard and inputmode (guidelines pass 4)", () => {
+  const index = fs.readFileSync("index.html", "utf8");
+  const dialog = fs.readFileSync("js/dialog.js", "utf8");
+  assert.match(index, /data-guard-unsaved/);
+  assert.match(index, /inputmode="url"/);
+  assert.match(index, /inputmode="search"/);
+  assert.doesNotMatch(index, /<input\b[^>]*\s\/\s+autocomplete=/);
+  assert.match(dialog, /beforeunload/);
+  assert.match(dialog, /confirmDiscard|有未保存的更改/);
+  assert.match(dialog, /submitCloseGuard|data-guard-unsaved|GUARD/);
+  assert.match(dialog, /serializeForm/);
+});
