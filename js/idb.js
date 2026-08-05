@@ -1,4 +1,4 @@
-/* 樱 · 统一 IndexedDB 助手
+/* 闲然导航 · 统一 IndexedDB 助手
  *
  * 历史上有两个独立 DB：
  *   - "sakura-nav-bg"    ->  store "files"    （本地上传背景）

@@ -1,4 +1,4 @@
-/* 樱 · 服务端媒体（与 sakura-remote 同源部署时启用）
+/* 闲然导航 · 服务端媒体（与 sakura-remote 同源部署时启用）
  * POST /api/media/bg|music 由 nginx 注入 Bearer；GET 直链无需密钥（供 img/audio）
  */
 (function () {

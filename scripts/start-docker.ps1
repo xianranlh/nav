@@ -1,4 +1,4 @@
-# 樱 · 使用 Docker Compose 构建并启动（与 start-all 二选一）
+# 闲然导航 · 使用 Docker Compose 构建并启动（与 start-all 二选一）
 $ErrorActionPreference = "Stop"
 # 脚本在 scripts/ 子目录里；docker-compose.yml 在项目根，所以 cd 到上一级
 Set-Location (Join-Path $PSScriptRoot "..")

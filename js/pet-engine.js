@@ -1,9 +1,8 @@
 /* ===============================
    pet-engine.js —— 宠物共享引擎
-   被 pet.html（宠物乐园）与 index.html（首页漫游小宠物）共用
-   两种渲染模式：
-   · sheet  ：小樱官方精灵图（4x 高清帧，52×56 逻辑帧）
-   · custom ：用户上传图片，程序化动画（跳跃/摇摆/翻转/躺倒）
+   定位对齐 Codex Pet 折中方案：
+   · 首页：状态桌宠（idle / thinking / working / done / error / offline / syncing）
+   · 乐园页：轻互动 + 改名/换装，不做养成数值游戏
    =============================== */
 (() => {
   "use strict";
@@ -12,7 +11,7 @@
   const SHEET_URL = "assets/pet/xiaoying-sheet.png";
   const CELL_W = 52, CELL_H = 56, SHEET_W = 416, SHEET_H = 504;
 
-  /* ---------- 动作表（sheet 模式） ---------- */
+  /* ---------- 动作表（sheet） ---------- */
   const ANIM = {
     idle:  { row: 0, frames: 6, fps: 4 },
     runR:  { row: 1, frames: 8, fps: 10 },
@@ -25,55 +24,134 @@
     shy:   { row: 8, frames: 6, fps: 6 },
   };
 
-  /* ---------- 台词 ---------- */
-  const LINES = {
-    greet:  ["主人来啦～", "今天也要元气满满！", "想我了吗？", "嘿嘿，欢迎回来～"],
-    pat:    ["嘿嘿，好舒服～", "再摸一下嘛…", "♪(´▽｀)", "最喜欢主人了！"],
-    feed:   ["开动啦～", "唔，好好吃！", "谢谢主人的点心！", "甜甜的～"],
-    play:   ["一起玩耍吧！", "转圈圈～", "耶！好开心！", "看我的舞步～"],
-    sleepy: ["有点困了呢…", "晚安，主人…", "呼…呼…", "zzZ…"],
-    wake:   ["唔…早上好？", "醒来啦！", "睡得好香呀～"],
-    run:    ["马上到！", "冲鸭！", "跑起来～"],
-    bored:  ["主人在忙什么呀？", "陪我玩嘛～", "看看花开得多好呀", "哼哼哼～♪"],
-    full:   ["吃不下啦…", "肚子圆滚滚了～"],
+  /** 状态 → 默认动作 / 角标文案 */
+  const STATUS_META = {
+    idle:     { anim: "idle",  label: "待命",   emoji: "💤" },
+    thinking: { anim: "walk",  label: "思考中", emoji: "💭" },
+    working:  { anim: "runR",  label: "工作中", emoji: "⚡" },
+    waiting:  { anim: "sit",   label: "等待你", emoji: "👀" },
+    done:     { anim: "joy",   label: "完成",   emoji: "✅" },
+    error:    { anim: "shy",   label: "出错了", emoji: "⚠️" },
+    offline:  { anim: "sleep", label: "离线",   emoji: "📡" },
+    syncing:  { anim: "wave",  label: "同步中", emoji: "🔄" },
   };
+
+  const LINES = {
+    greet:   ["在呢～", "有什么要忙的吗？", "随时待命！", "嘿，我在这儿"],
+    pat:     ["嘿嘿～", "♪", "点到我啦", "继续加油哦"],
+    thinking:["我在想…", "处理中…", "稍等一下～"],
+    working: ["跑起来～", "马上好", "专心干活中"],
+    done:    ["搞定！", "完成啦✨", "可以看结果了"],
+    error:   ["哎呀…", "好像出了点问题", "要不要重试？"],
+    offline: ["网络断开了…", "离线中", "连上再说"],
+    syncing: ["同步数据…", "存一下～"],
+    idle:    ["发呆中…", "等你指令", "哼哼哼～"],
+    guard:   ["站岗中！", "这里交给我～", "一动不动盯梢中"],
+    patrol:  ["去巡逻啦～", "这边看看…那边看看…", "来回溜达中"],
+  };
+
   const pick = (arr) => arr[(Math.random() * arr.length) | 0];
   const rand = (min, max) => min + Math.random() * (max - min);
 
-  /* ---------- 存档 ---------- */
+  /* ---------- 轻量存档（无养成数值） ---------- */
   const Config = {
     defaults() {
-      return { affection: 0, hunger: 60, last: 0, custom: null, homeWidget: true, name: "小樱" };
+      return {
+        name: "小樱",
+        custom: null,       // { img: dataURL }
+        homeWidget: true,
+        homeX: null,        // 首页桌宠 left（px），null=默认右下
+        homeY: null,        // 首页桌宠 bottom（px）
+        /** 活动方式：guard 站岗（定点）| patrol 巡逻（底部来回走） */
+        activityMode: "guard",
+        last: Date.now(),
+      };
     },
     load() {
       try {
         const s = JSON.parse(localStorage.getItem(SAVE_KEY));
         if (!s) return this.defaults();
+        const mode = s.activityMode === "patrol" ? "patrol" : "guard";
         return {
-          affection: s.affection | 0,
-          hunger: Math.min(100, s.hunger == null ? 60 : s.hunger | 0),
-          last: s.last || 0,
+          name: s.name || (s.custom && s.custom.img ? "我的宠物" : "小樱"),
           custom: s.custom && s.custom.img ? s.custom : null,
           homeWidget: s.homeWidget !== false,
-          name: s.name || (s.custom && s.custom.img ? "我的宠物" : "小樱"),
+          homeX: typeof s.homeX === "number" ? s.homeX : null,
+          homeY: typeof s.homeY === "number" ? s.homeY : null,
+          activityMode: mode,
+          last: s.last || Date.now(),
         };
-      } catch { return this.defaults(); }
+      } catch {
+        return this.defaults();
+      }
     },
     save(cfg) {
       cfg.last = Date.now();
-      try { localStorage.setItem(SAVE_KEY, JSON.stringify(cfg)); } catch {}
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+          name: cfg.name,
+          custom: cfg.custom,
+          homeWidget: cfg.homeWidget !== false,
+          homeX: cfg.homeX,
+          homeY: cfg.homeY,
+          activityMode: cfg.activityMode === "patrol" ? "patrol" : "guard",
+          last: cfg.last,
+        }));
+      } catch (_) {}
     },
   };
 
-  /* ---------- 组件样式（一次性注入，页面无需引入额外 css） ---------- */
+  /* ---------- 全局状态总线（Codex 风格） ---------- */
+  const Status = {
+    _status: "idle",
+    _detail: "",
+    _subs: new Set(),
+    _pulseTimer: 0,
+    get() {
+      return { status: this._status, detail: this._detail };
+    },
+    meta(status) {
+      return STATUS_META[status] || STATUS_META.idle;
+    },
+    set(status, detail = "") {
+      const s = STATUS_META[status] ? status : "idle";
+      clearTimeout(this._pulseTimer);
+      this._status = s;
+      this._detail = String(detail || "");
+      this._emit();
+    },
+    /** 短暂状态，结束后回到 idle（或 offline 若仍离线） */
+    pulse(status, detail = "", ms = 2800) {
+      this.set(status, detail);
+      clearTimeout(this._pulseTimer);
+      this._pulseTimer = setTimeout(() => {
+        if (!navigator.onLine) this.set("offline");
+        else this.set("idle");
+      }, ms);
+    },
+    on(fn) {
+      this._subs.add(fn);
+      return () => this._subs.delete(fn);
+    },
+    _emit() {
+      const payload = this.get();
+      this._subs.forEach((fn) => {
+        try { fn(payload); } catch (_) {}
+      });
+      try {
+        window.dispatchEvent(new CustomEvent("sakura-pet-status", { detail: payload }));
+      } catch (_) {}
+    },
+  };
+
   function ensureStyles() {
     if (document.getElementById("pet-engine-css")) return;
     const st = document.createElement("style");
     st.id = "pet-engine-css";
     st.textContent = `
-.pe-sprite{position:absolute;background-repeat:no-repeat;cursor:pointer;pointer-events:auto;z-index:3;transform-origin:50% 88%;user-select:none;-webkit-user-select:none;}
+.pe-sprite{position:absolute;background-repeat:no-repeat;cursor:pointer;pointer-events:auto;z-index:3;transform-origin:50% 88%;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
 .pe-shadow{position:absolute;left:50%;bottom:-8px;width:62%;height:12px;transform:translateX(-50%);background:radial-gradient(ellipse at center,rgba(0,0,0,.22),transparent 70%);border-radius:50%;pointer-events:none;}
-.pe-bubble{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);max-width:230px;white-space:nowrap;background:rgba(255,255,255,.95);border:1px solid rgba(229,99,138,.35);border-radius:12px;padding:6px 12px;font-size:13px;color:#4a3b52;box-shadow:0 4px 12px rgba(229,99,138,.2);animation:pe-bubble-pop .25s ease;pointer-events:none;z-index:4;font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;}
+.pe-bubble{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);max-width:min(240px,70vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.95);border:1px solid rgba(229,99,138,.35);border-radius:12px;padding:6px 12px;font-size:13px;color:#4a3b52;box-shadow:0 4px 12px rgba(229,99,138,.2);animation:pe-bubble-pop .25s ease;pointer-events:none;z-index:4;font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;}
 .pe-bubble::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:rgba(255,255,255,.95);}
 @keyframes pe-bubble-pop{from{opacity:0;transform:translateX(-50%) scale(.7)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 .pe-heart{position:absolute;font-size:18px;animation:pe-heart-rise 1.2s ease-out forwards;pointer-events:none;z-index:5;}
@@ -85,20 +163,14 @@
   }
 
   /* ===============================
-     PetActor —— 一只会动的宠物
+     PetActor
      =============================== */
   class PetActor {
     /**
-     * @param {Object} opts
-     *   container    宿主元素（须 position:relative/fixed）
-     *   fxLayer      粒子层（缺省用 container）
-     *   scale        显示倍率（1 = 52×56）
-     *   speed        奔跑速度 px/s
-     *   groundBottom 距容器底部 px
-     *   autonomous   是否自主闲逛
-     *   chatty       闲逛时是否自言自语
-     *   custom       用户宠物图片 dataURL（null = 小樱）
-     *   onPetClick   点击宠物回调 (actor) => {}
+     * opts: container, fxLayer, scale, speed, groundBottom,
+     *       autonomous, chatty, custom, onPetClick, statusDriven,
+     *       activityMode (guard 站岗 | patrol 巡逻)
+     * statusDriven=true 时动作跟随 Status；巡逻模式下空闲时可走动
      */
     constructor(opts = {}) {
       this.container = opts.container;
@@ -110,29 +182,39 @@
       this.chatty = opts.chatty !== false;
       this.custom = opts.custom || null;
       this.onPetClick = opts.onPetClick || null;
+      this.statusDriven = !!opts.statusDriven;
+      this.activityMode = opts.activityMode === "patrol" ? "patrol" : "guard";
       this.destroyed = false;
+      this._statusUnsub = null;
 
       ensureStyles();
 
-      // DOM
-      const el = this.el = document.createElement("div");
+      const el = (this.el = document.createElement("div"));
       el.className = "pe-sprite";
+      el.setAttribute("role", "img");
+      el.setAttribute("aria-label", "宠物");
       el.style.bottom = `${this.groundBottom}px`;
       const shadow = document.createElement("div");
       shadow.className = "pe-shadow";
-      const bubble = this.bubbleEl = document.createElement("div");
+      const bubble = (this.bubbleEl = document.createElement("div"));
       bubble.className = "pe-bubble";
       bubble.hidden = true;
       el.appendChild(bubble);
       el.appendChild(shadow);
       this.container.appendChild(el);
 
-      // 状态
       this.s = {
-        x: Math.max(8, this.container.clientWidth * 0.4),
-        targetX: null, anim: "idle", frame: 0, frameTimer: 0,
-        stateTimer: 1.5, sleeping: false, busy: false, t: 0,
-        facing: 1, zzzTimer: 0,
+        x: Math.max(8, (this.container.clientWidth || 200) * 0.4),
+        targetX: null,
+        anim: "idle",
+        frame: 0,
+        frameTimer: 0,
+        stateTimer: 1.5,
+        sleeping: false,
+        busy: false,
+        t: 0,
+        facing: 1,
+        zzzTimer: 0,
       };
       this._bubbleTimer = 0;
       this._emoteTimer = 0;
@@ -141,18 +223,61 @@
 
       el.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (this.s.sleeping) { this.wakeUp(); return; }
+        if (this.s.sleeping && !this.statusDriven) {
+          this.wakeUp();
+          return;
+        }
         if (this.onPetClick) this.onPetClick(this);
       });
+
+      if (this.statusDriven) {
+        this._statusUnsub = Status.on((p) => this.applyStatus(p.status, p.detail));
+        this.applyStatus(Status.get().status, Status.get().detail);
+      } else {
+        this._syncActivityAutonomy();
+      }
 
       this._last = performance.now();
       this._raf = requestAnimationFrame((ts) => this._tick(ts));
     }
 
+    /** 切换站岗 / 巡逻 */
+    setActivityMode(mode) {
+      this.activityMode = mode === "patrol" ? "patrol" : "guard";
+      if (this.statusDriven) {
+        this.applyStatus(Status.get().status, Status.get().detail);
+      } else {
+        this._syncActivityAutonomy();
+        if (this.activityMode === "guard") {
+          this.s.targetX = null;
+          this.setAnim("idle", true);
+        } else {
+          this.s.stateTimer = 0.3;
+        }
+      }
+    }
+
+    _syncActivityAutonomy() {
+      if (this.activityMode === "patrol") {
+        this.autonomous = true;
+      } else {
+        this.autonomous = false;
+        this.s.targetX = null;
+      }
+    }
+
+    /** 是否允许自主走动（巡逻 + 空闲） */
+    _canPatrolWalk() {
+      if (this.activityMode !== "patrol") return false;
+      if (this.s.sleeping || this.s.busy) return false;
+      if (!this.statusDriven) return true;
+      const st = Status.get().status;
+      return st === "idle" || st === "waiting";
+    }
+
     get w() { return CELL_W * this.scale; }
     get h() { return CELL_H * this.scale; }
 
-    /* ---------- 模式 ---------- */
     applyMode() {
       const el = this.el;
       el.style.width = `${this.w}px`;
@@ -175,13 +300,53 @@
       this.setAnim("idle", true);
     }
 
-    /* ---------- 基础 ---------- */
+    /** 跟随全局状态切换动作 */
+    applyStatus(status, detail) {
+      if (this.destroyed) return;
+      const meta = STATUS_META[status] || STATUS_META.idle;
+      this.s.sleeping = status === "offline";
+      const hardBusy =
+        status === "thinking" ||
+        status === "working" ||
+        status === "syncing" ||
+        status === "done" ||
+        status === "error" ||
+        status === "offline";
+
+      if (this.activityMode === "patrol" && (status === "idle" || status === "waiting")) {
+        // 巡逻 + 空闲：放开走动，不锁死动画
+        this.s.busy = false;
+        this.s.sleeping = false;
+        this.autonomous = true;
+        if (!this.s.targetX) {
+          // 若当前不是移动类动画，给一点时间后 decide
+          const moving = this.s.anim === "runR" || this.s.anim === "runL" || this.s.anim === "walk";
+          if (!moving) {
+            this.setAnim("idle", false);
+            this.s.stateTimer = Math.min(this.s.stateTimer || 1, 1.2);
+          }
+        }
+        return;
+      }
+
+      // 站岗，或巡逻但忙碌：停住并播状态动作
+      this.autonomous = false;
+      this.s.busy = hardBusy || this.activityMode === "guard";
+      this.s.targetX = null;
+      this.setAnim(meta.anim, true);
+      // 站岗空闲时 busy=false，允许原地 idle 呼吸
+      if (this.activityMode === "guard" && (status === "idle" || status === "waiting")) {
+        this.s.busy = false;
+      }
+    }
+
     bounds() {
-      const w = this.container.clientWidth;
+      const w = this.container.clientWidth || 200;
       return { min: 8, max: Math.max(8, w - this.w - 8) };
     }
     setAnim(name, force) {
       if (!force && this.s.anim === name) return;
+      if (!ANIM[name]) name = "idle";
       this.s.anim = name;
       this.s.frame = 0;
       this.s.frameTimer = 0;
@@ -205,10 +370,18 @@
         setTimeout(() => s.remove(), 2800);
       }
     }
-    hearts(n = 3) { this.spawnFx("pe-heart", pick(["💗", "💕", "🩷", "✨"]), n); }
+    hearts(n = 3) { this.spawnFx("pe-heart", pick(["💗", "💕", "✨"]), n); }
 
-    /* ---------- 行为 ---------- */
     emote(name, dur = 2.2) {
+      if (this.statusDriven) {
+        // 状态驱动模式下短 emote 后回到当前状态动作
+        this.setAnim(name, true);
+        clearTimeout(this._emoteTimer);
+        this._emoteTimer = setTimeout(() => {
+          this.applyStatus(Status.get().status, Status.get().detail);
+        }, dur * 1000);
+        return;
+      }
       if (this.s.sleeping) return;
       this.s.busy = true;
       this.s.targetX = null;
@@ -222,11 +395,14 @@
     }
     runTo(x, sayIt = true) {
       if (this.s.sleeping) return;
+      // 站岗（状态驱动）不响应跑动；巡逻或非状态驱动可以
+      if (this.statusDriven && this.activityMode !== "patrol") return;
+      if (this.statusDriven && !this._canPatrolWalk()) return;
       const { min, max } = this.bounds();
       this.s.targetX = Math.max(min, Math.min(max, x));
       this.s.busy = false;
       clearTimeout(this._emoteTimer);
-      if (sayIt && Math.random() < 0.4) this.say(pick(LINES.run), 1500);
+      if (sayIt && Math.random() < 0.35) this.say(pick(["马上到！", "来啦～"]), 1400);
     }
     fallAsleep(sayLine = true) {
       if (this.s.sleeping) return;
@@ -234,7 +410,7 @@
       this.s.busy = false;
       this.s.targetX = null;
       this.setAnim("sleep", true);
-      if (sayLine) this.say(pick(LINES.sleepy));
+      if (sayLine) this.say(pick(["有点困了…", "zzZ…"]));
       if (this.onStateChange) this.onStateChange();
     }
     wakeUp() {
@@ -242,7 +418,7 @@
       this.s.sleeping = false;
       this.setAnim("idle", true);
       this.s.stateTimer = rand(1, 2);
-      this.say(pick(LINES.wake));
+      this.say(pick(["醒来啦！", "唔…好了"]));
       if (this.onStateChange) this.onStateChange();
     }
     get sleeping() { return this.s.sleeping; }
@@ -250,29 +426,27 @@
     decide() {
       const roll = Math.random();
       const { min, max } = this.bounds();
-      if (roll < 0.42) {
+      // 巡逻模式更爱走动
+      const walkBias = this.activityMode === "patrol" ? 0.62 : 0.4;
+      if (roll < walkBias) {
         this.s.targetX = rand(min, max);
         this.s.stateTimer = 99;
-      } else if (roll < 0.58) {
+      } else if (roll < walkBias + 0.12) {
         this.setAnim("sit");
-        this.s.stateTimer = rand(3, 6);
-      } else if (roll < 0.7) {
+        this.s.stateTimer = rand(2, 4);
+      } else if (roll < walkBias + 0.22) {
         this.setAnim("walk");
         this.s.stateTimer = rand(2, 4);
-      } else if (roll < 0.78) {
+      } else if (roll < walkBias + 0.3) {
         this.setAnim("wave");
-        if (this.chatty) this.say(pick(LINES.bored));
-        this.s.stateTimer = rand(2, 3.5);
-      } else if (roll < 0.86) {
-        this.setAnim("joy");
+        if (this.chatty) this.say(pick(LINES.idle));
         this.s.stateTimer = rand(2, 3.5);
       } else {
         this.setAnim("idle");
-        this.s.stateTimer = rand(2.5, 5);
+        this.s.stateTimer = rand(1.8, 3.5);
       }
     }
 
-    /* ---------- 主循环 ---------- */
     _tick(ts) {
       if (this.destroyed) return;
       const dt = Math.min(0.1, (ts - this._last) / 1000);
@@ -280,23 +454,25 @@
       const s = this.s;
       s.t += dt;
 
-      // sheet 帧推进
-      const a = ANIM[s.anim];
+      const a = ANIM[s.anim] || ANIM.idle;
       s.frameTimer += dt;
       if (s.frameTimer >= 1 / a.fps) {
         s.frameTimer = 0;
-        if (a.once) { if (s.frame < a.frames - 1) s.frame++; }
-        else s.frame = (s.frame + 1) % a.frames;
+        if (a.once) {
+          if (s.frame < a.frames - 1) s.frame++;
+        } else s.frame = (s.frame + 1) % a.frames;
       }
 
-      // 睡觉冒 Zzz
       if (s.sleeping) {
         s.zzzTimer += dt;
-        if (s.zzzTimer > 1.6) { s.zzzTimer = 0; this.spawnFx("pe-zzz", "💤"); }
+        if (s.zzzTimer > 1.6) {
+          s.zzzTimer = 0;
+          this.spawnFx("pe-zzz", "💤");
+        }
       }
 
-      // 移动
-      if (!s.sleeping && !s.busy && s.targetX != null) {
+      const canWalk = this._canPatrolWalk() || (!this.statusDriven && !s.sleeping && !s.busy);
+      if (canWalk && s.targetX != null) {
         const dir = Math.sign(s.targetX - s.x) || 1;
         s.facing = dir;
         this.setAnim(dir >= 0 ? "runR" : "runL");
@@ -308,26 +484,33 @@
           this.setAnim("idle");
           s.stateTimer = rand(1.5, 3.5);
         }
-      } else if (!s.sleeping && !s.busy && this.autonomous) {
+      } else if (canWalk && this.autonomous) {
         s.stateTimer -= dt;
         if (s.stateTimer <= 0) this.decide();
+      }
+
+      // 站岗 + 忙碌：原地轻微踱步（巡逻忙碌时也小幅，但保持当前位置）
+      if (
+        this.statusDriven &&
+        this.activityMode === "guard" &&
+        (Status.get().status === "working" || Status.get().status === "thinking")
+      ) {
+        s.x = (this.container.clientWidth || 120) / 2 - this.w / 2 + Math.sin(s.t * 2.2) * 10;
       }
 
       this._render();
       this._raf = requestAnimationFrame((t2) => this._tick(t2));
     }
 
-    /* ---------- 渲染 ---------- */
     _render() {
       const s = this.s, el = this.el;
       el.style.left = `${s.x}px`;
       if (!this.custom) {
-        const a = ANIM[s.anim];
+        const a = ANIM[s.anim] || ANIM.idle;
         el.style.backgroundPosition =
           `${-s.frame * CELL_W * this.scale}px ${-a.row * CELL_H * this.scale}px`;
         return;
       }
-      // custom 模式：程序化动画
       const t = s.t;
       let tf = "";
       switch (s.anim) {
@@ -355,7 +538,7 @@
         case "shy":
           tf = `translateX(${Math.sin(t * 10) * 2}px) rotate(${Math.sin(t * 5) * 3}deg) scale(.97)`;
           break;
-        default: // idle
+        default:
           tf = `translateY(${Math.sin(t * 2.2) * 3}px)`;
       }
       el.style.transform = tf;
@@ -366,9 +549,21 @@
       cancelAnimationFrame(this._raf);
       clearTimeout(this._bubbleTimer);
       clearTimeout(this._emoteTimer);
+      if (this._statusUnsub) this._statusUnsub();
       this.el.remove();
     }
   }
 
-  window.SakuraPet = { Config, PetActor, ANIM, LINES, pick, rand, SHEET_URL, SAVE_KEY };
+  window.SakuraPet = {
+    Config,
+    PetActor,
+    Status,
+    ANIM,
+    LINES,
+    STATUS_META,
+    pick,
+    rand,
+    SHEET_URL,
+    SAVE_KEY,
+  };
 })();

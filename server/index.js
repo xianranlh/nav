@@ -1,5 +1,5 @@
 /**
- * 樱 · 数据 API：SQLite + 媒体文件目录
+ * 闲然导航 · 数据 API：SQLite + 媒体文件目录
  * GET/PUT /api/data — 需 Authorization: Bearer
  * POST /api/media/bg|music — 上传（需鉴权）
  * GET /api/media/file/... — 直链读取
@@ -49,6 +49,12 @@ import {
   deleteSession,
   listMediaFiles,
 } from "./database.js";
+import {
+  isSafeHttpUrl,
+  extractTitleFromHtml,
+  createTtlCache,
+  readResponseTextLimited,
+} from "./metadata.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -277,6 +283,62 @@ const uploadLrc = makeUploader("lrc");
 
 app.get("/healthz", (_req, res) => {
   res.type("text/plain").send("ok\n");
+});
+
+// ===================== 链接元数据（网页标题） =====================
+const metaCache = createTtlCache(20 * 60 * 1000); // 20 min
+const META_TIMEOUT_MS = Number(process.env.METADATA_TIMEOUT_MS) || 4500;
+
+/**
+ * GET /api/metadata?url=...
+ * 服务端代抓网页标题（og:title / <title>），带 SSRF 校验、超时与缓存。
+ * 需登录（与 /api/data 一致）；失败时 ok:false，前端回退域名。
+ */
+app.get("/api/metadata", auth, async (req, res) => {
+  const url = String(req.query.url || "").trim();
+  if (!url) return res.status(400).json({ ok: false, error: "missing url" });
+  if (!(await isSafeHttpUrl(url))) {
+    return res.status(400).json({ ok: false, error: "unsafe url" });
+  }
+
+  const cached = metaCache.get(url);
+  if (cached) return res.json({ ok: true, title: cached.title || "" });
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), META_TIMEOUT_MS);
+  try {
+    const r = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; XianranNav-Metadata/1.0; +https://github.com/xianran-nav)",
+        Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      },
+    });
+    if (!r.ok) {
+      return res.json({ ok: false, error: `upstream ${r.status}` });
+    }
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    // 无 content-type 时仍尝试解析（部分站点省略）
+    if (ct && !ct.includes("html") && !ct.includes("xml") && !ct.includes("text/plain")) {
+      metaCache.set(url, { title: "" });
+      return res.json({ ok: true, title: "" });
+    }
+    const html = await readResponseTextLimited(r, 256 * 1024);
+    const title = extractTitleFromHtml(html);
+    metaCache.set(url, { title });
+    return res.json({ ok: true, title });
+  } catch (e) {
+    return res.json({
+      ok: false,
+      error: String(e && e.name === "AbortError" ? "timeout" : e && e.message ? e.message : e),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 });
 
 app.get("/api/data", auth, (req, res) => {

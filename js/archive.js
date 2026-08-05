@@ -1,4 +1,4 @@
-/* 樱 · 历史归档（图库 + 多会话）
+/* 闲然导航 · 历史归档（图库 + 多会话）
  *
  * 复用 idb.js 的 openDB / makeStore 思路：自建一个 sakura-nav-archive 数据库，
  * 内含两个 store：

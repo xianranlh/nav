@@ -17,7 +17,7 @@ try {
   "index bytes: $($r.Content.Length)" | Out-File -Append up.log -Encoding utf8
   "server: $($r.Headers.Server)" | Out-File -Append up.log -Encoding utf8
   # 验证 HTML 里确实是樱
-  if ($r.Content -match '樱 · 个人导航') { '(?) title OK' | Out-File -Append up.log -Encoding utf8 } else { '(!) title MISS' | Out-File -Append up.log -Encoding utf8 }
+  if ($r.Content -match '闲然导航') { '(?) title OK' | Out-File -Append up.log -Encoding utf8 } else { '(!) title MISS' | Out-File -Append up.log -Encoding utf8 }
 } catch { "index ERR: $($_.Exception.Message)" | Out-File -Append up.log -Encoding utf8 }
 try {
   $r2 = Invoke-WebRequest -Uri "http://127.0.0.1:${port}/sw.js" -UseBasicParsing -TimeoutSec 5

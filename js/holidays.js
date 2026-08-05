@@ -1,4 +1,4 @@
-/* 樱 · 日历节日数据（v1.19.4）
+/* 闲然导航 · 日历节日数据（v1.19.4）
  * 暴露 window.CalFestivals.getFestivalsForDate(Date) → [{ name, emoji, kind, priority }]
  *   kind: "cn-holiday"（中国法定节假日，红色高亮）
  *         "cn-traditional"（中国传统节日，粉色）

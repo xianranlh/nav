@@ -1,4 +1,4 @@
-/* 樱 · 图像编辑器
+/* 闲然导航 · 图像编辑器
  *
  * 借鉴 Image-Studio (github.com/RoseKhlifa/Image-Studio) 的编辑能力，
  * 重写为零依赖 vanilla JS + 原生 <canvas>，融入 nav 现有风格。

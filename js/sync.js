@@ -1,4 +1,4 @@
-/* 樱 · 多端同步模块
+/* 闲然导航 · 多端同步模块
  * 支持后端：
  *   - WebDAV（坚果云 / Nextcloud / 自建 dav / InfiniCloud 等）
  *   - GitHub Gist（Personal Access Token）
@@ -176,7 +176,7 @@
     } else {
       const r = await fetch("https://api.github.com/gists", {
         method: "POST", headers,
-        body: JSON.stringify({ description: "Sakura Nav backup", public: false, files }),
+        body: JSON.stringify({ description: "闲然导航 backup", public: false, files }),
       });
       if (!r.ok) throw new Error("Gist 创建失败：HTTP " + r.status);
       const j = await r.json();

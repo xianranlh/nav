@@ -1,4 +1,4 @@
-/* 个人导航主应用
+/* 闲然导航 · 主应用
  * - 数据模型：通过 sakura-remote 写入服务端 SQLite（代码仍复用 localStorage API 作为 shim 接口）
  * - 功能：分组/卡片 CRUD、拖拽排序、搜索、书签导入、主题、设置
  */
@@ -99,6 +99,12 @@
       sakuraCount: 70,
       sakuraSpeed: 1.0,
       density: "normal",
+      /** 分组默认查看方式：icons 图标 | list 列表 | details 详细信息（可被分组自身覆盖） */
+      defaultGroupView: "icons",
+      /** 分组默认缩略图尺寸：sm 小 | md 中 | lg 大 */
+      defaultGroupViewSize: "md",
+      /** 列表/详细默认分栏：1 | 2 | 3 | 4 | auto（按宽度自适应） */
+      defaultGroupViewCols: "1",
       fontSize: "normal",         // small | normal | large
       radius: "normal",            // square | normal | rounded
       accent: "#ff8fab",
@@ -358,12 +364,44 @@
     }
   }
 
+  /** 解析分组查看方式（分组自定义 > 全局默认） */
+  function resolveGroupView(g) {
+    const modes = ["icons", "list", "details"];
+    const sizes = ["sm", "md", "lg"];
+    const colsOpts = ["1", "2", "3", "4", "auto"];
+    let mode = (g && g.viewMode) || Store.settings.defaultGroupView || "icons";
+    let size = (g && g.viewSize) || Store.settings.defaultGroupViewSize || "md";
+    let cols = String((g && g.viewCols) || Store.settings.defaultGroupViewCols || "1");
+    if (!modes.includes(mode)) mode = "icons";
+    if (!sizes.includes(size)) size = "md";
+    if (!colsOpts.includes(cols)) cols = "1";
+    return { mode, size, cols };
+  }
+
+  function applyCardsViewAttrs(cardsEl, g) {
+    const { mode, size, cols } = resolveGroupView(g);
+    cardsEl.dataset.view = mode;
+    cardsEl.dataset.size = size;
+    cardsEl.dataset.cols = cols;
+    cardsEl.setAttribute("data-view", mode);
+    cardsEl.setAttribute("data-size", size);
+    cardsEl.setAttribute("data-cols", cols);
+  }
+
+  function syncGroupViewColsVisibility(viewBox, mode) {
+    if (!viewBox) return;
+    const show = mode === "list" || mode === "details";
+    viewBox.dataset.showCols = show ? "1" : "0";
+  }
+
   function renderGroup(g) {
     const el = document.createElement("section");
     el.className = "glass group" + (Store.settings.collapsedGroups?.[g.id] ? " collapsed" : "");
     el.dataset.gid = g.id;
     el.style.setProperty("--group-color", g.color || "#ff8fab");
 
+    const gv = resolveGroupView(g);
+    const showCols = gv.mode === "list" || gv.mode === "details";
     el.innerHTML = `
       <div class="group-head">
         <span class="group-handle" title="拖动以重排分组" aria-label="拖动以重排">⠿</span>
@@ -371,6 +409,25 @@
         <span class="group-dot"></span>
         <input class="group-name" value="${escapeHtml(g.name)}" />
         <span class="group-count">${g.links.length} 个</span>
+        <div class="group-view" title="查看方式（类似资源管理器）" data-show-cols="${showCols ? "1" : "0"}">
+          <div class="group-view-modes" role="group" aria-label="查看方式">
+            <button type="button" class="gv-btn${gv.mode === "icons" ? " is-active" : ""}" data-view-mode="icons" title="图标">▦</button>
+            <button type="button" class="gv-btn${gv.mode === "list" ? " is-active" : ""}" data-view-mode="list" title="列表">☰</button>
+            <button type="button" class="gv-btn${gv.mode === "details" ? " is-active" : ""}" data-view-mode="details" title="详细信息">≣</button>
+          </div>
+          <div class="group-view-sizes" role="group" aria-label="图标大小">
+            <button type="button" class="gv-btn gv-size${gv.size === "sm" ? " is-active" : ""}" data-view-size="sm" title="小">S</button>
+            <button type="button" class="gv-btn gv-size${gv.size === "md" ? " is-active" : ""}" data-view-size="md" title="中">M</button>
+            <button type="button" class="gv-btn gv-size${gv.size === "lg" ? " is-active" : ""}" data-view-size="lg" title="大">L</button>
+          </div>
+          <div class="group-view-cols" role="group" aria-label="列表分栏">
+            <button type="button" class="gv-btn gv-col${gv.cols === "1" ? " is-active" : ""}" data-view-cols="1" title="1 列">1</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "2" ? " is-active" : ""}" data-view-cols="2" title="2 列">2</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "3" ? " is-active" : ""}" data-view-cols="3" title="3 列">3</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "4" ? " is-active" : ""}" data-view-cols="4" title="4 列">4</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "auto" ? " is-active" : ""}" data-view-cols="auto" title="自适应分栏">自</button>
+          </div>
+        </div>
         <div class="group-actions">
           <button data-act="edit" title="编辑分组（含背景）">✏️</button>
           <button data-act="color" title="分组颜色">🎨</button>
@@ -379,11 +436,12 @@
           <button data-act="del" title="删除分组">✕</button>
         </div>
       </div>
-      <div class="cards"></div>
+      <div class="cards" data-view="${gv.mode}" data-size="${gv.size}" data-cols="${gv.cols}"></div>
     `;
     applyBgLayer(el, g.bg, "group-bg");
 
     const cards = $(".cards", el);
+    applyCardsViewAttrs(cards, g);
     const sortedLinks = [...g.links].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
     for (const link of sortedLinks) cards.appendChild(renderCard(link, g));
 
@@ -391,9 +449,41 @@
     const addBtn = document.createElement("button");
     addBtn.className = "card card-add";
     addBtn.title = "添加到此分组";
-    addBtn.textContent = "+";
+    addBtn.innerHTML = gv.mode === "icons" ? "+" : `<span class="card-add-ico">+</span><span class="card-add-txt">添加网址</span>`;
     addBtn.addEventListener("click", () => openLinkDialog(null, g.id));
     cards.appendChild(addBtn);
+
+    // 查看方式切换（不整页 re-render，只改本分组）
+    const viewBox = $(".group-view", el);
+    viewBox?.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-view-mode], button[data-view-size], button[data-view-cols]");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (btn.dataset.viewMode) {
+        g.viewMode = btn.dataset.viewMode;
+        viewBox.querySelectorAll("[data-view-mode]").forEach((b) => {
+          b.classList.toggle("is-active", b.dataset.viewMode === g.viewMode);
+        });
+      }
+      if (btn.dataset.viewSize) {
+        g.viewSize = btn.dataset.viewSize;
+        viewBox.querySelectorAll("[data-view-size]").forEach((b) => {
+          b.classList.toggle("is-active", b.dataset.viewSize === g.viewSize);
+        });
+      }
+      if (btn.dataset.viewCols) {
+        g.viewCols = btn.dataset.viewCols;
+        viewBox.querySelectorAll("[data-view-cols]").forEach((b) => {
+          b.classList.toggle("is-active", b.dataset.viewCols === g.viewCols);
+        });
+      }
+      applyCardsViewAttrs(cards, g);
+      const mode = resolveGroupView(g).mode;
+      syncGroupViewColsVisibility(viewBox, mode);
+      addBtn.innerHTML = mode === "icons" ? "+" : `<span class="card-add-ico">+</span><span class="card-add-txt">添加网址</span>`;
+      Store.save();
+    });
 
     // 事件
     $(".group-name", el).addEventListener("change", (e) => {
@@ -473,10 +563,29 @@
     iconSlot.className = "icon-slot";
     a.appendChild(iconSlot);
 
+    const body = document.createElement("div");
+    body.className = "card-body";
+
     const name = document.createElement("span");
     name.className = "name";
     name.textContent = link.name || safeHost(link.url);
-    a.appendChild(name);
+    body.appendChild(name);
+
+    // 列表 / 详细信息视图用：描述与网址（图标视图由 CSS 隐藏）
+    const meta = document.createElement("div");
+    meta.className = "card-meta";
+    const host = document.createElement("span");
+    host.className = "card-host";
+    host.textContent = safeHost(link.url) || link.url || "";
+    meta.appendChild(host);
+    if (link.desc) {
+      const desc = document.createElement("span");
+      desc.className = "card-desc";
+      desc.textContent = link.desc;
+      meta.appendChild(desc);
+    }
+    body.appendChild(meta);
+    a.appendChild(body);
 
     applyBgLayer(a, link.bg, "card-bg");
 
@@ -890,6 +999,77 @@
   const dlgLink = $("#dialog-link");
   const formLink = $("#form-link");
 
+  /** 名称 / 图标是否被用户手动改过；自动回填不得覆盖手动内容 */
+  let linkNameTouched = false;
+  let linkIconTouched = false;
+  let linkAutoReq = 0;
+  let linkAutoTimer = null;
+
+  /** 经服务端 /api/metadata 抓取网页标题；失败返回空串（前端再回退域名） */
+  async function fetchMetaTitle(url) {
+    try {
+      const r = await fetch("/api/metadata?url=" + encodeURIComponent(url), {
+        credentials: "same-origin",
+      });
+      const j = await r.json().catch(() => null);
+      if (!j || j.ok !== true) return "";
+      return String(j.title || "").trim().slice(0, 60);
+    } catch (_) {
+      return "";
+    }
+  }
+
+  /** 规范化用户输入的 URL（补 https://） */
+  function normalizeLinkUrl(raw) {
+    let url = String(raw || "").trim();
+    if (!url) return "";
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    return url;
+  }
+
+  /**
+   * 根据当前 URL 自动回填名称（网页标题）与图标。
+   * - 仅在对应字段未被用户手动编辑且当前为空（或仅为临时域名）时写入
+   * - 用 linkAutoReq 丢弃过期的并发结果
+   */
+  async function autoFillLinkMeta(opts = {}) {
+    const { force = false } = opts;
+    const myReq = ++linkAutoReq;
+    let url = normalizeLinkUrl(formLink.url.value);
+    if (!url) return { title: "", host: "" };
+
+    const host = safeHost(url) || "";
+    // 名称：先用域名作即时反馈（仅当字段仍空且未手动改）
+    if (!linkNameTouched && !formLink.name.value.trim()) {
+      formLink.name.value = host;
+      formLink.name.dataset.autoFilled = "host";
+    }
+
+    // 图标：复用 BookmarkTools 多级 favicon
+    if (!linkIconTouched && !formLink.icon.value.trim() && window.BookmarkTools?.getBestIcon) {
+      try {
+        const iconUrl = await BookmarkTools.getBestIcon(url);
+        if (myReq !== linkAutoReq) return { title: "", host };
+        if (iconUrl && !linkIconTouched && !formLink.icon.value.trim()) {
+          formLink.icon.value = iconUrl;
+          updateIconPreview(iconUrl);
+        }
+      } catch (_) {}
+    }
+
+    // 标题：服务端抓取，成功则覆盖临时域名
+    let title = "";
+    if (!linkNameTouched || force) {
+      title = await fetchMetaTitle(url);
+      if (myReq !== linkAutoReq) return { title: "", host };
+      if (title && !linkNameTouched) {
+        formLink.name.value = title;
+        formLink.name.dataset.autoFilled = "title";
+      }
+    }
+    return { title, host };
+  }
+
   /** 把本地图片压缩为小 dataURL（默认 96×96 webp/png，适合作为图标） */
   async function compressImageToDataURL(file, max = 96, quality = 0.82) {
     const bitmap = await (typeof createImageBitmap === "function"
@@ -982,6 +1162,13 @@
     updateIconPreview(formLink.icon.value);
     if (linkBgEditor) linkBgEditor.setValue(link ? link.bg : null);
 
+    // 自动回填保护：新建可填；编辑时若字段已有值则视为已手动设定，避免覆盖
+    linkNameTouched = !!(link && (link.name || "").trim());
+    linkIconTouched = !!(link && (link.icon || "").trim());
+    linkAutoReq += 1;
+    clearTimeout(linkAutoTimer);
+    delete formLink.name.dataset.autoFilled;
+
     // "更多设置"折叠区：编辑时若有非默认字段（图标 / 描述 / 背景）→ 展开；新建时收起
     const moreDetails = formLink.querySelector("details.link-more");
     if (moreDetails) {
@@ -1018,6 +1205,7 @@
     try {
       const dataUrl = await compressImageToDataURL(f, 96, 0.85);
       formLink.icon.value = dataUrl;
+      linkIconTouched = true;
       updateIconPreview(dataUrl);
       toast(`已载入图标（压缩后 ${Math.round(dataUrl.length / 1024)} KB）`);
     } catch (err) {
@@ -1030,6 +1218,8 @@
   $("#icon-clear-btn")?.addEventListener("click", () => {
     formLink.icon.value = "";
     updateIconPreview("");
+    // 清除后允许再次自动回填图标
+    linkIconTouched = false;
   });
   $("#link-new-group-toggle")?.addEventListener("click", () => {
     const box = $("#link-inline-group");
@@ -1048,11 +1238,32 @@
     }
   });
 
-  formLink.addEventListener("submit", (e) => {
+  // 名称 / 图标手动编辑保护
+  formLink.name?.addEventListener("input", () => {
+    linkNameTouched = true;
+    delete formLink.name.dataset.autoFilled;
+  });
+  $("#icon-url-input")?.addEventListener("input", () => {
+    linkIconTouched = true;
+  });
+
+  // 输入 / 粘贴网址后 debounce 自动抓标题与 favicon
+  formLink.url?.addEventListener("input", () => {
+    clearTimeout(linkAutoTimer);
+    linkAutoTimer = setTimeout(() => {
+      autoFillLinkMeta().catch(() => {});
+    }, 500);
+  });
+  formLink.url?.addEventListener("change", () => {
+    clearTimeout(linkAutoTimer);
+    autoFillLinkMeta().catch(() => {});
+  });
+
+  formLink.addEventListener("submit", async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(formLink));
     if (!data.url) return;
-    if (!/^https?:\/\//i.test(data.url)) data.url = "https://" + data.url;
+    data.url = normalizeLinkUrl(data.url);
 
     const editId = formLink.dataset.editId;
     const dstGroup = Store.findGroup(data.groupId);
@@ -1062,6 +1273,32 @@
       return;
     }
 
+    // 名称留空（或仍是自动填的域名）→ 优先用网页标题，失败再回退域名
+    let name = String(data.name || "").trim();
+    const host = safeHost(data.url) || "";
+    const stillAutoHost =
+      !linkNameTouched &&
+      (!name || name === host || formLink.name?.dataset?.autoFilled === "host");
+    if (!name || stillAutoHost) {
+      const submitBtn = formLink.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.dataset.prevText = submitBtn.textContent;
+        submitBtn.textContent = "获取标题…";
+      }
+      try {
+        const title = await fetchMetaTitle(data.url);
+        if (title) name = title;
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = submitBtn.dataset.prevText || "保存网址";
+          delete submitBtn.dataset.prevText;
+        }
+      }
+    }
+    if (!name) name = host || data.url;
+
     const bg = linkBgEditor ? linkBgEditor.getValue() : null;
     const prevBgUrl = formLink.dataset.prevBgUrl || "";
     if (editId) {
@@ -1070,7 +1307,7 @@
         // 从原组移除，加入新组（可能相同）
         found.group.links = found.group.links.filter((x) => x.id !== editId);
         Object.assign(found.link, {
-          name: data.name || safeHost(data.url),
+          name,
           url: data.url,
           icon: data.icon || "",
           desc: data.desc || "",
@@ -1081,7 +1318,7 @@
     } else {
       dstGroup.links.push({
         id: uid(),
-        name: data.name || safeHost(data.url),
+        name,
         url: data.url,
         icon: data.icon || "",
         desc: data.desc || "",
@@ -1416,9 +1653,9 @@
 
   // ===================== 主题 & 样式 =====================
   /** 把 settings.siteTitle 应用到浏览器 tab title 和登录页大标题。
-   *  空字符串视作"用默认"，恢复成 "樱 · 个人导航"。 */
+   *  空字符串视作"用默认"，恢复成 "闲然导航"。 */
   function applySiteTitle() {
-    const t = (Store.settings.siteTitle || "").trim() || "樱 · 个人导航";
+    const t = (Store.settings.siteTitle || "").trim() || "闲然导航";
     try { document.title = t; } catch (_) {}
     const heading = document.querySelector("#login-overlay .login-card h2");
     if (heading) heading.textContent = t;
@@ -1555,6 +1792,9 @@
     setV("#set-fontsize", s.fontSize);
     setV("#set-radius", s.radius);
     setV("#set-density", s.density);
+    setV("#set-default-group-view", s.defaultGroupView || "icons");
+    setV("#set-default-group-view-size", s.defaultGroupViewSize || "md");
+    setV("#set-default-group-view-cols", s.defaultGroupViewCols || "1");
     setV("#set-hero-mode", s.heroMode || "compact");
     setV("#set-blur", s.blur);
     setV("#set-glass-alpha", s.glassAlpha);
@@ -1730,6 +1970,21 @@
     $("#set-fontsize").addEventListener("change", (e) => { s.fontSize = e.target.value; Store.saveSettings(); applyStyle(); });
     $("#set-radius").addEventListener("change", (e) => { s.radius = e.target.value; Store.saveSettings(); applyStyle(); });
     $("#set-density").addEventListener("change", (e) => { s.density = e.target.value; Store.saveSettings(); applyStyle(); });
+    $("#set-default-group-view")?.addEventListener("change", (e) => {
+      s.defaultGroupView = e.target.value;
+      Store.saveSettings();
+      render();
+    });
+    $("#set-default-group-view-size")?.addEventListener("change", (e) => {
+      s.defaultGroupViewSize = e.target.value;
+      Store.saveSettings();
+      render();
+    });
+    $("#set-default-group-view-cols")?.addEventListener("change", (e) => {
+      s.defaultGroupViewCols = e.target.value;
+      Store.saveSettings();
+      render();
+    });
     $("#set-hero-mode").addEventListener("change", (e) => {
       s.heroMode = e.target.value;
       Store.saveSettings();
@@ -2578,12 +2833,12 @@
       const totalLinks = Store.state.groups.reduce((s, g) => s + (g.links?.length || 0), 0);
       p.step(0.1, `整理 ${Store.state.groups.length} 个分组 / ${totalLinks} 个链接…`);
       let html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
-<!-- This is an automatically generated file by Sakura Nav. -->
+<!-- This is an automatically generated file by 闲然导航. -->
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
 <TITLE>Bookmarks</TITLE>
 <H1>Bookmarks</H1>
 <DL><p>
-    <DT><H3 ADD_DATE="${ts}" LAST_MODIFIED="${ts}" PERSONAL_TOOLBAR_FOLDER="true">樱 · 个人导航</H3>
+    <DT><H3 ADD_DATE="${ts}" LAST_MODIFIED="${ts}" PERSONAL_TOOLBAR_FOLDER="true">闲然导航</H3>
     <DL><p>
 `;
       let seen = 0;
@@ -2678,9 +2933,13 @@
       if (navigator.onLine === false) show();
       else hide();
     }
-    window.addEventListener("offline", show);
+    window.addEventListener("offline", () => {
+      show();
+      try { window.SakuraPet?.Status?.set("offline"); } catch (_) {}
+    });
     window.addEventListener("online", () => {
       hide();
+      try { window.SakuraPet?.Status?.pulse("done", "已恢复联网", 2000); } catch (_) {}
       // 网络恢复时让 sakura-remote 重新尝试一次（如果它处于待发送状态）
       if (window.SakuraRemote && typeof SakuraRemote.pushNow === "function" && SakuraRemote.isRemote && SakuraRemote.isRemote()) {
         SakuraRemote.pushNow().then(() => {
@@ -2878,7 +3137,7 @@
       }
     }
 
-    // 粘贴网址快速添加
+    // 粘贴网址快速添加（并触发标题/图标自动回填）
     document.addEventListener("paste", (e) => {
       if (document.activeElement?.tagName === "INPUT") return;
       const text = (e.clipboardData || window.clipboardData).getData("text");
@@ -2886,6 +3145,7 @@
         openLinkDialog(null);
         setTimeout(() => {
           formLink.url.value = text;
+          formLink.url.dispatchEvent(new Event("input", { bubbles: true }));
           formLink.name.focus();
         }, 100);
       }

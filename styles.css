@@ -449,9 +449,10 @@ body.has-bg {
 }
 
 .group-actions {
-  margin-left: auto;
+  margin-left: 0;
   display: flex;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .group-actions button {
@@ -465,10 +466,302 @@ body.has-bg {
 }
 .group-actions button:hover { color: var(--text); background: rgba(255, 255, 255, 0.25); }
 
+/* 分组查看方式（资源管理器风格） */
+.group-view {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.group-view-modes,
+.group-view-sizes,
+.group-view-cols {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--glass-border);
+}
+[data-theme="dark"] .group-view-modes,
+[data-theme="dark"] .group-view-sizes,
+[data-theme="dark"] .group-view-cols {
+  background: rgba(255, 255, 255, 0.06);
+}
+/* 分栏控件：仅列表 / 详细信息模式显示 */
+.group-view-cols { display: none; }
+.group-view[data-show-cols="1"] .group-view-cols { display: inline-flex; }
+.gv-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.gv-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.35); }
+.gv-btn.is-active {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.16);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(var(--accent-rgb), 0.18);
+}
+.gv-size,
+.gv-col { font-size: 11px; letter-spacing: 0.02em; min-width: 22px; padding: 0 4px; }
+
+@media (max-width: 720px) {
+  .group-head { flex-wrap: wrap; }
+  .group-view {
+    order: 5;
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: 2px;
+  }
+  .group-actions { margin-left: auto; }
+}
+
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--card-size), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--view-card-size, var(--card-size)), 1fr));
   gap: var(--gap);
+  --view-icon: 36px;
+  --view-card-size: var(--card-size);
+}
+
+/* 缩略图大小：作用于当前分组 */
+.cards[data-size="sm"] {
+  --view-card-size: 72px;
+  --view-icon: 28px;
+  gap: 10px;
+}
+.cards[data-size="md"] {
+  --view-card-size: var(--card-size);
+  --view-icon: 36px;
+}
+.cards[data-size="lg"] {
+  --view-card-size: 140px;
+  --view-icon: 52px;
+  gap: calc(var(--gap) + 4px);
+}
+
+/* ===== 查看方式：图标（默认网格） ===== */
+.cards[data-view="icons"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--view-card-size), 1fr));
+}
+.cards[data-view="icons"] .card-meta { display: none; }
+.cards[data-view="icons"] .card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+/* ===== 查看方式：列表（紧凑行，支持分栏） ===== */
+.cards[data-view="list"] {
+  display: grid;
+  grid-template-columns: repeat(var(--list-cols, 1), minmax(0, 1fr));
+  gap: 4px 10px;
+  --list-cols: 1;
+  --list-col-min: 180px;
+}
+/* 分栏：1–4 固定列，auto 按最小宽度自适应填满 */
+.cards[data-view="list"][data-cols="1"],
+.cards[data-view="details"][data-cols="1"] { --list-cols: 1; }
+.cards[data-view="list"][data-cols="2"],
+.cards[data-view="details"][data-cols="2"] { --list-cols: 2; }
+.cards[data-view="list"][data-cols="3"],
+.cards[data-view="details"][data-cols="3"] { --list-cols: 3; }
+.cards[data-view="list"][data-cols="4"],
+.cards[data-view="details"][data-cols="4"] { --list-cols: 4; }
+.cards[data-view="list"][data-cols="auto"],
+.cards[data-view="details"][data-cols="auto"] {
+  grid-template-columns: repeat(auto-fill, minmax(var(--list-col-min), 1fr));
+}
+.cards[data-view="list"][data-size="sm"] { --list-col-min: 140px; }
+.cards[data-view="list"][data-size="md"] { --list-col-min: 180px; }
+.cards[data-view="list"][data-size="lg"] { --list-col-min: 220px; }
+.cards[data-view="details"][data-size="sm"] { --list-col-min: 220px; }
+.cards[data-view="details"][data-size="md"] { --list-col-min: 280px; }
+.cards[data-view="details"][data-size="lg"] { --list-col-min: 340px; }
+
+.cards[data-view="list"] .card {
+  aspect-ratio: auto;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  min-height: calc(var(--view-icon) + 14px);
+  height: auto;
+  min-width: 0;
+  width: 100%;
+}
+.cards[data-view="list"] .card:hover { transform: translateY(0) translateX(2px); }
+.cards[data-view="list"] .card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.cards[data-view="list"] .card .name {
+  text-align: left;
+  -webkit-line-clamp: 1;
+  font-size: 13px;
+}
+.cards[data-view="list"] .card-meta { display: none; }
+.cards[data-view="list"] .card-add {
+  min-height: 36px;
+  font-size: 14px;
+  justify-content: flex-start;
+  padding-left: 14px;
+  gap: 8px;
+}
+
+/* ===== 查看方式：详细信息（名称 + 网址 + 备注，支持分栏） ===== */
+.cards[data-view="details"] {
+  display: grid;
+  grid-template-columns: repeat(var(--list-cols, 1), minmax(0, 1fr));
+  gap: 5px 12px;
+  --list-cols: 1;
+  --list-col-min: 280px;
+}
+.cards[data-view="details"] .card {
+  aspect-ratio: auto;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  min-height: calc(var(--view-icon) + 22px);
+  height: auto;
+  min-width: 0;
+  width: 100%;
+}
+.cards[data-view="details"] .card:hover { transform: translateY(0) translateX(2px); }
+.cards[data-view="details"] .card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: center;
+}
+.cards[data-view="details"] .card .name {
+  text-align: left;
+  -webkit-line-clamp: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.cards[data-view="details"] .card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  line-height: 1.3;
+  min-width: 0;
+}
+.cards[data-view="details"] .card-host,
+.cards[data-view="details"] .card-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.cards[data-view="details"] .card-host {
+  opacity: 0.85;
+  max-width: min(100%, 280px);
+}
+.cards[data-view="details"] .card-desc {
+  opacity: 0.7;
+  max-width: min(100%, 240px);
+}
+.cards[data-view="details"] .card-desc::before {
+  content: "· ";
+  opacity: 0.5;
+}
+.cards[data-view="details"] .card-add {
+  min-height: 40px;
+  font-size: 14px;
+  justify-content: flex-start;
+  padding-left: 14px;
+  gap: 8px;
+}
+
+/* 窄屏：分栏上限收紧，避免挤成一团 */
+@media (max-width: 720px) {
+  .cards[data-view="list"][data-cols="3"],
+  .cards[data-view="list"][data-cols="4"],
+  .cards[data-view="details"][data-cols="3"],
+  .cards[data-view="details"][data-cols="4"] {
+    --list-cols: 2;
+  }
+}
+@media (max-width: 480px) {
+  .cards[data-view="list"][data-cols="2"],
+  .cards[data-view="list"][data-cols="3"],
+  .cards[data-view="list"][data-cols="4"],
+  .cards[data-view="details"][data-cols="2"],
+  .cards[data-view="details"][data-cols="3"],
+  .cards[data-view="details"][data-cols="4"] {
+    --list-cols: 1;
+  }
+}
+
+.cards[data-view="list"] .card-add-txt,
+.cards[data-view="details"] .card-add-txt {
+  font-size: 13px;
+}
+.cards[data-view="list"] .card-add-ico,
+.cards[data-view="details"] .card-add-ico {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+/* 列表/详细：图标按尺寸变量 */
+.cards[data-view="list"] .card .icon-slot,
+.cards[data-view="list"] .card img,
+.cards[data-view="list"] .card .fallback,
+.cards[data-view="details"] .card .icon-slot,
+.cards[data-view="details"] .card img,
+.cards[data-view="details"] .card .fallback {
+  width: var(--view-icon);
+  height: var(--view-icon);
+}
+.cards[data-view="list"][data-size="sm"] { --view-icon: 22px; }
+.cards[data-view="list"][data-size="md"] { --view-icon: 28px; }
+.cards[data-view="list"][data-size="lg"] { --view-icon: 36px; }
+.cards[data-view="details"][data-size="sm"] { --view-icon: 28px; }
+.cards[data-view="details"][data-size="md"] { --view-icon: 36px; }
+.cards[data-view="details"][data-size="lg"] { --view-icon: 48px; }
+
+/* 图标视图：图标跟随尺寸 */
+.cards[data-view="icons"] .card .icon-slot,
+.cards[data-view="icons"] .card img,
+.cards[data-view="icons"] .card .fallback {
+  width: var(--view-icon);
+  height: var(--view-icon);
+}
+.cards[data-view="icons"][data-size="lg"] .card .fallback { font-size: 24px; }
+.cards[data-view="icons"][data-size="sm"] .card .name {
+  font-size: 11px;
+  -webkit-line-clamp: 1;
+}
+.cards[data-view="icons"][data-size="lg"] .card .name {
+  font-size: 13px;
 }
 
 .card {
@@ -520,10 +813,13 @@ body.has-bg {
   pointer-events: none;
 }
 .card.has-bg { background: transparent; backdrop-filter: none; }
-.card.has-bg > .icon-slot, .card.has-bg > .name {
+.card.has-bg > .icon-slot,
+.card.has-bg .name,
+.card.has-bg .card-meta {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 .card.has-bg .name { color: #fff; }
+.card.has-bg .card-meta { color: rgba(255, 255, 255, 0.88); }
 .group.has-bg { position: relative; isolation: isolate; overflow: hidden; }
 .group.has-bg > .group-head { position: relative; }
 
@@ -581,8 +877,8 @@ body.has-bg {
 }
 
 .card .icon-slot {
-  width: 36px;
-  height: 36px;
+  width: var(--view-icon, 36px);
+  height: var(--view-icon, 36px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -590,8 +886,8 @@ body.has-bg {
 }
 
 .card img {
-  width: 36px;
-  height: 36px;
+  width: var(--view-icon, 36px);
+  height: var(--view-icon, 36px);
   border-radius: 8px;
   object-fit: contain;
   background: rgba(255,255,255,0.5);
@@ -599,16 +895,21 @@ body.has-bg {
 }
 
 .card .fallback {
-  width: 36px;
-  height: 36px;
+  width: var(--view-icon, 36px);
+  height: var(--view-icon, 36px);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: calc(var(--view-icon, 36px) * 0.5);
   font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.card .card-body {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .card .name {
@@ -1819,7 +2120,7 @@ body.pre-auth #upcoming-card { display: none !important; }
   align-items: center;
   gap: 16px;
   padding: 12px 22px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 .cal-head-left, .cal-head-right { display: flex; align-items: center; gap: 10px; }
 .cal-head-left h2 { margin: 0; font-size: 20px; font-weight: 600; }
@@ -2553,6 +2854,91 @@ body.pre-auth #weather-card { display: none !important; }
   .cal-cell-fest { font-size: 9.5px; padding: 0 5px; }
 }
 
+/* ===================== 日历计数条 ===================== */
+.cal-count-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 0 16px 10px;
+  padding: 10px 6px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+.cal-count-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 10px;
+  text-align: center;
+}
+.cal-count-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 0;
+  background: var(--glass-border);
+  opacity: 0.7;
+}
+.cal-count-label {
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+}
+.cal-count-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.cal-count-sub {
+  font-size: 11px;
+  color: var(--text-soft);
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+@media (max-width: 560px) {
+  .cal-count-bar { margin: 0 10px 8px; padding: 8px 2px; }
+  .cal-count-value { font-size: 16px; }
+  .cal-count-sub { font-size: 10px; }
+}
+
+/* 月格：完成计数角标 */
+.cal-cell-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 18px;
+}
+.cal-cell-top .day-num { flex: 1; min-width: 0; }
+.cal-cell-count {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  flex-shrink: 0;
+}
+.cal-cell-count.all-done {
+  background: rgba(46, 160, 100, 0.16);
+  color: #1f8a4c;
+  border-color: rgba(46, 160, 100, 0.28);
+}
+[data-theme="dark"] .cal-cell-count.all-done {
+  color: #6ddea0;
+  background: rgba(46, 160, 100, 0.2);
+}
+
 /* ===================== 统计视图 ===================== */
 .cal-stats-view {
   padding: 18px;
@@ -2574,7 +2960,15 @@ body.pre-auth #weather-card { display: none !important; }
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
+.stat-tile--accent {
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.22);
+}
 [data-theme="dark"] .stat-tile { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .stat-tile--accent {
+  background: rgba(var(--accent-rgb), 0.14);
+  border-color: rgba(var(--accent-rgb), 0.28);
+}
 .stat-label { font-size: 12px; opacity: 0.7; }
 .stat-value { font-size: 28px; font-weight: 700; margin: 6px 0; color: var(--accent); }
 .stat-sub { font-size: 12px; opacity: 0.7; }

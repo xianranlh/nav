@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 樱 · 一键重启：杀掉 18080 端口上的旧 node 进程并重新拉起 start-all.sh
+# 闲然导航 · 一键重启：杀掉 18080 端口上的旧 node 进程并重新拉起 start-all.sh
 # 故意不用 set -u，避免空变量在不同 macOS bash 版本里的不一致行为
 set -o pipefail
 

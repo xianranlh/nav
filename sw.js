@@ -1,4 +1,4 @@
-/* 樱 · 个人导航 Service Worker
+/* 闲然导航 Service Worker
  * 策略：
  *   - 静态资源（本域 HTML/CSS/JS/JSON）：network-first（先走网络，离线回缓存）
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络

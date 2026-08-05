@@ -33,6 +33,7 @@
       renderWeekdays();
       renderMonth();
       renderDay();
+      renderCountBar();
       renderUpcoming();
       updateBadge();
       startTicker();
@@ -44,8 +45,29 @@
       panel.hidden = false;
       renderMonth();
       renderDay();
+      renderCountBar();
     }
     function close() { panel.hidden = true; }
+
+    /** 顶栏计数：近一周完成 / 累计 / 连续打卡 */
+    function renderCountBar() {
+      if (!window.CalUtils?.stats) return;
+      const s = CalUtils.stats();
+      const weekEl = $("#cal-count-week");
+      const weekSub = $("#cal-count-week-sub");
+      const totalEl = $("#cal-count-total");
+      const totalSub = $("#cal-count-total-sub");
+      const streakEl = $("#cal-count-streak");
+      if (weekEl) weekEl.textContent = String(s.last7?.done ?? 0);
+      if (weekSub) {
+        const t = s.last7?.total ?? 0;
+        const r = Math.round((s.last7?.ratio || 0) * 100);
+        weekSub.textContent = t ? `计划 ${t} · 完成率 ${r}%` : "暂无已过期任务";
+      }
+      if (totalEl) totalEl.textContent = String(s.totalCompleted ?? 0);
+      if (totalSub) totalSub.textContent = `${s.totalTasks ?? 0} 个任务`;
+      if (streakEl) streakEl.textContent = String(s.streak ?? 0);
+    }
 
     function renderWeekdays() {
       const first = Cal.data.settings.firstDayOfWeek || 1;
@@ -97,12 +119,18 @@
           : "";
 
         const MAX = 3;
+        const isItemDone = (it) =>
+          CalUtils.isDoneOccurrence?.(it.task, it.ts) ||
+          (it.task.repeat?.type === "none" ? it.task.done : (it.task.doneDates || []).includes(it.ts));
+        const doneCount = items.reduce((n, it) => n + (isItemDone(it) ? 1 : 0), 0);
         const shown = items.slice(0, MAX).map((it) => {
-          const done = CalUtils.isDoneOccurrence?.(it.task, it.ts) ||
-            (it.task.repeat?.type === "none" ? it.task.done : (it.task.doneDates || []).includes(it.ts));
+          const done = isItemDone(it);
           return `<div class="day-task ${done ? "done" : ""}" style="--task-color:${escapeHtml(it.task.color || "#ff8fab")}" title="${escapeHtml(it.task.title)}">${escapeHtml(it.task.title)}</div>`;
         }).join("");
         const more = items.length > MAX ? `<div class="more">+${items.length - MAX} 更多</div>` : "";
+        const countBadge = items.length
+          ? `<span class="cal-cell-count${doneCount === items.length ? " all-done" : ""}" title="完成 ${doneCount} / 共 ${items.length}">${doneCount}/${items.length}</span>`
+          : "";
         let wBadge = "";
         if (Store.settings.weatherOnCal && window.WeatherUtils) {
           const ds = `${c.date.getFullYear()}-${String(c.date.getMonth() + 1).padStart(2, "0")}-${String(c.date.getDate()).padStart(2, "0")}`;
@@ -113,8 +141,11 @@
           }
         }
         return `<div class="${cls.join(" ")}" data-ts="${dayKey}" style="position:relative">
-          <span class="day-num ${dayCls}">${c.date.getDate()}</span>
-          ${wBadge}
+          <div class="cal-cell-top">
+            <span class="day-num ${dayCls}">${c.date.getDate()}</span>
+            ${countBadge}
+            ${wBadge}
+          </div>
           ${festBadge}
           <div class="day-tasks">${shown}${more}</div>
         </div>`;
@@ -273,8 +304,12 @@
     function refreshAll() {
       if (!panel.hidden) {
         if (view === "month") renderMonth();
-        else renderListView();
+        else if (view === "list") renderListView();
+        else if (view === "stats") renderStatsView();
         renderDay();
+        renderCountBar();
+      } else {
+        renderCountBar();
       }
       renderUpcoming();
       updateBadge();
@@ -353,15 +388,26 @@
 
     function renderStatsView() {
       const s = CalUtils.stats();
-      $("#stat-week-ratio").textContent = Math.round(s.week.ratio * 100) + "%";
-      $("#stat-week-detail").textContent = `${s.week.done} / ${s.week.total}`;
-      $("#stat-month-ratio").textContent = Math.round(s.month.ratio * 100) + "%";
-      $("#stat-month-detail").textContent = `${s.month.done} / ${s.month.total}`;
-      $("#stat-streak").textContent = s.streak;
-      $("#stat-total-tasks").textContent = s.totalTasks;
-      $("#stat-total-done").textContent = s.totalCompleted;
+      const last7Done = $("#stat-last7-done");
+      const last7Detail = $("#stat-last7-detail");
+      if (last7Done) last7Done.textContent = String(s.last7?.done ?? 0);
+      if (last7Detail) {
+        const t = s.last7?.total ?? 0;
+        const r = Math.round((s.last7?.ratio || 0) * 100);
+        last7Detail.textContent = t ? `计划 ${t} · 完成率 ${r}%` : "暂无已过期任务";
+      }
+      const setText = (sel, val) => { const el = $(sel); if (el) el.textContent = val; };
+      setText("#stat-week-ratio", Math.round(s.week.ratio * 100) + "%");
+      setText("#stat-week-detail", `${s.week.done} / ${s.week.total}`);
+      setText("#stat-month-ratio", Math.round(s.month.ratio * 100) + "%");
+      setText("#stat-month-detail", `${s.month.done} / ${s.month.total}`);
+      setText("#stat-streak", String(s.streak));
+      setText("#stat-total-tasks", String(s.totalTasks));
+      setText("#stat-total-done", String(s.totalCompleted));
+      renderCountBar();
       // 柱状图
       const svg = $("#stats-chart");
+      if (!svg) return;
       const W = 600, H = 160, PAD = 18;
       const innerW = W - PAD * 2, innerH = H - PAD * 2;
       const n = s.days.length;
@@ -394,7 +440,7 @@
       a.download = `sakura-calendar-${new Date().toISOString().slice(0, 10)}.ics`;
       a.click();
       URL.revokeObjectURL(url);
-      toast("已导出 .ics 文件");
+      toast("已导出日历文件");
     });
     $("#cal-ics-import").addEventListener("change", async (e) => {
       const f = e.target.files?.[0];

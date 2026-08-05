@@ -1,4 +1,4 @@
-# 樱 · 个人导航 — 本地一键启动（Node 静态站 + SQLite 数据 API）
+# 闲然导航 — 本地一键启动（Node 静态站 + SQLite 数据 API）
 # 用法：在仓库根目录执行 .\start-all.ps1
 $ErrorActionPreference = "Stop"
 # 脚本在 scripts/ 子目录里；项目根是它的上一级

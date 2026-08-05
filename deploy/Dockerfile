@@ -1,20 +1,20 @@
 # syntax=docker/dockerfile:1.7
 #########################################
-# 樱 · 单容器：nginx:80 静态 + 反代 /api → Node:3000（仅回环）
+# 闲然导航 · 单容器：nginx:80 静态 + 反代 /api → Node:3000（仅回环）
 #########################################
 FROM node:20-alpine
 
 RUN apk add --no-cache nginx gettext
 
 LABEL org.opencontainers.image.title="Xianran Nav"
-LABEL org.opencontainers.image.description="樱 · 个人导航（单容器：前端 + 数据 API + AI 反代）"
+LABEL org.opencontainers.image.description="闲然导航（单容器：前端 + 数据 API + AI 反代）"
 LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
 COPY server/package.json server/package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 
-COPY server/index.js server/database.js ./
+COPY server/index.js server/database.js server/metadata.js ./
 
 COPY index.html pet.html styles.css manifest.json sw.js /usr/share/nginx/html/
 COPY js/ /usr/share/nginx/html/js/

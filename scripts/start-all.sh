@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 樱 · 个人导航 — 本地一键启动（Node 静态站 + SQLite 数据 API）
+# 闲然导航 — 本地一键启动（Node 静态站 + SQLite 数据 API）
 # 用法：chmod +x scripts/start-all.sh && scripts/start-all.sh
 set -euo pipefail
 

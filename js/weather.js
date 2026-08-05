@@ -1,4 +1,4 @@
-/* 樱 · 天气模块（多城市版）
+/* 闲然导航 · 天气模块（多城市版）
  * 数据源：Open-Meteo（forecast + geocoding，均免费、无 KEY）
  *   https://open-meteo.com/
  *   https://geocoding-api.open-meteo.com/

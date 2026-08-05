@@ -1,4 +1,4 @@
-/* 樱 · 服务端数据模式
+/* 闲然导航 · 服务端数据模式
  * - 同源 GET /api/data 可用时：业务数据不写浏览器 localStorage，仅内存 + 防抖 PUT 到 SQLite
  * - 同源 /api/data 不可用时：禁止业务数据落入浏览器，并让应用停在服务端存储错误页
  * - 登录 token 仍只代表本机会话；账号哈希随 bundle 同步到服务端
@@ -126,17 +126,30 @@
     clearTimeout(pushTimer);
     pushTimer = setTimeout(() => {
       pushTimer = null;
+      try {
+        if (window.SakuraPet?.Status) window.SakuraPet.Status.set("syncing", "同步数据");
+      } catch (_) {}
       putCurrentBundle().then(() => {
         if (consecutivePutFailures > 0) {
           consecutivePutFailures = 0;
           if (window.toast) window.toast("已重新连接到服务端，数据同步恢复正常");
         }
+        try {
+          if (window.SakuraPet?.Status) window.SakuraPet.Status.pulse("done", "已同步", 1600);
+        } catch (_) {}
       }).catch((e) => {
         consecutivePutFailures += 1;
         // 第一次失败不打扰；连续 ≥3 次才提示用户
         if (consecutivePutFailures >= 3 && window.toast) {
           window.toast("数据同步连续失败，可能网络异常或服务端不可达。改动暂存内存，恢复后会自动重传。", 5000);
         }
+        try {
+          if (window.SakuraPet?.Status && consecutivePutFailures >= 2) {
+            window.SakuraPet.Status.pulse("error", "同步失败", 2800);
+          } else if (window.SakuraPet?.Status) {
+            window.SakuraPet.Status.set("idle");
+          }
+        } catch (_) {}
         console.warn("[sakura-remote] PUT failed (retry " + consecutivePutFailures + "x):", e?.message || e);
       });
     }, 1000);

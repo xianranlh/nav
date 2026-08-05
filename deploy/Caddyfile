@@ -1,4 +1,4 @@
-# 樱 · 个人导航 - Caddy 自动 HTTPS 配置
+# 闲然导航 - Caddy 自动 HTTPS 配置
 # Caddy 会自动从 Let's Encrypt 申请并续期证书，你只需要把域名指过来
 
 {

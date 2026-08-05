@@ -1,4 +1,4 @@
-/* 樱 · 日历与任务模块
+/* 闲然导航 · 日历与任务模块
  * 功能：
  *  - 单次 / 每天 / 每周（指定星期）/ 每月（按日期）/ 每年（按月日） 重复
  *  - 间隔步长（例：每 2 周）、结束日期、最大次数
@@ -40,7 +40,7 @@
       this.data.tasks = [
         {
           id: uid(),
-          title: "✨ 欢迎使用樱日历",
+          title: "✨ 欢迎使用闲然日历",
           desc: "编辑本任务或新建任意重复任务，试试底部 + 按钮。",
           startAt: soon.getTime(),
           allDay: false,
@@ -396,7 +396,7 @@
     const lines = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//Sakura Nav//Calendar//ZH",
+      "PRODID:-//Xianran Nav//Calendar//ZH",
       "CALSCALE:GREGORIAN",
     ];
     for (const t of tasks) {
@@ -498,6 +498,9 @@
     const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    // 最近 7 天（含今天，滚动窗口）
+    const last7Start = new Date(today);
+    last7Start.setDate(today.getDate() - 6);
 
     function ratioInRange(from, to) {
       let total = 0, done = 0;
@@ -511,9 +514,10 @@
       return { total, done, ratio: total ? done / total : 0 };
     }
     const week = ratioInRange(weekStart.getTime(), weekEnd.getTime());
+    const last7 = ratioInRange(last7Start.getTime(), today.getTime() + DAY_MS);
     const month = ratioInRange(monthStart.getTime(), monthEnd.getTime());
 
-    // 本月每天完成数（30 天趋势）
+    // 近 30 天每天完成数（趋势图）
     const days = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today); d.setDate(today.getDate() - i);
@@ -554,7 +558,7 @@
     const totalTasks = Cal.data.tasks.length;
     const totalCompleted = Cal.data.tasks.reduce((a, t) => a + ((t.doneDates || []).length + (t.done ? 1 : 0)), 0);
 
-    return { week, month, days, streak, totalTasks, totalCompleted };
+    return { week, last7, month, days, streak, totalTasks, totalCompleted };
   }
 
   // ===================== 月历网格 =====================

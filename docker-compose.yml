@@ -1,4 +1,4 @@
-# 樱 · 个人导航 — Docker Compose
+# 闲然导航 — Docker Compose
 # 单容器：nginx:80 静态前端 + 反代 /api → Node:3000（见 Dockerfile）
 #
 # 一键启动（构建并后台运行）：

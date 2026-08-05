@@ -1,4 +1,4 @@
-/* 樱 · 提醒事项（Mac Reminders 风格） v1.20.0
+/* 闲然导航 · 提醒事项（Mac Reminders 风格） v1.20.0
  * 双层数据模型：lists（用户列表 + 内置智能列表）+ items
  *
  *  lists: [{ id, name, emoji, color, builtin: false, order, hidden?: false }]

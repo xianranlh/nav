@@ -1,5 +1,5 @@
 /**
- * 樱 · SQLite 持久化（替代 sakura-state.json 单文件）
+ * 闲然导航 · SQLite 持久化（替代 sakura-state.json 单文件）
  * - app_data：整包 sakura-nav@2 JSON
  * - media_files：已上传媒体元数据（文件仍在 data/media/）
  */

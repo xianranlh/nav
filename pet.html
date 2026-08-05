@@ -4,25 +4,25 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="light dark" />
-  <title>小樱 · 宠物乐园</title>
+  <title>桌宠 · 闲然导航</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🐾%3C/text%3E%3C/svg%3E" />
   <meta name="theme-color" content="#ff8fab" />
   <link rel="stylesheet" href="styles/pet.css" />
 </head>
 <body>
-  <!-- 背景与飘落花瓣 -->
   <div class="pet-bg" aria-hidden="true"></div>
   <canvas id="petal-canvas" aria-hidden="true"></canvas>
 
   <main class="pet-app">
-    <!-- 顶栏 -->
     <header class="glass pet-header">
       <a class="back-link" href="index.html" title="返回导航首页">← 返回导航</a>
-      <h1>🐾 小樱的宠物乐园</h1>
-      <span class="pet-clock" id="pet-clock">--:--</span>
+      <h1>🐾 桌宠</h1>
+      <div class="pet-header-right">
+        <button type="button" class="icon-chip" id="btn-help" title="说明">？</button>
+        <span class="pet-clock" id="pet-clock">--:--</span>
+      </div>
     </header>
 
-    <!-- 状态卡片 -->
     <section class="glass pet-card">
       <div class="pet-portrait">
         <img id="pet-portrait-img" src="assets/pet/xiaoying-portrait.png" alt="宠物立绘" draggable="false" />
@@ -30,57 +30,81 @@
       <div class="pet-info">
         <div class="pet-name-row">
           <h2 id="pet-name" title="点击改名">小樱</h2>
-          <span class="pet-level" id="pet-level">Lv.1</span>
-          <span class="pet-mood" id="pet-mood">😊 心情不错</span>
+          <button type="button" class="name-edit-btn" id="btn-rename" title="改名">✎</button>
+          <span class="pet-role-tag">状态伴侣</span>
         </div>
-        <div class="pet-bar">
-          <span class="bar-label">亲密度</span>
-          <div class="bar-track"><div class="bar-fill" id="affection-bar"></div></div>
-          <span class="bar-num" id="affection-num">0</span>
-        </div>
-        <div class="pet-bar">
-          <span class="bar-label">饱食度</span>
-          <div class="bar-track"><div class="bar-fill hunger" id="hunger-bar"></div></div>
-          <span class="bar-num" id="hunger-num">0</span>
+        <p class="pet-desc">
+          首页角落的小桌宠，会跟着 AI 回复、生图、同步与离线状态换动作——类似 Codex Pet，不是养成游戏。
+        </p>
+        <div class="status-demo" id="status-demo" aria-label="状态一览">
+          <button type="button" class="st-chip" data-st="idle" title="预览">💤 待命</button>
+          <button type="button" class="st-chip" data-st="thinking" title="预览">💭 思考</button>
+          <button type="button" class="st-chip" data-st="working" title="预览">⚡ 工作</button>
+          <button type="button" class="st-chip" data-st="done" title="预览">✅ 完成</button>
+          <button type="button" class="st-chip" data-st="error" title="预览">⚠️ 出错</button>
+          <button type="button" class="st-chip" data-st="offline" title="预览">📡 离线</button>
         </div>
         <div class="pet-actions">
-          <button class="pet-btn" id="btn-feed" title="喂点小点心">🍡 喂食</button>
-          <button class="pet-btn" id="btn-pat" title="摸摸头">🤚 摸摸头</button>
-          <button class="pet-btn" id="btn-play" title="一起玩耍">🎀 玩耍</button>
-          <button class="pet-btn" id="btn-sleep" title="哄她睡觉 / 叫醒她">🌙 睡觉</button>
+          <button class="pet-btn" id="btn-pat" title="打个招呼">👋 打招呼</button>
+          <button class="pet-btn" id="btn-upload" title="上传图片生成自定义形象">🖼 换装</button>
+          <button class="pet-btn" id="btn-restore" hidden title="恢复默认精灵">↩ 默认形象</button>
         </div>
         <div class="pet-actions pet-actions-secondary">
-          <button class="pet-btn" id="btn-upload" title="上传任意图片，自动抠除纯色背景生成你的专属宠物">🖼 上传图片生成宠物</button>
-          <button class="pet-btn" id="btn-restore" hidden title="换回默认的小樱">↩ 恢复小樱</button>
-          <label class="pet-toggle" title="让宠物在导航首页底部自由活动">
-            <input type="checkbox" id="chk-home" checked /> 在导航首页显示宠物
+          <label class="pet-toggle" title="在导航首页显示状态桌宠">
+            <input type="checkbox" id="chk-home" checked /> 首页显示桌宠
           </label>
         </div>
         <input type="file" id="pet-file" accept="image/*" hidden />
-        <p class="pet-tip">小提示：点击草地让宠物跑过去，点击宠物本人会有惊喜；点击名字可以改名哦～</p>
+        <p class="pet-tip">首页：单击互动 · 拖拽移动 · 双击打开本页。点下方草地可让她跑过去。</p>
       </div>
     </section>
 
-    <!-- 游乐场：小樱在这里活动 -->
-    <section class="glass playground" id="playground">
+    <section class="glass playground" id="playground" aria-label="预览场地">
       <div class="pg-sky">
         <span class="pg-cloud c1">☁️</span>
         <span class="pg-cloud c2">☁️</span>
         <span class="pg-sun" id="pg-sun">☀️</span>
       </div>
       <div class="pg-ground" id="pg-ground">
-        <span class="pg-flower" style="left:8%">🌼</span>
-        <span class="pg-flower" style="left:28%">🌷</span>
-        <span class="pg-flower" style="left:55%">🌸</span>
-        <span class="pg-flower" style="left:76%">🌻</span>
-        <span class="pg-flower" style="left:92%">🌺</span>
+        <span class="pg-flower" style="left:10%">🌼</span>
+        <span class="pg-flower" style="left:32%">🌸</span>
+        <span class="pg-flower" style="left:58%">🌻</span>
+        <span class="pg-flower" style="left:82%">🌷</span>
       </div>
-      <!-- 宠物本体由 pet-engine.js 动态创建 -->
+      <div class="pg-hint" id="pg-hint">预览场地 · 点击地面移动</div>
       <div class="fx-layer" id="fx-layer"></div>
     </section>
 
-    <footer class="pet-footer">🌸 樱 · 个人导航 — 宠物乐园</footer>
+    <footer class="pet-footer">🌸 闲然导航 — 状态桌宠（Codex 风格）</footer>
   </main>
+
+  <dialog class="pet-dialog" id="dlg-rename">
+    <form method="dialog" id="form-rename">
+      <h3>给桌宠起名</h3>
+      <input type="text" id="rename-input" maxlength="12" placeholder="最多 12 个字" autocomplete="off" />
+      <div class="dlg-actions">
+        <button type="button" class="pet-btn" data-close>取消</button>
+        <button type="submit" class="pet-btn pet-btn-accent">确定</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="pet-dialog" id="dlg-help">
+    <div class="help-body">
+      <h3>🐾 这是什么？</h3>
+      <ul>
+        <li><b>不是养成游戏</b>：没有饱食、等级、每日签到。</li>
+        <li><b>状态伴侣</b>：首页桌宠会反映 AI 思考/生图、数据同步、网络离线等状态。</li>
+        <li><b>轻互动</b>：点一下打个招呼；可改名、换自定义形象。</li>
+        <li><b>可拖拽</b>：在首页按住桌宠拖到顺手的位置。</li>
+      </ul>
+      <div class="dlg-actions">
+        <button type="button" class="pet-btn pet-btn-accent" data-close>知道了</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="pet-toast" id="pet-toast" hidden></div>
 
   <script src="js/pet-engine.js"></script>
   <script src="js/pet.js"></script>

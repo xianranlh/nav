@@ -1,7 +1,7 @@
 {
-  "name": "樱 · 个人导航",
-  "short_name": "樱导航",
-  "description": "玻璃质感的个人浏览器起始页，支持书签导入、樱花飘舞、背景轮播等。",
+  "name": "闲然导航",
+  "short_name": "闲然导航",
+  "description": "玻璃质感的个人浏览器起始页，支持书签导入、主题粒子、背景轮播等。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

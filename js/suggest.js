@@ -1,4 +1,4 @@
-/* 樱 · 搜索下拉联想
+/* 闲然导航 · 搜索下拉联想
  * 来源：
  *   1) 本地：当前导航 links 里按 name/url/desc 匹配
  *   2) 远端：DuckDuckGo AC API（原生支持 CORS）+ 百度 JSONP 备用
