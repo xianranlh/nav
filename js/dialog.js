@@ -24,11 +24,25 @@
     if (!d) return null;
     d.classList.remove(CLOSING);
     if (d.open) return d;
+    // Web Interface Guidelines: modal dialogs announce as modal
+    try {
+      d.setAttribute("aria-modal", "true");
+      if (!d.getAttribute("role")) d.setAttribute("role", "dialog");
+    } catch (_) {}
     if (typeof d.showModal === "function") {
       try { d.showModal(); } catch (_) { try { d.setAttribute("open", ""); } catch (_) {} }
     } else {
       try { d.setAttribute("open", ""); } catch (_) {}
     }
+    // Focus first focusable control (or dialog) after open
+    requestAnimationFrame(() => {
+      try {
+        const focusable = d.querySelector(
+          'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        );
+        (focusable || d).focus?.({ preventScroll: true });
+      } catch (_) {}
+    });
     d.dispatchEvent(new CustomEvent("dialog:opened", { bubbles: true }));
     return d;
   }

@@ -7488,3 +7488,27 @@ h1, h2, h3, .greet h1, .dialog-header h3, .music-title {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+/* v1.21.1 guidelines: large list performance + scroll targets */
+.cards > .card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+.cards[data-view="list"] > .card,
+.cards[data-view="details"] > .card {
+  contain-intrinsic-size: auto 48px;
+}
+.music-track {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 44px;
+}
+.group,
+.dialog-header h3,
+.sec > summary {
+  scroll-margin-top: 72px;
+}
+.ctx-menu[hidden],
+.toast[hidden] {
+  display: none !important;
+}

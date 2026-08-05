@@ -268,3 +268,19 @@ test("Web Interface Guidelines: skip link, focus safety, reduced motion, no tran
   // viewport must not disable zoom
   assert.doesNotMatch(index, /user-scalable\s*=\s*no|maximum-scale\s*=\s*1/);
 });
+
+
+test("aria-modal dialogs and toast live region (guidelines pass 2)", () => {
+  const index = fs.readFileSync("index.html", "utf8");
+  const dialog = fs.readFileSync("js/dialog.js", "utf8");
+  const app = fs.readFileSync("js/app.js", "utf8");
+  assert.match(index, /aria-modal="true"/);
+  assert.match(index, /id="toast"[^>]*aria-live="polite"/);
+  assert.match(index, /id="ctx-menu"[^>]*role="menu"/);
+  assert.match(index, /id="ai-panel"[^>]*aria-label="AI 助手"/);
+  assert.match(index, /id="music-panel"[^>]*aria-label="音乐播放器"/);
+  assert.match(dialog, /aria-modal/);
+  assert.match(dialog, /focusable/);
+  assert.match(app, /setAttribute\("aria-label", "删除此网址"\)/);
+  assert.match(app, /aria-pressed/);
+});

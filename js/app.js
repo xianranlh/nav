@@ -405,35 +405,35 @@
     el.innerHTML = `
       <div class="group-head">
         <span class="group-handle" title="拖动以重排分组" aria-label="拖动以重排">⠿</span>
-        <button class="group-toggle" data-act="toggle" title="折叠/展开">▾</button>
-        <span class="group-dot"></span>
-        <input class="group-name" value="${escapeHtml(g.name)}" />
+        <button type="button" class="group-toggle" data-act="toggle" title="折叠/展开" aria-label="折叠/展开" aria-expanded="${Store.settings.collapsedGroups?.[g.id] ? "false" : "true"}">▾</button>
+        <span class="group-dot" aria-hidden="true"></span>
+        <input class="group-name" value="${escapeHtml(g.name)}" aria-label="分组名称" />
         <span class="group-count">${g.links.length} 个</span>
         <div class="group-view" title="查看方式（类似资源管理器）" data-show-cols="${showCols ? "1" : "0"}">
           <div class="group-view-modes" role="group" aria-label="查看方式">
-            <button type="button" class="gv-btn${gv.mode === "icons" ? " is-active" : ""}" data-view-mode="icons" title="图标">▦</button>
-            <button type="button" class="gv-btn${gv.mode === "list" ? " is-active" : ""}" data-view-mode="list" title="列表">☰</button>
-            <button type="button" class="gv-btn${gv.mode === "details" ? " is-active" : ""}" data-view-mode="details" title="详细信息">≣</button>
+            <button type="button" class="gv-btn${gv.mode === "icons" ? " is-active" : ""}" data-view-mode="icons" title="图标" aria-label="图标视图" aria-pressed="${gv.mode === "icons" ? "true" : "false"}">▦</button>
+            <button type="button" class="gv-btn${gv.mode === "list" ? " is-active" : ""}" data-view-mode="list" title="列表" aria-label="列表视图" aria-pressed="${gv.mode === "list" ? "true" : "false"}">☰</button>
+            <button type="button" class="gv-btn${gv.mode === "details" ? " is-active" : ""}" data-view-mode="details" title="详细信息" aria-label="详细信息视图" aria-pressed="${gv.mode === "details" ? "true" : "false"}">≣</button>
           </div>
           <div class="group-view-sizes" role="group" aria-label="图标大小">
-            <button type="button" class="gv-btn gv-size${gv.size === "sm" ? " is-active" : ""}" data-view-size="sm" title="小">S</button>
-            <button type="button" class="gv-btn gv-size${gv.size === "md" ? " is-active" : ""}" data-view-size="md" title="中">M</button>
-            <button type="button" class="gv-btn gv-size${gv.size === "lg" ? " is-active" : ""}" data-view-size="lg" title="大">L</button>
+            <button type="button" class="gv-btn gv-size${gv.size === "sm" ? " is-active" : ""}" data-view-size="sm" title="小" aria-label="小图标" aria-pressed="${gv.size === "sm" ? "true" : "false"}">S</button>
+            <button type="button" class="gv-btn gv-size${gv.size === "md" ? " is-active" : ""}" data-view-size="md" title="中" aria-label="中图标" aria-pressed="${gv.size === "md" ? "true" : "false"}">M</button>
+            <button type="button" class="gv-btn gv-size${gv.size === "lg" ? " is-active" : ""}" data-view-size="lg" title="大" aria-label="大图标" aria-pressed="${gv.size === "lg" ? "true" : "false"}">L</button>
           </div>
           <div class="group-view-cols" role="group" aria-label="列表分栏">
-            <button type="button" class="gv-btn gv-col${gv.cols === "1" ? " is-active" : ""}" data-view-cols="1" title="1 列">1</button>
-            <button type="button" class="gv-btn gv-col${gv.cols === "2" ? " is-active" : ""}" data-view-cols="2" title="2 列">2</button>
-            <button type="button" class="gv-btn gv-col${gv.cols === "3" ? " is-active" : ""}" data-view-cols="3" title="3 列">3</button>
-            <button type="button" class="gv-btn gv-col${gv.cols === "4" ? " is-active" : ""}" data-view-cols="4" title="4 列">4</button>
-            <button type="button" class="gv-btn gv-col${gv.cols === "auto" ? " is-active" : ""}" data-view-cols="auto" title="自适应分栏">自</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "1" ? " is-active" : ""}" data-view-cols="1" title="1 列" aria-label="1 列" aria-pressed="${gv.cols === "1" ? "true" : "false"}">1</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "2" ? " is-active" : ""}" data-view-cols="2" title="2 列" aria-label="2 列" aria-pressed="${gv.cols === "2" ? "true" : "false"}">2</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "3" ? " is-active" : ""}" data-view-cols="3" title="3 列" aria-label="3 列" aria-pressed="${gv.cols === "3" ? "true" : "false"}">3</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "4" ? " is-active" : ""}" data-view-cols="4" title="4 列" aria-label="4 列" aria-pressed="${gv.cols === "4" ? "true" : "false"}">4</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "auto" ? " is-active" : ""}" data-view-cols="auto" title="自适应分栏" aria-label="自适应分栏" aria-pressed="${gv.cols === "auto" ? "true" : "false"}">自</button>
           </div>
         </div>
         <div class="group-actions">
-          <button data-act="edit" title="编辑分组（含背景）">✏️</button>
-          <button data-act="color" title="分组颜色">🎨</button>
-          <button data-act="up" title="上移">↑</button>
-          <button data-act="down" title="下移">↓</button>
-          <button data-act="del" title="删除分组">✕</button>
+          <button type="button" data-act="edit" title="编辑分组（含背景）" aria-label="编辑分组">✏️</button>
+          <button type="button" data-act="color" title="分组颜色" aria-label="分组颜色">🎨</button>
+          <button type="button" data-act="up" title="上移" aria-label="上移分组">↑</button>
+          <button type="button" data-act="down" title="下移" aria-label="下移分组">↓</button>
+          <button type="button" data-act="del" title="删除分组" aria-label="删除分组">✕</button>
         </div>
       </div>
       <div class="cards" data-view="${gv.mode}" data-size="${gv.size}" data-cols="${gv.cols}"></div>
@@ -448,8 +448,10 @@
     // "+" 添加
     const addBtn = document.createElement("button");
     addBtn.className = "card card-add";
+    addBtn.type = "button";
     addBtn.title = "添加到此分组";
-    addBtn.innerHTML = gv.mode === "icons" ? "+" : `<span class="card-add-ico">+</span><span class="card-add-txt">添加网址</span>`;
+    addBtn.setAttribute("aria-label", "添加到此分组");
+    addBtn.innerHTML = gv.mode === "icons" ? "+" : `<span class="card-add-ico" aria-hidden="true">+</span><span class="card-add-txt">添加网址</span>`;
     addBtn.addEventListener("click", () => openLinkDialog(null, g.id));
     cards.appendChild(addBtn);
 
@@ -463,19 +465,25 @@
       if (btn.dataset.viewMode) {
         g.viewMode = btn.dataset.viewMode;
         viewBox.querySelectorAll("[data-view-mode]").forEach((b) => {
-          b.classList.toggle("is-active", b.dataset.viewMode === g.viewMode);
+          const on = b.dataset.viewMode === g.viewMode;
+          b.classList.toggle("is-active", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
         });
       }
       if (btn.dataset.viewSize) {
         g.viewSize = btn.dataset.viewSize;
         viewBox.querySelectorAll("[data-view-size]").forEach((b) => {
-          b.classList.toggle("is-active", b.dataset.viewSize === g.viewSize);
+          const on = b.dataset.viewSize === g.viewSize;
+          b.classList.toggle("is-active", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
         });
       }
       if (btn.dataset.viewCols) {
         g.viewCols = btn.dataset.viewCols;
         viewBox.querySelectorAll("[data-view-cols]").forEach((b) => {
-          b.classList.toggle("is-active", b.dataset.viewCols === g.viewCols);
+          const on = b.dataset.viewCols === g.viewCols;
+          b.classList.toggle("is-active", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
         });
       }
       applyCardsViewAttrs(cards, g);
@@ -594,6 +602,7 @@
     del.type = "button";
     del.textContent = "✕";
     del.title = "删除";
+    del.setAttribute("aria-label", "删除此网址");
     del.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -611,6 +620,7 @@
     pin.type = "button";
     pin.textContent = link.pinned ? "★" : "☆";
     pin.title = link.pinned ? "取消置顶" : "置顶";
+    pin.setAttribute("aria-label", link.pinned ? "取消置顶" : "置顶");
     pin.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
