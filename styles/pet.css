@@ -411,3 +411,25 @@ body.night .pe-sprite { filter: brightness(0.88); }
   .pg-cloud,
   .pg-flower { animation: none !important; }
 }
+
+/* ---- v1.20.7 宠物页与主站玻璃语言对齐 ---- */
+.pet-header {
+  border: 1px solid rgba(255, 143, 171, 0.22);
+}
+.back-link:focus-visible,
+.icon-chip:focus-visible,
+.pet-header button:focus-visible,
+.pet-card button:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--pk, #ff8fab);
+  outline-offset: 2px;
+}
+.pet-card {
+  border: 1px solid rgba(255, 143, 171, 0.18);
+}
+.icon-chip {
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.icon-chip:hover {
+  transform: scale(1.05);
+}

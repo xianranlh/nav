@@ -6,13 +6,13 @@ test("version-busts the main app controller so dialog behavior updates reach the
   const index = fs.readFileSync("index.html", "utf8");
   const sw = fs.readFileSync("sw.js", "utf8");
   const swVersion = /const VERSION = "([^"]+)";/.exec(sw)?.[1];
-  const appScriptVersion = /<script src="app\.js\?v=([^"]+)"><\/script>/.exec(index)?.[1];
+  const appScriptVersion = /<script src="js\/app\.js\?v=([^"]+)"><\/script>/.exec(index)?.[1];
 
   assert.ok(swVersion, "service worker version should be declared");
-  assert.ok(appScriptVersion, "app.js should include a cache-busting version query");
+  assert.ok(appScriptVersion, "js/app.js should include a cache-busting version query");
   assert.equal(appScriptVersion, swVersion);
   assert.ok(
-    sw.includes(`"./app.js?v=${appScriptVersion}"`) || sw.includes("`./app.js?v=${VERSION}`"),
+    sw.includes(`"./js/app.js?v=${appScriptVersion}"`) || sw.includes("`./js/app.js?v=${VERSION}`"),
     "service worker should pre-cache the same versioned app controller",
   );
 });
@@ -41,12 +41,14 @@ test("keeps the AI chat placeholder compact enough to avoid input scrollbars", (
 });
 
 test("Docker image includes current theme assets and excludes removed LX source bundles", () => {
-  const dockerfile = fs.readFileSync("Dockerfile", "utf8");
+  const dockerfile = fs.readFileSync("deploy/Dockerfile", "utf8");
 
-  assert.match(dockerfile, /homepage-theme\.js/);
-  assert.match(dockerfile, /homepage-layout\.js/);
+  assert.match(dockerfile, /COPY js\/\s+\/usr\/share\/nginx\/html\/js\//);
   assert.match(dockerfile, /COPY themes\/\s+\/usr\/share\/nginx\/html\/themes\//);
+  assert.match(dockerfile, /COPY styles\/\s+\/usr\/share\/nginx\/html\/styles\//);
   assert.doesNotMatch(dockerfile, /lx-sources/);
+  assert.ok(fs.existsSync("js/homepage-theme.js"), "homepage-theme.js ships under js/");
+  assert.ok(fs.existsSync("js/homepage-layout.js"), "homepage-layout.js ships under js/");
 });
 
 test("service worker does not keep unused stale-while-revalidate helper", () => {

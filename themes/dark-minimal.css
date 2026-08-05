@@ -41,3 +41,28 @@ html[data-visual-theme="dark-minimal"] .card:hover {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;
 }
+
+html[data-visual-theme="dark-minimal"] .topbar-btn,
+html[data-visual-theme="dark-minimal"] .chip {
+  border-radius: 8px;
+  box-shadow: none;
+}
+html[data-visual-theme="dark-minimal"] .topbar-btn:hover,
+html[data-visual-theme="dark-minimal"] .chip:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--accent);
+}
+html[data-visual-theme="dark-minimal"] .login-btn,
+html[data-visual-theme="dark-minimal"] .btn-primary,
+html[data-visual-theme="dark-minimal"] .search-form button {
+  border-radius: 8px;
+  box-shadow: none;
+  background: var(--accent);
+}
+html[data-visual-theme="dark-minimal"] .gv-btn.is-active {
+  border-radius: 6px;
+  background: var(--accent);
+  color: #0e1014;
+  box-shadow: none;
+}

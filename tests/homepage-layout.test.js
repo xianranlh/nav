@@ -6,7 +6,7 @@ const {
   createGroupDraft,
   shouldShowGroupTabs,
   buildGroupTabItems,
-} = require("../homepage-layout.js");
+} = require("../js/homepage-layout.js");
 
 test("collects pinned links with their group metadata and a stable limit", () => {
   const groups = [

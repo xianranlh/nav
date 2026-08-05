@@ -8,9 +8,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.20.6" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.20.6" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.20.6" />
+  <link rel="stylesheet" href="styles.css?v=v1.20.7" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.20.7" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.20.7" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -894,7 +894,7 @@
           <input type="file" id="ai-attach-input" multiple accept="image/*,text/*,.json,.html,.md,.csv,.txt" hidden />
         </label>
         <button class="ai-attach-btn voice-btn" id="ai-voice" type="button" title="语音输入（Web Speech API，按一下开始/停止录制）" aria-label="语音输入"><span class="ai-tool-ico">🎙</span><span class="ai-tool-txt">语音</span></button>
-        <textarea id="ai-input" rows="1" placeholder="输入消息，让 AI 帮你整理 / 推荐 / 生成图…" aria-label="输入 AI 对话内容。Enter 发送，Shift+Enter 换行" title="Enter 发送，Shift+Enter 换行"></textarea>
+        <textarea id="ai-input" rows="1" placeholder="输入消息…" aria-label="输入 AI 对话内容。Enter 发送，Shift+Enter 换行" title="Enter 发送，Shift+Enter 换行"></textarea>
         <button id="ai-send" class="btn-primary" title="发送（Enter）"><span class="ai-tool-ico">➤</span><span class="ai-tool-txt">发送</span></button>
         <button id="ai-stop" class="btn-secondary" title="停止当前请求" hidden><span class="ai-tool-ico">■</span><span class="ai-tool-txt">停止</span></button>
       </div>
@@ -1692,13 +1692,13 @@
   </dialog>
 
   <script src="js/homepage-theme.js"></script>
-  <script src="js/dialog.js?v=v1.20.6"></script>
+  <script src="js/dialog.js?v=v1.20.7"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.20.6"></script>
+  <script src="js/ai.js?v=v1.20.7"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
@@ -1716,12 +1716,12 @@
   <script src="js/pet-engine.js"></script>
   <script src="js/pet-widget.js"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.20.6"></script>
-  <script src="js/ui/todo.ui.js?v=v1.20.6"></script>
-  <script src="js/ui/calendar.ui.js?v=v1.20.6"></script>
-  <script src="js/ui/weather.ui.js?v=v1.20.6"></script>
-  <script src="js/ui/sync.ui.js?v=v1.20.6"></script>
-  <script src="js/ui/misc.ui.js?v=v1.20.6"></script>
+  <script src="js/ui/ai.ui.js?v=v1.20.7"></script>
+  <script src="js/ui/todo.ui.js?v=v1.20.7"></script>
+  <script src="js/ui/calendar.ui.js?v=v1.20.7"></script>
+  <script src="js/ui/weather.ui.js?v=v1.20.7"></script>
+  <script src="js/ui/sync.ui.js?v=v1.20.7"></script>
+  <script src="js/ui/misc.ui.js?v=v1.20.7"></script>
   <script>
     // Petrichor 知识库入口：同域 /blog 路由（openresty 反代 → 127.0.0.1:3100）；
     // 可在控制台 localStorage.setItem('sakura_nav_blog_url', 'https://...') 覆盖
@@ -1733,6 +1733,6 @@
       a.href = custom || "/blog";
     })();
   </script>
-  <script src="js/app.js?v=v1.20.6"></script>
+  <script src="js/app.js?v=v1.20.7"></script>
 </body>
 </html>

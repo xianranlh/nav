@@ -59,3 +59,14 @@ html[data-visual-theme="q-anime"] .btn-primary,
 html[data-visual-theme="q-anime"] .btn-secondary {
   border-radius: 999px;
 }
+
+html[data-visual-theme="q-anime"] .topbar-btn,
+html[data-visual-theme="q-anime"] .chip,
+html[data-visual-theme="q-anime"] .login-btn,
+html[data-visual-theme="q-anime"] .btn-primary {
+  border-radius: 999px;
+}
+html[data-visual-theme="q-anime"] .ai-fab,
+html[data-visual-theme="q-anime"] .music-fab {
+  box-shadow: 0 10px 28px rgba(196, 168, 232, 0.4);
+}

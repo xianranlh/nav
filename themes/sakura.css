@@ -10,3 +10,15 @@ html[data-visual-theme="sakura"] .card:hover,
 html:not([data-visual-theme]) .card:hover {
   transform: translateY(-2px);
 }
+
+/* 默认樱粉：主 CTA 与顶栏略提饱和，保持产品识别 */
+html[data-visual-theme="sakura"] .login-btn,
+html:not([data-visual-theme]) .login-btn,
+html[data-visual-theme="sakura"] .search-form button,
+html:not([data-visual-theme]) .search-form button {
+  box-shadow: 0 6px 18px rgba(255, 143, 171, 0.4);
+}
+html[data-visual-theme="sakura"] .topbar-btn:hover,
+html:not([data-visual-theme]) .topbar-btn:hover {
+  color: var(--accent);
+}

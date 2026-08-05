@@ -1088,25 +1088,24 @@ body[data-edit="1"] .card .del {
   gap: 4px;
 }
 
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-/* .dialog-actions → styles/dialogs.css */
+/* 主按钮基础态（完整样式在 styles/dialogs.css 覆盖/补全） */
+.btn-primary {
   border: none;
   padding: 8px 18px;
-  border-radius: 10px;
+  border-radius: 999px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
 }
-.btn-primary:hover { background: var(--accent-2); }
+.btn-primary:hover { filter: brightness(1.04); }
 
 .btn-secondary {
   background: transparent;
   color: var(--text-soft);
   border: 1px solid var(--glass-border);
   padding: 8px 16px;
-  border-radius: 10px;
+  border-radius: 999px;
   cursor: pointer;
 }
 .btn-secondary:hover { color: var(--text); }
@@ -1195,9 +1194,9 @@ body[data-edit="1"] .card .del {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(30, 20, 30, 0.25);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  background: rgba(30, 18, 28, 0.32);
+  backdrop-filter: blur(16px) saturate(1.35);
+  -webkit-backdrop-filter: blur(16px) saturate(1.35);
   animation: fade-in 0.35s ease;
 }
 
@@ -1205,18 +1204,22 @@ body[data-edit="1"] .card .del {
 
 .login-card {
   width: min(380px, calc(100% - 40px));
-  padding: 32px 30px 28px;
+  padding: 34px 30px 30px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   border-radius: var(--radius-lg);
   animation: pop-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset;
 }
 
 .login-logo {
   font-size: 44px;
   text-align: center;
-  filter: drop-shadow(0 4px 8px rgba(255, 143, 171, 0.5));
+  filter: drop-shadow(0 4px 8px rgba(var(--accent-rgb), 0.45));
   animation: float 3.5s ease-in-out infinite;
 }
 
@@ -1224,8 +1227,9 @@ body[data-edit="1"] .card .del {
   margin: 0;
   text-align: center;
   font-size: 22px;
-  font-weight: 600;
-  letter-spacing: 1px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--text);
 }
 
 .login-sub {
@@ -1295,12 +1299,12 @@ body[data-edit="1"] .card .del {
   margin-top: 6px;
   padding: 12px;
   font-size: 15px;
-  letter-spacing: 6px;
-  border-radius: 12px;
+  letter-spacing: 0.28em;
+  border-radius: 999px;
   transition: 0.25s;
-  box-shadow: 0 8px 20px rgba(255, 143, 171, 0.4);
+  box-shadow: 0 8px 20px rgba(var(--accent-rgb), 0.4);
 }
-.login-btn:hover { transform: translateY(-1px); }
+.login-btn:hover { transform: translateY(-1px); filter: brightness(1.03); }
 .login-btn:disabled { opacity: 0.6; cursor: wait; }
 
 @keyframes fade-in {
@@ -2225,7 +2229,17 @@ body.pre-auth #upcoming-card { display: none !important; }
   color: white;
   box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.28);
 }
-.cal-head-right > .chip,
+.cal-head-right > .chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+}
 .cal-head-right > label.chip {
   display: inline-flex;
   align-items: center;
@@ -6826,3 +6840,183 @@ body.has-offline-banner #ai-panel { top: 56px; }
 .user-admin-actions { display: flex; gap: 6px; }
 .user-admin-actions .btn-secondary { padding: 3px 10px; font-size: 12px; }
 .user-admin-actions .btn-secondary.danger { color: #ff6b6b; border-color: rgba(255, 107, 107, 0.4); }
+
+
+/* ============================================================
+ * v1.20.7 全站界面打磨（ui-design + anti-ui-slop）
+ * 产品杠杆：① 樱花玻璃 + accent 层级  ② 主任务优先（搜索/打开链接）
+ * 不新增装饰性模块，只统一触控反馈、对比与次要面板收敛。
+ * ============================================================ */
+
+/* ---- 全局焦点环：触达的交互控件 ---- */
+.chip:focus-visible,
+.icon-btn:focus-visible,
+.engine-tabs button:focus-visible,
+.gv-btn:focus-visible,
+.search-form button:focus-visible,
+.music-fab:focus-visible,
+.ai-fab:focus-visible,
+.login-btn:focus-visible,
+.mini-btn:focus-visible,
+.group-actions button:focus-visible,
+.group-toggle:focus-visible,
+.cal-view-switch .chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- 顶栏：次要工具收敛为统一胶囊，主内容优先 ---- */
+.header-bar {
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+[data-theme="dark"] .header-bar {
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: var(--glass-shadow);
+}
+.greet h1 {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.topbar-btn {
+  border-radius: 999px;
+  height: 32px;
+  padding: 0 11px;
+  background: rgba(255, 255, 255, 0.32);
+  border-color: rgba(var(--accent-rgb), 0.14);
+}
+[data-theme="dark"] .topbar-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.topbar-btn:hover {
+  transform: none;
+  background: rgba(var(--accent-rgb), 0.12);
+}
+.topbar-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- 搜索：主任务强调 ---- */
+.search-box {
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+}
+.search-form {
+  border-color: rgba(var(--accent-rgb), 0.16);
+}
+.engine-tabs button.active {
+  font-weight: 600;
+}
+
+/* ---- 工具栏 chip ---- */
+.chip {
+  border-color: rgba(var(--accent-rgb), 0.14);
+  background: rgba(255, 255, 255, 0.34);
+}
+[data-theme="dark"] .chip {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.chip:hover {
+  transform: none;
+  border-color: rgba(var(--accent-rgb), 0.32);
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+/* ---- 最近/星标/天气/即将到来：卡片层级统一 ---- */
+.starred-card,
+.recent-card,
+.upcoming-card,
+.weather-card {
+  border: 1px solid rgba(var(--accent-rgb), 0.1);
+}
+.starred-card[hidden],
+.recent-card[hidden],
+.upcoming-card[hidden],
+.weather-card[hidden] {
+  display: none !important;
+}
+
+/* ---- 音乐面板：与日历/AI 同族玻璃壳 ---- */
+.music-panel {
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
+  box-shadow: var(--glass-shadow), 0 16px 40px rgba(0, 0, 0, 0.08);
+}
+.music-panel[hidden] { display: none; }
+.music-head {
+  background: linear-gradient(to bottom, rgba(var(--accent-rgb), 0.08), transparent);
+}
+.music-fab {
+  box-shadow: 0 10px 28px rgba(var(--accent-rgb), 0.42);
+}
+.music-fab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---- 提醒事项：侧栏与主区对比 ---- */
+.rem-sidebar {
+  background: rgba(var(--accent-rgb), 0.05);
+  border-right: 1px solid rgba(var(--accent-rgb), 0.1);
+}
+.reminders-dialog form {
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+}
+
+/* ---- Toast / 右键：对比与焦点 ---- */
+.ctx-menu button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  background: var(--accent-soft);
+}
+.toast {
+  background: rgba(42, 24, 36, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+/* ---- 登录按钮：主 CTA ---- */
+.login-btn {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, var(--accent-2)));
+  color: #fff;
+  border: none;
+  letter-spacing: 0.28em;
+  box-shadow: 0 8px 22px rgba(var(--accent-rgb), 0.38);
+}
+.login-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---- 设置折叠节：打开态清晰 ---- */
+.sec {
+  border-radius: 14px;
+  border: 1px solid rgba(var(--accent-rgb), 0.08);
+}
+.sec summary {
+  cursor: pointer;
+  list-style: none;
+}
+.sec summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* ---- 离线横幅可读性 ---- */
+.offline-banner {
+  font-weight: 550;
+  letter-spacing: 0.01em;
+}
+
+/* ---- 页脚热键提示 ---- */
+#footer-hotkey-hint {
+  border-radius: 999px;
+  border: 1px solid rgba(var(--accent-rgb), 0.14);
+  background: rgba(255, 255, 255, 0.35);
+}
+#footer-hotkey-hint:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

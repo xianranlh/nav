@@ -121,7 +121,7 @@ test("settings panel surfaces use theme-driven backgrounds", () => {
 test("visual theme setting uses a select instead of preview cards", () => {
   const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const index = fs.readFileSync("index.html", "utf8");
-  const app = fs.readFileSync("app.js", "utf8");
+  const app = fs.readFileSync("js/app.js", "utf8");
   const selectMarkup = /<select id="set-visual-theme">(?<body>[\s\S]+?)<\/select>/.exec(index)?.groups?.body || "";
 
   assert.match(selectMarkup, /value="sakura"/);
@@ -142,4 +142,64 @@ test("stylesheet no longer carries removed music source search UI selectors", ()
   assert.doesNotMatch(css, /\.msd-/);
   assert.doesNotMatch(css, /\.music-source-list\b/);
   assert.doesNotMatch(css, /\.mt-source-badge\b/);
+});
+
+test("login surface keeps hidden-state safety and focusable primary CTA", () => {
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
+  const index = fs.readFileSync("index.html", "utf8");
+  const overlayHidden = /\.login-overlay\[hidden\]\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
+  const loginBtnFocus = /\.login-btn:focus-visible\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
+
+  assert.match(index, /id="login-overlay"/);
+  assert.match(index, /id="login-form"/);
+  assert.match(overlayHidden, /display:\s*none/);
+  assert.match(loginBtnFocus, /outline:\s*2px\s+solid\s+var\(--accent\)/);
+  assert.match(css, /\.login-card\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(var\(--accent-rgb\)/);
+});
+
+test("toolbar and search keep product hierarchy with accent focus rings", () => {
+  const css = fs.readFileSync("styles.css", "utf8");
+  const topbarFocus = /\.topbar-btn:focus-visible\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
+  const chipFocus = /\.chip:focus-visible,\s*\n\.icon-btn:focus-visible/.exec(css);
+
+  assert.match(topbarFocus, /outline:\s*2px\s+solid\s+var\(--accent\)/);
+  assert.ok(chipFocus, "shared focus-visible list should cover chips and icon buttons");
+  assert.match(css, /\.search-box\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(var\(--accent-rgb\)/);
+  assert.match(css, /\.topbar-btn\s*\{[^}]*border-radius:\s*999px/);
+});
+
+test("dialogs primary actions and AI/music panels obey hidden + focus safety", () => {
+  const css =
+    fs.readFileSync("styles.css", "utf8") +
+    fs.readFileSync("styles/dialogs.css", "utf8") +
+    fs.readFileSync("styles/ai-chat.css", "utf8");
+
+  assert.match(css, /\.btn-primary:focus-visible\s*\{[^}]*outline:\s*2px\s+solid\s+var\(--accent\)/);
+  assert.match(css, /\.btn-secondary:focus-visible\s*\{[^}]*outline:\s*2px\s+solid\s+var\(--accent\)/);
+  assert.match(css, /\.ai-panel\[hidden\]\s*\{\s*display:\s*none/);
+  assert.match(css, /\.music-panel\[hidden\]\s*\{\s*display:\s*none/);
+  assert.match(css, /\.ai-tool-btn:focus-visible\s*\{[^}]*outline:\s*2px\s+solid\s+var\(--accent\)/);
+  assert.match(css, /\.music-fab:focus-visible\s*\{[^}]*outline:\s*2px\s+solid\s+var\(--accent\)/);
+});
+
+test("four visual themes keep accent tokens and product-specific control radii", () => {
+  const sakura = fs.readFileSync("themes/sakura.css", "utf8");
+  const q = fs.readFileSync("themes/q-anime.css", "utf8");
+  const dark = fs.readFileSync("themes/dark-minimal.css", "utf8");
+  const paper = fs.readFileSync("themes/paper.css", "utf8");
+
+  assert.match(sakura, /data-visual-theme="sakura"/);
+  assert.match(q, /--accent:\s*#c4a8e8/);
+  assert.match(dark, /--accent:\s*#8da4c0/);
+  assert.match(paper, /--accent:\s*#b07c4f/);
+  assert.match(q, /\.topbar-btn/);
+  assert.match(dark, /\.gv-btn\.is-active/);
+  assert.match(paper, /\.search-form/);
+});
+
+test("pet page stylesheet exposes focus-visible for primary controls", () => {
+  const css = fs.readFileSync("styles/pet.css", "utf8");
+  assert.match(css, /\.back-link:focus-visible/);
+  assert.match(css, /\.icon-chip:focus-visible/);
+  assert.match(css, /outline:\s*2px\s+solid\s+var\(--pk/);
 });

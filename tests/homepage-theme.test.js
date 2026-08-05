@@ -7,7 +7,7 @@ const {
   getVisualTheme,
   particleModeFromVisualTheme,
   shouldSyncAccent,
-} = require("../homepage-theme.js");
+} = require("../js/homepage-theme.js");
 
 test("registers the four maintained homepage visual themes", () => {
   assert.deepEqual(
@@ -58,7 +58,7 @@ test("applies the visual theme to homepage entry icons", () => {
     },
   };
 
-  const { applyVisualThemeDom } = require("../homepage-theme.js");
+  const { applyVisualThemeDom } = require("../js/homepage-theme.js");
   applyVisualThemeDom(doc, "paper");
 
   assert.equal(nodes[".music-fab-icon"].textContent, "🎼");
