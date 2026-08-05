@@ -411,29 +411,29 @@
         <span class="group-count">${g.links.length} 个</span>
         <div class="group-view" title="查看方式（类似资源管理器）" data-show-cols="${showCols ? "1" : "0"}">
           <div class="group-view-modes" role="group" aria-label="查看方式">
-            <button type="button" class="gv-btn${gv.mode === "icons" ? " is-active" : ""}" data-view-mode="icons" title="图标" aria-label="图标视图" aria-pressed="${gv.mode === "icons" ? "true" : "false"}">▦</button>
-            <button type="button" class="gv-btn${gv.mode === "list" ? " is-active" : ""}" data-view-mode="list" title="列表" aria-label="列表视图" aria-pressed="${gv.mode === "list" ? "true" : "false"}">☰</button>
-            <button type="button" class="gv-btn${gv.mode === "details" ? " is-active" : ""}" data-view-mode="details" title="详细信息" aria-label="详细信息视图" aria-pressed="${gv.mode === "details" ? "true" : "false"}">≣</button>
+            <button type="button" class="gv-btn${gv.mode === "icons" ? " is-active" : ""}" data-view-mode="icons" data-tip="图标视图" aria-label="图标视图" aria-pressed="${gv.mode === "icons" ? "true" : "false"}">▦</button>
+            <button type="button" class="gv-btn${gv.mode === "list" ? " is-active" : ""}" data-view-mode="list" data-tip="列表视图" aria-label="列表视图" aria-pressed="${gv.mode === "list" ? "true" : "false"}">☰</button>
+            <button type="button" class="gv-btn${gv.mode === "details" ? " is-active" : ""}" data-view-mode="details" data-tip="详细信息" aria-label="详细信息视图" aria-pressed="${gv.mode === "details" ? "true" : "false"}">≣</button>
           </div>
           <div class="group-view-sizes" role="group" aria-label="图标大小">
-            <button type="button" class="gv-btn gv-size${gv.size === "sm" ? " is-active" : ""}" data-view-size="sm" title="小" aria-label="小图标" aria-pressed="${gv.size === "sm" ? "true" : "false"}">S</button>
-            <button type="button" class="gv-btn gv-size${gv.size === "md" ? " is-active" : ""}" data-view-size="md" title="中" aria-label="中图标" aria-pressed="${gv.size === "md" ? "true" : "false"}">M</button>
-            <button type="button" class="gv-btn gv-size${gv.size === "lg" ? " is-active" : ""}" data-view-size="lg" title="大" aria-label="大图标" aria-pressed="${gv.size === "lg" ? "true" : "false"}">L</button>
+            <button type="button" class="gv-btn gv-size${gv.size === "sm" ? " is-active" : ""}" data-view-size="sm" data-tip="小图标" aria-label="小图标" aria-pressed="${gv.size === "sm" ? "true" : "false"}">S</button>
+            <button type="button" class="gv-btn gv-size${gv.size === "md" ? " is-active" : ""}" data-view-size="md" data-tip="中图标" aria-label="中图标" aria-pressed="${gv.size === "md" ? "true" : "false"}">M</button>
+            <button type="button" class="gv-btn gv-size${gv.size === "lg" ? " is-active" : ""}" data-view-size="lg" data-tip="大图标" aria-label="大图标" aria-pressed="${gv.size === "lg" ? "true" : "false"}">L</button>
           </div>
           <div class="group-view-cols" role="group" aria-label="列表分栏">
-            <button type="button" class="gv-btn gv-col${gv.cols === "1" ? " is-active" : ""}" data-view-cols="1" title="1 列" aria-label="1 列" aria-pressed="${gv.cols === "1" ? "true" : "false"}">1</button>
-            <button type="button" class="gv-btn gv-col${gv.cols === "2" ? " is-active" : ""}" data-view-cols="2" title="2 列" aria-label="2 列" aria-pressed="${gv.cols === "2" ? "true" : "false"}">2</button>
-            <button type="button" class="gv-btn gv-col${gv.cols === "3" ? " is-active" : ""}" data-view-cols="3" title="3 列" aria-label="3 列" aria-pressed="${gv.cols === "3" ? "true" : "false"}">3</button>
-            <button type="button" class="gv-btn gv-col${gv.cols === "4" ? " is-active" : ""}" data-view-cols="4" title="4 列" aria-label="4 列" aria-pressed="${gv.cols === "4" ? "true" : "false"}">4</button>
-            <button type="button" class="gv-btn gv-col${gv.cols === "auto" ? " is-active" : ""}" data-view-cols="auto" title="自适应分栏" aria-label="自适应分栏" aria-pressed="${gv.cols === "auto" ? "true" : "false"}">自</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "1" ? " is-active" : ""}" data-view-cols="1" data-tip="1 列" aria-label="1 列" aria-pressed="${gv.cols === "1" ? "true" : "false"}">1</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "2" ? " is-active" : ""}" data-view-cols="2" data-tip="2 列" aria-label="2 列" aria-pressed="${gv.cols === "2" ? "true" : "false"}">2</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "3" ? " is-active" : ""}" data-view-cols="3" data-tip="3 列" aria-label="3 列" aria-pressed="${gv.cols === "3" ? "true" : "false"}">3</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "4" ? " is-active" : ""}" data-view-cols="4" data-tip="4 列" aria-label="4 列" aria-pressed="${gv.cols === "4" ? "true" : "false"}">4</button>
+            <button type="button" class="gv-btn gv-col${gv.cols === "auto" ? " is-active" : ""}" data-view-cols="auto" data-tip="自适应分栏" aria-label="自适应分栏" aria-pressed="${gv.cols === "auto" ? "true" : "false"}">自</button>
           </div>
         </div>
         <div class="group-actions">
-          <button type="button" data-act="edit" title="编辑分组（含背景）" aria-label="编辑分组">✏️</button>
-          <button type="button" data-act="color" title="分组颜色" aria-label="分组颜色">🎨</button>
-          <button type="button" data-act="up" title="上移" aria-label="上移分组">↑</button>
-          <button type="button" data-act="down" title="下移" aria-label="下移分组">↓</button>
-          <button type="button" data-act="del" title="删除分组" aria-label="删除分组">✕</button>
+          <button type="button" data-act="edit" data-tip="编辑分组" aria-label="编辑分组">✏️</button>
+          <button type="button" data-act="color" data-tip="分组颜色" aria-label="分组颜色">🎨</button>
+          <button type="button" data-act="up" data-tip="上移分组" aria-label="上移分组">↑</button>
+          <button type="button" data-act="down" data-tip="下移分组" aria-label="下移分组">↓</button>
+          <button type="button" data-act="del" data-tip="删除分组" aria-label="删除分组">✕</button>
         </div>
       </div>
       <div class="cards" data-view="${gv.mode}" data-size="${gv.size}" data-cols="${gv.cols}"></div>
@@ -601,8 +601,8 @@
     del.className = "del";
     del.type = "button";
     del.textContent = "✕";
-    del.title = "删除";
     del.setAttribute("aria-label", "删除此网址");
+    del.setAttribute("data-tip", "删除此网址");
     del.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -619,8 +619,8 @@
     pin.className = "pin" + (link.pinned ? " pinned" : "");
     pin.type = "button";
     pin.textContent = link.pinned ? "★" : "☆";
-    pin.title = link.pinned ? "取消置顶" : "置顶";
     pin.setAttribute("aria-label", link.pinned ? "取消置顶" : "置顶");
+    pin.setAttribute("data-tip", link.pinned ? "取消置顶" : "置顶");
     pin.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();

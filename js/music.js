@@ -779,6 +779,7 @@
       if (playBtn) {
         playBtn.innerHTML = playing ? ICO_PAUSE : ICO_PLAY;
         playBtn.setAttribute("aria-label", playing ? "暂停" : "播放");
+        playBtn.setAttribute("data-tip", playing ? "暂停" : "播放");
       }
       $("#music-title").textContent = t ? t.name : "— 没有歌曲 —";
       $("#music-meta").textContent = t
@@ -793,8 +794,9 @@
       lb.classList.toggle("active", Music.data.loop !== "none");
       lb.dataset.mode = Music.data.loop;
       lb.innerHTML = Music.data.loop === "one" ? ICO_LOOP_ONE : ICO_LOOP;
-      lb.title = { none: "关闭循环", all: "列表循环", one: "单曲循环" }[Music.data.loop];
-      lb.setAttribute("aria-label", lb.title);
+      const loopTip = { none: "关闭循环", all: "列表循环", one: "单曲循环" }[Music.data.loop];
+      lb.setAttribute("aria-label", loopTip);
+      lb.setAttribute("data-tip", loopTip);
 
       const list = $("#music-list");
       const allTracks = Music.data.tracks;

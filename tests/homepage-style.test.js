@@ -341,3 +341,14 @@ test("AI panel two-row head layout is structured and not a single wrapping toolb
   assert.match(css, /\.ai-head-toolbar\s*\{/);
   assert.match(css, /\.ai-input-row\s*\{[^}]*grid-template-columns:\s*auto\s+auto\s+minmax\(0,\s*1fr\)\s+auto/);
 });
+
+
+test("data-tip Chinese hover tooltips exist for icon controls", () => {
+  const index = fs.readFileSync("index.html", "utf8");
+  const css = fs.readFileSync("styles.css", "utf8");
+  assert.match(index, /data-tip="刷新模型列表"/);
+  assert.match(index, /data-tip="发送（Enter）"/);
+  assert.match(index, /data-tip="播放 \/ 暂停"/);
+  assert.match(css, /\[data-tip\]::after/);
+  assert.match(css, /content:\s*attr\(data-tip\)/);
+});

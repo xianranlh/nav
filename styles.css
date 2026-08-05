@@ -7566,3 +7566,189 @@ h1, h2, h3, .greet h1, .dialog-header h3, .music-title {
 @media (prefers-reduced-motion: reduce) {
   .group-tabs { will-change: auto; }
 }
+
+/* ============================================================
+ * v1.21.6 悬停中文提示（data-tip）
+ * 比原生 title 更快显示，且样式统一
+ * ============================================================ */
+[data-tip] {
+  position: relative;
+}
+[data-tip]::after,
+[data-tip]::before {
+  position: absolute;
+  z-index: 2000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  transform: translate(-50%, 4px);
+}
+[data-tip]::after {
+  content: attr(data-tip);
+  left: 50%;
+  top: calc(100% + 8px);
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgba(32, 22, 30, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  max-width: min(240px, 70vw);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  letter-spacing: 0.02em;
+}
+[data-tip]::before {
+  content: "";
+  left: 50%;
+  top: calc(100% + 2px);
+  border: 5px solid transparent;
+  border-bottom-color: rgba(32, 22, 30, 0.92);
+  transform: translate(-50%, 4px);
+}
+[data-tip]:hover::after,
+[data-tip]:hover::before,
+[data-tip]:focus-visible::after,
+[data-tip]:focus-visible::before {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+/* 贴右边缘时提示靠右，避免被裁切 */
+.ai-head-primary [data-tip]:last-child::after,
+.ai-close-btn[data-tip]::after,
+.music-close-btn[data-tip]::after,
+.rem-close[data-tip]::after {
+  left: auto;
+  right: 0;
+  transform: translate(0, 4px);
+}
+.ai-head-primary [data-tip]:last-child:hover::after,
+.ai-close-btn[data-tip]:hover::after,
+.music-close-btn[data-tip]:hover::after,
+.rem-close[data-tip]:hover::after,
+.ai-head-primary [data-tip]:last-child:focus-visible::after,
+.ai-close-btn[data-tip]:focus-visible::after,
+.music-close-btn[data-tip]:focus-visible::after,
+.rem-close[data-tip]:focus-visible::after {
+  transform: translate(0, 0);
+}
+.ai-head-primary [data-tip]:last-child::before,
+.ai-close-btn[data-tip]::before,
+.music-close-btn[data-tip]::before,
+.rem-close[data-tip]::before {
+  left: auto;
+  right: 10px;
+  transform: translate(0, 4px);
+}
+.ai-head-primary [data-tip]:last-child:hover::before,
+.ai-close-btn[data-tip]:hover::before,
+.music-close-btn[data-tip]:hover::before,
+.rem-close[data-tip]:hover::before,
+.ai-head-primary [data-tip]:last-child:focus-visible::before,
+.ai-close-btn[data-tip]:focus-visible::before,
+.music-close-btn[data-tip]:focus-visible::before,
+.rem-close[data-tip]:focus-visible::before {
+  transform: translate(0, 0);
+}
+/* 面板 overflow 会裁切：顶栏提示改向下，并提高 head 层级 */
+.ai-head,
+.music-head,
+.reminders-shell {
+  overflow: visible;
+  z-index: 2;
+}
+.ai-panel,
+.music-panel {
+  /* 保留 hidden 裁切，但允许 tip 溢出到消息区（仍在面板内） */
+  overflow: hidden;
+}
+/* 底部输入区提示改向上 */
+.ai-foot [data-tip]::after {
+  top: auto;
+  bottom: calc(100% + 8px);
+  transform: translate(-50%, -4px);
+}
+.ai-foot [data-tip]::before {
+  top: auto;
+  bottom: calc(100% + 0px);
+  border-bottom-color: transparent;
+  border-top-color: rgba(32, 22, 30, 0.92);
+  transform: translate(-50%, -4px);
+}
+.ai-foot [data-tip]:hover::after,
+.ai-foot [data-tip]:focus-visible::after {
+  transform: translate(-50%, 0);
+}
+.ai-foot [data-tip]:hover::before,
+.ai-foot [data-tip]:focus-visible::before {
+  transform: translate(-50%, 0);
+}
+.music-controls [data-tip]::after {
+  top: auto;
+  bottom: calc(100% + 8px);
+  transform: translate(-50%, -4px);
+}
+.music-controls [data-tip]::before {
+  top: auto;
+  bottom: calc(100% + 0px);
+  border-bottom-color: transparent;
+  border-top-color: rgba(32, 22, 30, 0.92);
+  transform: translate(-50%, -4px);
+}
+.music-controls [data-tip]:hover::after,
+.music-controls [data-tip]:focus-visible::after {
+  transform: translate(-50%, 0);
+}
+.music-controls [data-tip]:hover::before,
+.music-controls [data-tip]:focus-visible::before {
+  transform: translate(-50%, 0);
+}
+/* FAB：提示在上方 */
+.ai-fab[data-tip]::after,
+.music-fab[data-tip]::after {
+  top: auto;
+  bottom: calc(100% + 10px);
+  transform: translate(-50%, -4px);
+}
+.ai-fab[data-tip]::before,
+.music-fab[data-tip]::before {
+  top: auto;
+  bottom: calc(100% + 2px);
+  border-bottom-color: transparent;
+  border-top-color: rgba(32, 22, 30, 0.92);
+  transform: translate(-50%, -4px);
+}
+.ai-fab[data-tip]:hover::after,
+.music-fab[data-tip]:hover::after,
+.ai-fab[data-tip]:focus-visible::after,
+.music-fab[data-tip]:focus-visible::after {
+  transform: translate(-50%, 0);
+}
+.ai-fab[data-tip]:hover::before,
+.music-fab[data-tip]:hover::before,
+.ai-fab[data-tip]:focus-visible::before,
+.music-fab[data-tip]:focus-visible::before {
+  transform: translate(-50%, 0);
+}
+[data-theme="dark"] [data-tip]::after {
+  background: rgba(18, 14, 22, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] [data-tip]::before {
+  border-bottom-color: rgba(18, 14, 22, 0.95);
+}
+[data-theme="dark"] .ai-foot [data-tip]::before,
+[data-theme="dark"] .music-controls [data-tip]::before,
+[data-theme="dark"] .ai-fab[data-tip]::before,
+[data-theme="dark"] .music-fab[data-tip]::before {
+  border-bottom-color: transparent;
+  border-top-color: rgba(18, 14, 22, 0.95);
+}
+@media (hover: none) {
+  /* 触屏无悬停：不显示 tip 气泡，依赖长按系统/聚焦 */
+  [data-tip]:hover::after,
+  [data-tip]:hover::before { opacity: 0; }
+  [data-tip]:focus-visible::after,
+  [data-tip]:focus-visible::before { opacity: 1; }
+}
