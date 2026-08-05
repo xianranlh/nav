@@ -203,3 +203,19 @@ test("pet page stylesheet exposes focus-visible for primary controls", () => {
   assert.match(css, /\.icon-chip:focus-visible/);
   assert.match(css, /outline:\s*2px\s+solid\s+var\(--pk/);
 });
+
+
+test("homepage shell uses responsive app gap tokens and toolbar grid", () => {
+  const css = fs.readFileSync("styles.css", "utf8");
+  const appBlock = /\.app\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
+  const toolbarBlock = /\.toolbar\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
+  const topRowBlock = /\.top-row\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
+  const calBodyBlock = /\.cal-body\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
+
+  assert.match(appBlock, /--app-gap:/);
+  assert.match(appBlock, /gap:\s*var\(--app-gap\)/);
+  assert.match(toolbarBlock, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/);
+  assert.match(topRowBlock, /grid-template-columns:\s*repeat\(auto-fit/);
+  assert.match(calBodyBlock, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.filter-wrap\s*\{[^}]*flex:\s*1\s+1\s+180px/);
+});

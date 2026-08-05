@@ -174,14 +174,18 @@ body.has-bg {
 
 /* ===================== 主容器 ===================== */
 .app {
+  --app-gap: 16px;
+  --app-pad-x: clamp(14px, 2.4vw, 28px);
+  --app-pad-y: clamp(18px, 3vw, 32px);
   position: relative;
   z-index: 1;
+  width: min(1280px, 100%);
   max-width: 1280px;
   margin: 0 auto;
-  padding: 40px 28px 80px;
+  padding: var(--app-pad-y) var(--app-pad-x) 72px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: var(--app-gap);
 }
 
 /* ===================== 玻璃材质 ===================== */
@@ -199,9 +203,12 @@ body.has-bg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22px 28px;
-  gap: 20px;
+  padding: clamp(14px, 2vw, 20px) clamp(16px, 2.2vw, 26px);
+  gap: 16px 24px;
+  min-width: 0;
 }
+.header-bar .greet { min-width: 0; flex: 1 1 auto; }
+.header-bar .clock { flex: 0 0 auto; }
 
 .greet h1 {
   margin: 0;
@@ -253,13 +260,14 @@ body.has-bg {
   opacity: 0.78;
 }
 
-/* ===================== 搜索 ===================== */
+/* ===================== 搜索（主任务区，略提权重） ===================== */
 .search-box {
-  padding: 16px 22px 18px;
+  padding: 14px clamp(14px, 2vw, 22px) 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   transition: box-shadow 0.35s ease, border-color 0.35s ease;
+  order: 0;
 }
 .search-box:focus-within {
   box-shadow: 0 8px 34px rgba(var(--accent-rgb), 0.22),
@@ -357,20 +365,32 @@ body.has-bg {
 }
 .search-form button:active { transform: scale(0.94); }
 
-/* ===================== 工具栏 ===================== */
+/* ===================== 工具栏（编辑操作 | 过滤 | 面板入口） ===================== */
 .toolbar {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 0 6px;
+  gap: 10px 14px;
+  padding: 2px 2px;
+  min-width: 0;
 }
 
 .toolbar-left, .toolbar-right {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+}
+.toolbar-left { justify-content: flex-start; }
+.toolbar-right { justify-content: flex-end; }
+
+@media (max-width: 960px) {
+  .toolbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .toolbar-right { justify-content: flex-start; }
 }
 
 .chip {
@@ -409,18 +429,26 @@ body.has-bg {
 }
 
 /* ===================== 分组 ===================== */
-.groups { display: flex; flex-direction: column; gap: 22px; }
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
 
 .group {
-  padding: 18px 22px 22px;
+  padding: 14px clamp(12px, 1.6vw, 20px) 16px;
+  min-width: 0;
 }
 
 .group-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 12px;
+  min-width: 0;
 }
+.group-head .group-name { flex: 1 1 auto; min-width: 0; }
 
 .group-dot {
   width: 10px;
@@ -1178,12 +1206,25 @@ body[data-edit="1"] .card .del {
 
 /* ===================== 响应式 ===================== */
 @media (max-width: 640px) {
-  .app { padding: 20px 14px 60px; }
-  .header-bar { flex-direction: column; text-align: center; align-items: center; }
+  .app {
+    --app-gap: 12px;
+    --app-pad-x: 12px;
+    --app-pad-y: 14px;
+    padding-bottom: 72px;
+  }
+  .header-bar {
+    flex-direction: column;
+    text-align: center;
+    align-items: center;
+    gap: 10px;
+  }
   .clock { text-align: center; }
   #clock-time { font-size: 26px; }
   .greet h1 { font-size: 22px; }
   :root { --card-size: 82px; --gap: 12px; }
+  .filter-wrap { max-width: none; flex: 1 1 100%; }
+  .toolbar-left { width: 100%; }
+  .group-head { row-gap: 6px; }
 }
 
 /* ===================== 登录层 ===================== */
@@ -1352,7 +1393,10 @@ body.pre-auth #upcoming-card { display: none !important; }
   position: relative;
   display: inline-flex;
   align-items: center;
-  margin-left: 6px;
+  margin-left: 4px;
+  flex: 1 1 180px;
+  min-width: 140px;
+  max-width: 280px;
 }
 
 .filter-input {
@@ -1365,8 +1409,9 @@ body.pre-auth #upcoming-card { display: none !important; }
   border-radius: 999px;
   font-size: 13px;
   outline: none;
-  width: 200px;
-  transition: width 0.3s ease, background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  width: 100%;
+  min-width: 0;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 [data-theme="dark"] .filter-input {
   background: rgba(255, 255, 255, 0.08);
@@ -1376,7 +1421,6 @@ body.pre-auth #upcoming-card { display: none !important; }
   border-color: rgba(var(--accent-rgb), 0.55);
   background: rgba(255, 255, 255, 0.55);
   box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.12);
-  width: 260px;
 }
 [data-theme="dark"] .filter-input:focus { background: rgba(255, 255, 255, 0.14); }
 .filter-input::placeholder {
@@ -2118,8 +2162,8 @@ body.pre-auth #upcoming-card { display: none !important; }
 
 /* ===================== 首页"即将到来"卡片 ===================== */
 .upcoming-card {
-  padding: 14px 18px;
-  margin-bottom: 18px;
+  padding: 12px 16px;
+  margin: 0;
   border-radius: var(--radius-lg);
 }
 .upcoming-card[hidden] { display: none; }
@@ -2171,7 +2215,7 @@ body.pre-auth #upcoming-card { display: none !important; }
   position: fixed;
   inset: 0;
   z-index: 700;
-  padding: 24px;
+  padding: clamp(10px, 1.8vw, 20px);
   background: rgba(255, 241, 246, 0.7);
   backdrop-filter: blur(24px) saturate(1.3);
   -webkit-backdrop-filter: blur(24px) saturate(1.3);
@@ -2179,6 +2223,7 @@ body.pre-auth #upcoming-card { display: none !important; }
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  gap: 8px;
   /* 防止内部滚到边界时把滚动事件穿透到主页 body */
   overscroll-behavior: contain;
 }
@@ -2271,20 +2316,22 @@ body.pre-auth #upcoming-card { display: none !important; }
 .cal-body {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 12px;
   min-height: 0;
 }
+.cal-body > * { min-width: 0; min-height: 0; }
 @media (max-width: 900px) {
   .cal-body {
     grid-template-columns: 1fr;
     overflow-y: auto;
-    padding-right: 4px;
+    padding-right: 2px;
+    gap: 10px;
   }
   .cal-month-view {
     min-height: calc(6 * var(--cal-cell-min-height) + 5 * 6px + 50px);
   }
-  .cal-day-panel { max-height: 40vh; }
+  .cal-day-panel { max-height: 38vh; }
 }
 
 /* 月视图 */
@@ -2744,17 +2791,27 @@ body.pre-auth #upcoming-card { display: none !important; }
   margin-right: 4px;
 }
 
-/* ===================== 顶部并列双栏 ===================== */
+/* ===================== 顶部并列（星标 / 最近 / 天气） ===================== */
 .top-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
   align-items: stretch;
 }
-.top-row > section { margin: 0 !important; }
+.top-row > section {
+  margin: 0 !important;
+  min-height: 0;
+  height: 100%;
+}
 .top-row:has(#starred-card[hidden]):has(#recent-card[hidden]):has(#weather-card[hidden]) { display: none; }
 @media (max-width: 900px) {
-  .top-row { grid-template-columns: 1fr; }
+  .top-row { grid-template-columns: 1fr; gap: 10px; }
+}
+@media (min-width: 1100px) {
+  /* 宽屏：三卡均分，避免某一列过宽 */
+  .top-row:not(:has(> [hidden])):has(> :nth-child(3)) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* ===================== 天气卡 ===================== */
@@ -4118,7 +4175,7 @@ html[data-hero-mode="hidden"] .header-bar .clock {
   display: flex;
   gap: 6px;
   padding: 8px 12px;
-  margin: 8px 0 12px;
+  margin: 0 0 4px;
   border-radius: var(--radius-md);
   overflow-x: auto;
   scroll-behavior: smooth;
@@ -4127,6 +4184,8 @@ html[data-hero-mode="hidden"] .header-bar .clock {
   top: 8px;
   z-index: 50;
   scrollbar-width: none;
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
 }
 .group-tabs[hidden] { display: none; }
 .group-tabs::-webkit-scrollbar { display: none; }
@@ -7019,4 +7078,37 @@ body.has-offline-banner #ai-panel { top: 56px; }
 #footer-hotkey-hint:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+
+/* ===== v1.20.8 layout rhythm ===== */
+.cal-count-bar { margin: 0 0 4px; }
+.cal-month-view,
+.cal-day-panel,
+.cal-list-view,
+.cal-stats-view { min-width: 0; }
+.recent-grid {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  max-height: 200px;
+}
+.cards {
+  min-width: 0;
+}
+/* 列表多栏时行高更紧，主任务扫读更快 */
+.cards[data-view="list"] { gap: 4px 8px; }
+.cards[data-view="details"] { gap: 6px 10px; }
+
+@media (min-width: 1400px) {
+  .app { max-width: 1360px; }
+}
+
+@media (max-width: 480px) {
+  .toolbar-right .topbar-txt { display: none; }
+  .toolbar-right .topbar-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .search-form input { font-size: 16px; } /* 避免 iOS 缩放 */
 }
