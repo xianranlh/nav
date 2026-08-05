@@ -8,9 +8,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.21.1" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.21.1" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.21.1" />
+  <link rel="stylesheet" href="styles.css?v=v1.21.2" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.21.2" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.21.2" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -77,7 +77,7 @@
           id="search-input"
           placeholder="搜索书签或网页…"
           spellcheck="false"
-        />
+        / autocomplete="off">
         <button type="submit" aria-label="搜索">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
         </button>
@@ -100,7 +100,7 @@
         </div>
         <button type="button" class="chip" id="btn-import-json">导入 JSON</button>
         <div class="filter-wrap">
-          <input id="filter-input" class="filter-input" placeholder="过滤已添加网址…" aria-label="过滤已添加网址" />
+          <input id="filter-input" class="filter-input" placeholder="过滤已添加网址…" aria-label="过滤已添加网址" / autocomplete="off" spellcheck="false">
           <button type="button" id="filter-clear" class="filter-clear" hidden title="清除" aria-label="清除过滤">✕</button>
         </div>
       </div>
@@ -187,16 +187,16 @@
 
       <div class="dialog-body">
         <!-- 简化版：默认只显示 网址 + 名称 + 分组 这三项；其余字段折叠在"更多设置"里 -->
-        <label>网址 <input name="url" type="url" required placeholder="https://..." autocomplete="off" /></label>
-        <label>名称 <input name="name" maxlength="60" placeholder="留空自动用网页标题" /></label>
+        <label>网址 <input name="url" type="url" required placeholder="https://…" autocomplete="off" /></label>
+        <label>名称 <input name="name" maxlength="60" placeholder="留空自动用网页标题" / autocomplete="off"></label>
         <div class="link-group-field">
           <label for="link-group-select">所属分组</label>
           <div class="input-with-btn">
-            <select name="groupId" id="link-group-select"></select>
+            <select name="groupId" id="link-group-select" autocomplete="off"></select>
             <button type="button" class="btn-secondary btn-inline" id="link-new-group-toggle">+ 新建</button>
           </div>
           <div class="inline-group-create" id="link-inline-group" hidden>
-            <input type="text" id="link-inline-group-name" maxlength="30" placeholder="新分组名称" />
+            <input type="text" id="link-inline-group-name" maxlength="30" placeholder="新分组名称" / autocomplete="off">
             <input type="color" id="link-inline-group-color" value="#f6a5c0" title="分组颜色" />
             <button type="button" class="btn-primary btn-inline" id="link-inline-group-save">创建并选中</button>
             <button type="button" class="btn-secondary btn-inline" id="link-inline-group-cancel">取消</button>
@@ -212,7 +212,7 @@
                 <span class="icon-picker-placeholder">AUTO</span>
               </div>
               <div class="icon-picker-controls">
-                <input name="icon" id="icon-url-input" placeholder="图标 URL / data URL" />
+                <input name="icon" id="icon-url-input" placeholder="图标 URL / data URL" / autocomplete="url">
                 <div class="icon-picker-actions">
                   <label class="mini-btn" title="从本地选择图片">
                     📁 本地图片
@@ -223,7 +223,7 @@
               </div>
             </div>
           </label>
-          <label>描述备注 <input name="desc" maxlength="80" placeholder="可选，一句话介绍..." /></label>
+          <label>描述备注 <input name="desc" maxlength="80" placeholder="可选，一句话介绍…" / autocomplete="off"></label>
 
           <details class="sec bg-editor" data-target="link">
             <summary>🖼 卡片背景媒体</summary>
@@ -234,7 +234,7 @@
               </div>
               <div class="bg-editor-controls">
                 <div class="input-with-btn">
-                  <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" />
+                  <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" / autocomplete="off">
                   <label class="btn-secondary btn-inline">
                     📁 本地
                     <input type="file" data-bg-file accept="image/*,video/*" hidden />
@@ -276,7 +276,7 @@
 
       <div class="dialog-body">
         <div class="field-grid">
-          <label>名称 <input name="name" required maxlength="30" placeholder="给分组起个名字..." /></label>
+          <label>名称 <input name="name" required maxlength="30" placeholder="给分组起个名字…" / autocomplete="off"></label>
           <label>颜色 <input name="color" type="color" value="#f6a5c0" /></label>
         </div>
 
@@ -289,7 +289,7 @@
             </div>
             <div class="bg-editor-controls">
               <div class="input-with-btn">
-                <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" />
+                <input type="text" data-bg-url placeholder="URL (http:// / /api/media/)" / autocomplete="off">
                 <label class="btn-secondary btn-inline">
                   📁 本地
                   <input type="file" data-bg-file accept="image/*,video/*" hidden />
@@ -369,7 +369,7 @@
           <ul id="user-admin-list" class="user-admin-list"></ul>
           <form id="form-user-add" autocomplete="off">
             <label>新用户名
-              <input type="text" id="user-add-name" maxlength="64" spellcheck="false" required />
+              <input type="text" id="user-add-name" maxlength="64" spellcheck="false" required / autocomplete="off">
             </label>
             <label>密码（至少 4 个字符）
               <input type="password" id="user-add-pass" autocomplete="new-password" required />
@@ -395,14 +395,14 @@
         <details class="sec">
           <summary>🎨 外观定制</summary>
           <label class="row">主题模式
-            <select id="set-theme">
+            <select id="set-theme" autocomplete="off">
               <option value="auto">跟随系统</option>
               <option value="light">亮色</option>
               <option value="dark">暗色</option>
             </select>
           </label>
           <label class="row">视觉风格
-            <select id="set-visual-theme">
+            <select id="set-visual-theme" autocomplete="off">
               <option value="sakura">樱粉</option>
               <option value="q-anime">Q 版二次元</option>
               <option value="dark-minimal">暗夜极简</option>
@@ -414,21 +414,21 @@
             <button type="button" id="set-accent-reset" class="mini-btn">重置</button>
           </label>
           <label class="row">全局字号
-            <select id="set-fontsize">
+            <select id="set-fontsize" autocomplete="off">
               <option value="small">小</option>
               <option value="normal" selected>中</option>
               <option value="large">大</option>
             </select>
           </label>
           <label class="row">界面圆角
-            <select id="set-radius">
+            <select id="set-radius" autocomplete="off">
               <option value="square">方正</option>
               <option value="normal" selected>适中</option>
               <option value="rounded">圆润</option>
             </select>
           </label>
           <label class="row">卡片密度
-            <select id="set-density">
+            <select id="set-density" autocomplete="off">
               <option value="compact">紧凑</option>
               <option value="normal" selected>常规</option>
               <option value="cozy">宽松</option>
@@ -436,21 +436,21 @@
             </select>
           </label>
           <label class="row">分组默认查看方式
-            <select id="set-default-group-view">
+            <select id="set-default-group-view" autocomplete="off">
               <option value="icons" selected>图标</option>
               <option value="list">列表</option>
               <option value="details">详细信息</option>
             </select>
           </label>
           <label class="row">分组默认缩略图大小
-            <select id="set-default-group-view-size">
+            <select id="set-default-group-view-size" autocomplete="off">
               <option value="sm">小</option>
               <option value="md" selected>中</option>
               <option value="lg">大</option>
             </select>
           </label>
           <label class="row">列表/详细默认分栏
-            <select id="set-default-group-view-cols">
+            <select id="set-default-group-view-cols" autocomplete="off">
               <option value="1" selected>1 列</option>
               <option value="2">2 列</option>
               <option value="3">3 列</option>
@@ -477,7 +477,7 @@
         <details class="sec">
           <summary>🖼️ 页面背景</summary>
           <label class="row">背景模式
-            <select id="set-bg-mode">
+            <select id="set-bg-mode" autocomplete="off">
               <option value="gradient">默认渐变</option>
               <option value="upload">🎞 本地上传（图片 / GIF / 视频）</option>
               <option value="single">单张图片 / 视频 URL</option>
@@ -505,14 +505,14 @@
 
           <div class="bg-panel" data-when="single">
             <label>图片 / 视频 URL
-              <input id="set-bg-single" placeholder="https://..." />
+              <input id="set-bg-single" placeholder="https://…" / autocomplete="url">
             </label>
             <p class="hint">支持图片直链或视频文件链接。</p>
           </div>
 
           <div class="bg-panel" data-when="rotate">
             <label>图片 URL 列表（每行一个）
-              <textarea id="set-bg-list" rows="4" placeholder="https://..."></textarea>
+              <textarea id="set-bg-list" rows="4" placeholder="https://…" autocomplete="off"></textarea>
             </label>
             <label class="row">切换间隔 (秒)
               <input type="range" id="set-bg-interval" min="10" max="600" step="5" />
@@ -523,7 +523,7 @@
 
           <div class="bg-panel" data-when="random">
             <label>随机图 API URL
-              <input id="set-bg-random" placeholder="https://..." />
+              <input id="set-bg-random" placeholder="https://…" / autocomplete="url">
             </label>
             <label class="row">刷新间隔 (秒)
               <input type="range" id="set-bg-interval2" min="10" max="600" step="5" />
@@ -558,7 +558,7 @@
         <details class="sec">
           <summary>🧩 桌面组件</summary>
           <label class="row">Hero 区显示
-            <select id="set-hero-mode">
+            <select id="set-hero-mode" autocomplete="off">
               <option value="expanded">展开</option>
               <option value="compact">紧凑</option>
               <option value="hidden">隐藏</option>
@@ -567,7 +567,7 @@
           <label class="row"><input type="checkbox" id="set-show-clock" /> 显示时钟</label>
           <label class="row"><input type="checkbox" id="set-show-hitokoto" /> 显示"一言"</label>
           <label class="row">一言分类
-            <select id="set-hitokoto-cat">
+            <select id="set-hitokoto-cat" autocomplete="off">
               <option value="a">动画</option>
               <option value="b">漫画</option>
               <option value="c">游戏</option>
@@ -605,7 +605,7 @@
           <div class="city-search-wrap">
             <label class="settings-field-label">
               添加城市
-              <input type="text" id="weather-city-search" placeholder="输入城市名称..." autocomplete="off" />
+              <input type="text" id="weather-city-search" placeholder="输入城市名称…" autocomplete="off" />
             </label>
             <div class="city-search-results" id="weather-city-results" hidden></div>
           </div>
@@ -644,7 +644,7 @@
           <h4 class="settings-section-title">☁ 第三方云端同步</h4>
           <label class="row row-block">
             <span class="settings-field-name">同步后端</span>
-            <select id="sync-backend" class="settings-select-wide">
+            <select id="sync-backend" class="settings-select-wide" autocomplete="off">
               <option value="off">关闭</option>
               <option value="webdav">WebDAV</option>
               <option value="gist">GitHub Gist</option>
@@ -653,12 +653,12 @@
 
           <form id="form-sync-webdav" autocomplete="on">
             <div id="sync-webdav-conf">
-              <label class="row row-block">URL <input type="url" id="sync-webdav-url" /></label>
+              <label class="row row-block">URL <input type="url" id="sync-webdav-url" / autocomplete="url"></label>
               <div class="settings-inline-pair">
                 <label class="row row-block">用户 <input type="text" id="sync-webdav-user" autocomplete="username" /></label>
                 <label class="row row-block">密码 <input type="password" id="sync-webdav-pass" autocomplete="current-password" /></label>
               </div>
-              <label class="row row-block">路径 <input type="text" id="sync-webdav-path" placeholder="sakura-nav.json" /></label>
+              <label class="row row-block">路径 <input type="text" id="sync-webdav-path" placeholder="sakura-nav.json" / autocomplete="off"></label>
               <div class="settings-btn-row">
                 <button type="submit" class="btn-primary" id="btn-sync-save-webdav">保存 WebDAV 配置</button>
               </div>
@@ -667,8 +667,8 @@
 
           <form id="form-sync-gist" autocomplete="on">
             <div id="sync-gist-conf" hidden>
-              <label class="row row-block">Token <input type="password" id="sync-gist-token" placeholder="ghp_..." autocomplete="off" /></label>
-              <label class="row row-block">Gist ID <input type="text" id="sync-gist-id" placeholder="如：a1b2c3d4e5..." autocomplete="off" /></label>
+              <label class="row row-block">Token <input type="password" id="sync-gist-token" placeholder="ghp_…" autocomplete="off" /></label>
+              <label class="row row-block">Gist ID <input type="text" id="sync-gist-id" placeholder="如：a1b2c3d4e5…" autocomplete="off" /></label>
               <label class="row row-block">文件名 <input type="text" id="sync-gist-file" placeholder="sakura-nav.json" autocomplete="off" /></label>
               <div class="settings-btn-row">
                 <button type="submit" class="btn-primary" id="btn-sync-save-gist">保存 Gist 配置</button>
@@ -805,13 +805,13 @@
       <h3>🌐 在线导入音乐</h3>
       <label>音频直链 URL
         <input name="url" type="url" required
-          placeholder="https://example.com/song.mp3（支持 mp3 / m4a / aac / ogg / wav / flac）" />
+          placeholder="https://example.com/song.mp3（支持 mp3 / m4a / aac / ogg / wav / flac）" / autocomplete="url">
       </label>
       <label>显示名称（可选）
-        <input name="name" maxlength="120" placeholder="留空将取文件名" />
+        <input name="name" maxlength="120" placeholder="留空将取文件名" / autocomplete="off">
       </label>
       <label>歌词 LRC 文本（可选，直接粘贴）
-        <textarea name="lrc" rows="3" placeholder="[00:12.00]第一行歌词&#10;[00:15.00]第二行歌词"></textarea>
+        <textarea name="lrc" rows="3" placeholder="[00:12.00]第一行歌词&#10;[00:15.00]第二行歌词" autocomplete="off"></textarea>
       </label>
       <p class="hint">
         · 远程 URL 需音频服务器允许跨域播放（CORS），否则浏览器可能无法缓冲。<br>
@@ -833,7 +833,7 @@
       </p>
       <label>LRC 文本
         <textarea name="lrc" rows="14" spellcheck="false"
-          placeholder="[00:09.360]第一行&#10;[00:10.410]第二行"></textarea>
+          placeholder="[00:09.360]第一行&#10;[00:10.410]第二行" autocomplete="off"></textarea>
       </label>
       <input type="file" id="music-lrc-file-input" accept=".lrc,text/plain" hidden />
       <div class="dialog-actions">
@@ -854,10 +854,10 @@
     <header class="ai-head">
       <div class="ai-head-left">
         <span class="ai-logo ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.4 2.2 1.6 4 3.5 5.2C13.6 9.4 12.4 11.2 12 13.5 11.6 11.2 10.4 9.4 8.5 8.2 10.4 7 11.6 5.2 12 3Z"/><path d="M5 14.5c.3 1.4 1 2.5 2.2 3.3C6 18.6 5.3 19.7 5 21.2c-.3-1.5-1-2.6-2.2-3.4C4 17 4.7 15.9 5 14.5Z"/><path d="M19 14.5c.3 1.4 1 2.5 2.2 3.3C20 18.6 19.3 19.7 19 21.2c-.3-1.5-1-2.6-2.2-3.4 1.2-.8 1.9-1.9 2.2-3.3Z"/></svg></span>
-        <select id="ai-persona-select" title="角色"></select>
+        <select id="ai-persona-select" title="角色" autocomplete="off"></select>
       </div>
       <div class="ai-head-right">
-        <select id="ai-model-select" title="模型（每条选项前的 ✓/❄/⚠/· 表示最近一次状态）"></select>
+        <select id="ai-model-select" title="模型（每条选项前的 ✓/❄/⚠/· 表示最近一次状态）" autocomplete="off"></select>
         <div class="ai-head-group" role="group" aria-label="模型操作">
           <button type="button" class="ai-tool-btn" id="ai-refresh-models" title="重新拉取这个供应商的模型列表" aria-label="重新拉取这个供应商的模型列表"><span class="ai-tool-ico ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></span><span class="ai-tool-txt">刷新</span></button>
           <button type="button" class="ai-tool-btn" id="ai-find-model" title="逐个发 1-token 探针自动找一个能用的模型" aria-label="逐个发 1-token 探针自动找一个能用的模型"><span class="ai-tool-ico ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><span class="ai-tool-txt">探测</span></button>
@@ -895,7 +895,7 @@
           <input type="file" id="ai-attach-input" multiple accept="image/*,text/*,.json,.html,.md,.csv,.txt" hidden />
         </label>
         <button class="ai-attach-btn voice-btn" id="ai-voice" type="button" title="语音输入（Web Speech API，按一下开始/停止录制）" aria-label="语音输入"><span class="ai-tool-ico ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></span><span class="ai-tool-txt">语音</span></button>
-        <textarea id="ai-input" rows="1" placeholder="输入消息…" aria-label="输入 AI 对话内容。Enter 发送，Shift+Enter 换行" title="Enter 发送，Shift+Enter 换行"></textarea>
+        <textarea id="ai-input" rows="1" placeholder="输入消息…" aria-label="输入 AI 对话内容。Enter 发送，Shift+Enter 换行" title="Enter 发送，Shift+Enter 换行" autocomplete="off"></textarea>
         <button type="button" id="ai-send" class="btn-primary ai-send-btn" title="发送（Enter）" aria-label="发送"><span class="ai-tool-ico ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></span><span class="ai-tool-txt">发送</span></button>
         <button type="button" id="ai-stop" class="btn-secondary ai-stop-btn" title="停止当前请求" hidden aria-label="停止"><span class="ai-tool-ico ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></span><span class="ai-tool-txt">停止</span></button>
       </div>
@@ -939,7 +939,7 @@
           <summary>🪪 个人签名 / 附加上下文</summary>
           <div class="sec-body">
             <p class="hint">此信息将自动附加在每次对话的系统提示词（System Prompt）末尾。</p>
-            <textarea id="ai-signature" rows="4" placeholder="例：我是前端开发、偏好使用中文等..."></textarea>
+            <textarea id="ai-signature" rows="4" placeholder="例：我是前端开发、偏好使用中文等…" autocomplete="off"></textarea>
           </div>
         </details>
 
@@ -976,7 +976,7 @@
       <div class="dialog-body">
         <label>名称 <input name="name" required placeholder="如：OpenAI / 我的 Kimi" autocomplete="organization" /></label>
         <label>Base URL <input name="baseUrl" type="url" required placeholder="https://api.openai.com/v1" autocomplete="url" /></label>
-        <label>API Key <input name="apiKey" type="password" placeholder="sk-..." autocomplete="current-password" /></label>
+        <label>API Key <input name="apiKey" type="password" placeholder="sk-…" autocomplete="current-password" /></label>
         <label class="provider-proxy-row">
           <input name="disableProxy" type="checkbox" />
           <span>禁用本机反代，浏览器直连上游<small class="hint">默认会自动走本机 <code>/api/ai-proxy/*</code> 转发以绕过浏览器 CORS / 524 拦截。仅在你的上游本身已经返回正确 CORS 头、不希望多一跳时才勾选此项。</small></span>
@@ -1029,7 +1029,7 @@
           <div data-mode-only="debate" class="council-mode-row" hidden>
             <label class="council-field">
               <span>主持人（综合 / 反驳第二轮）</span>
-              <select id="council-moderator">
+              <select id="council-moderator" autocomplete="off">
                 <option value="">并行综合（每个代理各自综合一次）</option>
               </select>
             </label>
@@ -1038,11 +1038,11 @@
           <div data-mode-only="roundtable" class="council-mode-row" hidden>
             <label class="council-field">
               <span>轮数</span>
-              <input type="number" id="council-rounds" min="1" max="3" value="1" />
+              <input type="number" id="council-rounds" min="1" max="3" value="1" / autocomplete="off">
             </label>
             <label class="council-field">
               <span>顺序</span>
-              <select id="council-order">
+              <select id="council-order" autocomplete="off">
                 <option value="configured">按配置顺序</option>
                 <option value="random">每次随机</option>
               </select>
@@ -1064,7 +1064,7 @@
           </div>
           <label class="council-field council-concurrency">
             <span>并发上限</span>
-            <input type="number" id="council-concurrency" min="1" max="16" value="4" />
+            <input type="number" id="council-concurrency" min="1" max="16" value="4" / autocomplete="off">
             <span class="council-tip-inline">同一时刻最多多少成员在飞（防止被供应商限速）</span>
           </label>
           <div id="council-members-list" class="council-members-list"></div>
@@ -1087,7 +1087,7 @@
       </div>
       <div class="dialog-body">
         <div class="sessions-toolbar">
-          <input type="search" id="sessions-search" placeholder="搜索会话标题或消息内容…" />
+          <input type="search" id="sessions-search" placeholder="搜索会话标题或消息内容…" / autocomplete="off">
           <button type="button" class="mini-btn" id="sessions-new">+ 新建会话</button>
         </div>
         <div id="sessions-list" class="sessions-list"></div>
@@ -1126,16 +1126,16 @@
             <p class="gen-ref-hint" id="gen-ref-empty">把图片拖到这里，或点「+ 添加参考图」。也可在「图库」标签页点某张图的 🎨 送进来。</p>
           </div>
 
-          <textarea id="gen-prompt" class="gen-prompt" rows="3" placeholder="描述要生成的图片…（Ctrl/⌘ + Enter 生成）"></textarea>
+          <textarea id="gen-prompt" class="gen-prompt" rows="3" placeholder="描述要生成的图片…（Ctrl/⌘ + Enter 生成）" autocomplete="off"></textarea>
 
           <div class="gen-config">
-            <label class="gen-field"><span>供应商</span><select id="gen-provider"></select></label>
+            <label class="gen-field"><span>供应商</span><select id="gen-provider" autocomplete="off"></select></label>
             <label class="gen-field gen-field-model"><span>模型</span>
               <input type="text" id="gen-model" list="gen-model-list" placeholder="如 gpt-image-1 / dall-e-3" autocomplete="off" />
               <datalist id="gen-model-list"></datalist>
             </label>
             <label class="gen-field gen-field-api"><span>API 模式</span>
-              <select id="gen-api-mode">
+              <select id="gen-api-mode" autocomplete="off">
                 <option value="images">Images · 标准（兼容）</option>
                 <option value="responses">Responses · SSE 保活（防 524）</option>
               </select>
@@ -1148,17 +1148,17 @@
                 <option value="claude-3-5-sonnet"></option><option value="claude-sonnet-4-5"></option>
               </datalist>
             </label>
-            <label class="gen-field"><span>尺寸</span><select id="gen-size"></select></label>
+            <label class="gen-field"><span>尺寸</span><select id="gen-size" autocomplete="off"></select></label>
             <label class="gen-field gen-field-custom" id="gen-custom-field" hidden><span>自定义</span>
               <span class="gen-custom-row">
-                <input id="gen-custom-w" type="number" min="64" step="8" placeholder="宽" />
+                <input id="gen-custom-w" type="number" min="64" step="8" placeholder="宽" / autocomplete="off">
                 <em>×</em>
-                <input id="gen-custom-h" type="number" min="64" step="8" placeholder="高" />
+                <input id="gen-custom-h" type="number" min="64" step="8" placeholder="高" / autocomplete="off">
               </span>
             </label>
-            <label class="gen-field"><span>质量</span><select id="gen-quality"></select></label>
+            <label class="gen-field"><span>质量</span><select id="gen-quality" autocomplete="off"></select></label>
             <label class="gen-field"><span>张数</span>
-              <select id="gen-count">
+              <select id="gen-count" autocomplete="off">
                 <option>1</option><option>2</option><option>3</option><option>4</option>
                 <option>5</option><option>6</option><option>7</option><option>8</option>
               </select>
@@ -1183,7 +1183,7 @@
             <button type="button" class="gallery-filter" data-filter="uploaded" role="tab" aria-selected="false">上传</button>
             <button type="button" class="gallery-filter" data-filter="favorite" role="tab" aria-selected="false">⭐ 收藏</button>
           </div>
-          <input type="search" id="gallery-search" placeholder="搜索 prompt / 文件名 / 模型…" />
+          <input type="search" id="gallery-search" placeholder="搜索 prompt / 文件名 / 模型…" / autocomplete="off">
           <button type="button" class="mini-btn" id="gallery-select-toggle" title="进入选择模式：勾选若干张当作背景轮询" aria-label="进入选择模式：勾选若干张当作背景轮询">☑ 选择</button>
           <button type="button" class="mini-btn gallery-danger" id="gallery-clear" title="清空整个图库" aria-label="清空整个图库">清空</button>
         </div>
@@ -1198,7 +1198,7 @@
             </label>
             <label class="gallery-sel-interval" title="背景切换间隔（秒）">
               <span>间隔</span>
-              <input type="number" id="gallery-bg-interval" min="5" max="3600" step="5" value="60" />
+              <input type="number" id="gallery-bg-interval" min="5" max="3600" step="5" value="60" / autocomplete="url">
               <span>s</span>
             </label>
             <button type="button" class="mini-btn primary" id="gallery-use-bg" title="把选中的图作为桌面背景，按设定间隔轮播" aria-label="把选中的图作为桌面背景，按设定间隔轮播">🖼 用作背景</button>
@@ -1213,7 +1213,7 @@
           <!-- 预设：保存当前选择为命名预设，或一键加载历史预设 -->
           <div class="gallery-selbar-row gallery-selbar-row-presets">
             <span class="gallery-preset-label">📦 预设：</span>
-            <select id="gallery-preset-select" title="加载已保存的图集预设">
+            <select id="gallery-preset-select" title="加载已保存的图集预设" autocomplete="off">
               <option value="">— 选择预设 —</option>
             </select>
             <button type="button" class="mini-btn" id="gallery-preset-load" title="把所选预设加载到选择列表 + 直接应用为背景" aria-label="把所选预设加载到选择列表 + 直接应用为背景">加载</button>
@@ -1303,9 +1303,9 @@
         <button type="button" class="close-btn" data-close title="关闭" aria-label="关闭">&times;</button>
       </div>
       <div class="dialog-body">
-        <label>名称（显示用） <input name="name" required placeholder="给角色起个名字" /></label>
+        <label>名称（显示用） <input name="name" required placeholder="给角色起个名字" / autocomplete="off"></label>
         <label>System Prompt（可以很长）
-          <textarea name="prompt" rows="8" required placeholder="描述 AI 该扮演的角色..."></textarea>
+          <textarea name="prompt" rows="8" required placeholder="描述 AI 该扮演的角色…" autocomplete="off"></textarea>
         </label>
       </div>
       <div class="dialog-actions">
@@ -1439,14 +1439,14 @@
           </div>
         </label>
         <label>备注（可选）
-          <textarea name="desc" rows="2" placeholder="位置、备注、链接..."></textarea>
+          <textarea name="desc" rows="2" placeholder="位置、备注、链接…" autocomplete="off"></textarea>
         </label>
 
         <div class="row-2">
-          <label>开始日期 <input type="date" name="date" required /></label>
+          <label>开始日期 <input type="date" name="date" required / autocomplete="off"></label>
           <label class="col-time">时间
             <div class="task-time-row">
-              <input type="time" name="time" />
+              <input type="time" name="time" / autocomplete="off">
               <label class="task-allday"><input type="checkbox" name="allDay" /><span>全天</span></label>
             </div>
           </label>
@@ -1466,7 +1466,7 @@
         <fieldset class="repeat-box">
           <legend>重复</legend>
           <label>
-            <select name="repeatType">
+            <select name="repeatType" autocomplete="off">
               <option value="none">不重复</option>
               <option value="daily">每天</option>
               <option value="weekly">每周</option>
@@ -1475,7 +1475,7 @@
             </select>
           </label>
           <label class="repeat-interval" hidden>每
-            <input type="number" name="interval" min="1" max="99" value="1" />
+            <input type="number" name="interval" min="1" max="99" value="1" / autocomplete="off">
             <span id="interval-unit">天</span>
           </label>
           <div class="weekdays-picker" hidden>
@@ -1487,11 +1487,11 @@
             <label><input type="checkbox" name="wd" value="5" /><span>五</span></label>
             <label><input type="checkbox" name="wd" value="6" /><span>六</span></label>
           </div>
-          <label class="repeat-until">结束日期（可选） <input type="date" name="until" /></label>
+          <label class="repeat-until">结束日期（可选） <input type="date" name="until" / autocomplete="off"></label>
         </fieldset>
 
         <label>提前提醒
-          <select name="remindBefore">
+          <select name="remindBefore" autocomplete="off">
             <option value="0">不提醒</option>
             <option value="5">提前 5 分钟</option>
             <option value="15">提前 15 分钟</option>
@@ -1560,7 +1560,7 @@
           </div>
           <div class="rem-search">
             <span class="rem-search-icon">🔍</span>
-            <input type="search" id="rem-search" placeholder="搜索" />
+            <input type="search" id="rem-search" placeholder="搜索" / autocomplete="off">
           </div>
 
           <div class="rem-smart-grid" id="rem-smart-grid"></div>
@@ -1598,7 +1598,7 @@
 
           <div class="rem-add-row">
             <span class="rem-add-plus">+</span>
-            <input type="text" id="rem-add-input" placeholder="添加提醒事项..." maxlength="200" />
+            <input type="text" id="rem-add-input" placeholder="添加提醒事项…" maxlength="200" / autocomplete="off">
           </div>
 
           <div class="rem-items" id="rem-items"></div>
@@ -1652,7 +1652,7 @@
         <p class="rem-ai-tip">描述一句话目标，AI 会帮你拆成一个列表 + 多条提醒（自动加 emoji / 颜色 / 优先级）。</p>
         <label class="rem-ai-field">
           <span>你想做什么？</span>
-          <textarea id="rem-ai-prompt" rows="3" placeholder="例：下周去日本出差 3 天要准备什么 / 周末和闺蜜出去玩需要安排什么 / 准备读完《深度工作》整理一份学习计划"></textarea>
+          <textarea id="rem-ai-prompt" rows="3" placeholder="例：下周去日本出差 3 天要准备什么 / 周末和闺蜜出去玩需要安排什么 / 准备读完《深度工作》整理一份学习计划" autocomplete="off"></textarea>
         </label>
         <div class="rem-ai-examples">
           <span class="rem-ai-chip" data-prompt="下周一搬家需要准备的所有事情">📦 搬家清单</span>
@@ -1677,8 +1677,8 @@
         <button type="button" class="close-btn" data-close title="关闭" aria-label="关闭">&times;</button>
       </div>
       <div class="dialog-body">
-        <label>列表名 <input name="name" required maxlength="30" placeholder="如：购物、工作、阅读..." /></label>
-        <label>Emoji <input name="emoji" maxlength="4" placeholder="🌸" /></label>
+        <label>列表名 <input name="name" required maxlength="30" placeholder="如：购物、工作、阅读…" / autocomplete="off"></label>
+        <label>Emoji <input name="emoji" maxlength="4" placeholder="🌸" / autocomplete="off"></label>
         <label>颜色
           <div class="rem-list-colors" id="rem-list-colors"></div>
           <input type="hidden" name="color" />
@@ -1693,13 +1693,13 @@
   </dialog>
 
   <script src="js/homepage-theme.js"></script>
-  <script src="js/dialog.js?v=v1.21.1"></script>
+  <script src="js/dialog.js?v=v1.21.2"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.21.1"></script>
+  <script src="js/ai.js?v=v1.21.2"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
@@ -1717,12 +1717,12 @@
   <script src="js/pet-engine.js"></script>
   <script src="js/pet-widget.js"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.21.1"></script>
-  <script src="js/ui/todo.ui.js?v=v1.21.1"></script>
-  <script src="js/ui/calendar.ui.js?v=v1.21.1"></script>
-  <script src="js/ui/weather.ui.js?v=v1.21.1"></script>
-  <script src="js/ui/sync.ui.js?v=v1.21.1"></script>
-  <script src="js/ui/misc.ui.js?v=v1.21.1"></script>
+  <script src="js/ui/ai.ui.js?v=v1.21.2"></script>
+  <script src="js/ui/todo.ui.js?v=v1.21.2"></script>
+  <script src="js/ui/calendar.ui.js?v=v1.21.2"></script>
+  <script src="js/ui/weather.ui.js?v=v1.21.2"></script>
+  <script src="js/ui/sync.ui.js?v=v1.21.2"></script>
+  <script src="js/ui/misc.ui.js?v=v1.21.2"></script>
   <script>
     // Petrichor 知识库入口：同域 /blog 路由（openresty 反代 → 127.0.0.1:3100）；
     // 可在控制台 localStorage.setItem('sakura_nav_blog_url', 'https://...') 覆盖
@@ -1734,6 +1734,6 @@
       a.href = custom || "/blog";
     })();
   </script>
-  <script src="js/app.js?v=v1.21.1"></script>
+  <script src="js/app.js?v=v1.21.2"></script>
 </body>
 </html>

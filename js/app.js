@@ -2770,7 +2770,11 @@
   // ===================== 顶部按钮 =====================
   $("#btn-add").addEventListener("click", () => openLinkDialog(null));
   $("#btn-add-group").addEventListener("click", () => openGroupDialog(null));
-  $("#btn-settings").addEventListener("click", () => { bindSettings(); Dlg.open(dlgSettings); });
+  $("#btn-settings").addEventListener("click", () => {
+    bindSettings();
+    Dlg.open(dlgSettings);
+    if (typeof PanelRouter !== "undefined") PanelRouter.set("settings");
+  });
   $("#btn-import").addEventListener("click", () => {
     pendingImportGroups = null;
     importFileInput.value = "";
@@ -3127,6 +3131,8 @@
     if (typeof UISuggest !== "undefined") UISuggest.init();
     if (typeof UIRecent !== "undefined") UIRecent.init();
     if (typeof UIStarred !== "undefined") UIStarred.init();
+    // URL 面板状态（Web Interface Guidelines：可深链的主要面板）
+    if (typeof PanelRouter !== "undefined") PanelRouter.init();
 
     // 自动同步：劫持 save
     if (window.SyncUtils) {
@@ -3167,6 +3173,87 @@
   window.render = render;
   window.toast = toast;
 
+  // ===================== 面板 URL 路由（#panel=ai|music|calendar|settings）=====================
+  const PanelRouter = (() => {
+    const KEY = "panel";
+    let suppress = false;
+
+    function read() {
+      try {
+        const h = (location.hash || "").replace(/^#/, "");
+        if (!h) return "";
+        // support #panel=ai and legacy #ai
+        if (h.startsWith("panel=")) return decodeURIComponent(h.slice(6).split("&")[0] || "");
+        if (["ai", "music", "calendar", "settings"].includes(h)) return h;
+        const sp = new URLSearchParams(h.includes("=") ? h : "");
+        return sp.get(KEY) || "";
+      } catch (_) {
+        return "";
+      }
+    }
+
+    function write(name) {
+      suppress = true;
+      try {
+        const next = name ? `#panel=${encodeURIComponent(name)}` : "#";
+        if ((location.hash || "") !== next && (location.hash || "#") !== (name ? next : "")) {
+          history.replaceState(null, "", name ? next : (location.pathname + location.search));
+        }
+      } catch (_) {}
+      // release on next tick so hashchange from us is ignored
+      setTimeout(() => { suppress = false; }, 0);
+    }
+
+    function set(name) {
+      write(name || "");
+    }
+
+    function clearIf(name) {
+      if (read() === name) write("");
+    }
+
+    function apply(name) {
+      const n = name || read();
+      if (!n) return;
+      suppress = true;
+      try {
+        if (n === "ai" && window.UIAI?.open) window.UIAI.open();
+        else if (n === "music" && window.MusicUI?.show) window.MusicUI.show();
+        else if (n === "calendar" && window.UICal?.open) window.UICal.open();
+        else if (n === "settings") {
+          const dlg = document.getElementById("dialog-settings");
+          if (dlg && window.Dlg) {
+            try { bindSettings(); } catch (_) {}
+            Dlg.open(dlg);
+          }
+        }
+      } catch (e) {
+        console.debug("[PanelRouter] apply failed", e);
+      } finally {
+        setTimeout(() => { suppress = false; }, 0);
+      }
+    }
+
+    function init() {
+      window.addEventListener("hashchange", () => {
+        if (suppress) return;
+        const n = read();
+        if (!n) return;
+        apply(n);
+      });
+      // deep-link after UI factories ready
+      const n = read();
+      if (n) setTimeout(() => apply(n), 0);
+
+      // settings dialog close clears hash (open path sets via set("settings"))
+      document.getElementById("dialog-settings")?.addEventListener("close", () => clearIf("settings"));
+      document.getElementById("dialog-settings")?.addEventListener("dialog:closed", () => clearIf("settings"));
+    }
+
+    return { init, set, clearIf, apply, read };
+  })();
+  window.PanelRouter = PanelRouter;
+
   /** 依赖注入上下文：供拆分到 js/ui/*.ui.js 的 UI 工厂使用的共享闭包依赖。
    *  各 UI 工厂由本文件按原有顺序实例化（const UIXxx = window.XxxUIFactory(UIContext)）。 */
   const UIContext = {
@@ -3177,12 +3264,27 @@
   };
 
   // ===================== AI 模块 UI（已拆分至 js/ui/ai.ui.js：聊天/茶话会/归档图库/AI设置） =====================
-  window.AIUIFactory(UIContext);
+  const { UIAI, UIArchive } = window.AIUIFactory(UIContext) || {};
+  if (UIAI) {
+    const _aiOpen = UIAI.open?.bind(UIAI);
+    const _aiClose = UIAI.close?.bind(UIAI);
+    if (_aiOpen) UIAI.open = () => { _aiOpen(); window.PanelRouter?.set("ai"); };
+    if (_aiClose) UIAI.close = () => { _aiClose(); window.PanelRouter?.clearIf("ai"); };
+    window.UIAI = UIAI;
+  }
+  if (UIArchive) window.UIArchive = UIArchive;
   // ===================== ✅ 提醒事项 UI（已拆分至 js/ui/todo.ui.js） =====================
   const UITodo = window.TodoUIFactory(UIContext);
 
   // ===================== 日历 UI + 任务编辑器（已拆分至 js/ui/calendar.ui.js） =====================
   const UICal = window.CalendarUIFactory(UIContext);
+  if (UICal) {
+    const _cOpen = UICal.open?.bind(UICal);
+    const _cClose = UICal.close?.bind(UICal);
+    if (_cOpen) UICal.open = () => { _cOpen(); window.PanelRouter?.set("calendar"); };
+    if (_cClose) UICal.close = () => { _cClose(); window.PanelRouter?.clearIf("calendar"); };
+    window.UICal = UICal;
+  }
   // ===================== 天气 UI（已拆分至 js/ui/weather.ui.js） =====================
   const UIWeather = window.WeatherUIFactory(UIContext);
 

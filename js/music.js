@@ -758,11 +758,13 @@
       this.render();
       this.renderLyrics();
       this.startVisualizer();
+      try { window.PanelRouter?.set("music"); } catch (_) {}
     },
     hide() {
       $("#music-panel").hidden = true;
       $("#music-fab").classList.remove("active");
       this.stopVisualizer();
+      try { window.PanelRouter?.clearIf("music"); } catch (_) {}
     },
 
     render() {

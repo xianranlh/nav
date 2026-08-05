@@ -122,7 +122,7 @@ test("visual theme setting uses a select instead of preview cards", () => {
   const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
   const index = fs.readFileSync("index.html", "utf8");
   const app = fs.readFileSync("js/app.js", "utf8");
-  const selectMarkup = /<select id="set-visual-theme">(?<body>[\s\S]+?)<\/select>/.exec(index)?.groups?.body || "";
+  const selectMarkup = /<select id="set-visual-theme"[^>]*>(?<body>[\s\S]+?)<\/select>/.exec(index)?.groups?.body || "";
 
   assert.match(selectMarkup, /value="sakura"/);
   assert.match(selectMarkup, /value="q-anime"/);
@@ -283,4 +283,29 @@ test("aria-modal dialogs and toast live region (guidelines pass 2)", () => {
   assert.match(dialog, /focusable/);
   assert.match(app, /setAttribute\("aria-label", "删除此网址"\)/);
   assert.match(app, /aria-pressed/);
+});
+
+
+test("form controls declare autocomplete and placeholders use ellipsis", () => {
+  const index = fs.readFileSync("index.html", "utf8");
+  const inputs = index.match(/<input\b[^>]*>/g) || [];
+  const need = inputs.filter((i) =>
+    !/type="(hidden|file|checkbox|radio|range|color)"/.test(i)
+  );
+  const missing = need.filter((i) => !/autocomplete=/.test(i));
+  assert.equal(missing.length, 0, "text-like inputs need autocomplete: " + missing.slice(0, 3).join(" | "));
+  assert.doesNotMatch(index, /placeholder="[^"]*\.\.\./);
+  assert.match(index, /placeholder="[^"]*…/);
+});
+
+test("PanelRouter deep-link helpers exist for main panels", () => {
+  const app = fs.readFileSync("js/app.js", "utf8");
+  const music = fs.readFileSync("js/music.js", "utf8");
+  assert.match(app, /const PanelRouter/);
+  assert.match(app, /#panel=/);
+  assert.match(app, /window\.PanelRouter/);
+  assert.match(app, /window\.UIAI/);
+  assert.match(app, /window\.UICal/);
+  assert.match(music, /PanelRouter\?\.set\("music"\)/);
+  assert.match(music, /PanelRouter\?\.clearIf\("music"\)/);
 });
