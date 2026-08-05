@@ -806,19 +806,23 @@
           <small>支持 mp3 · m4a · flac · wav · ogg · aac · opus</small>
         </li>`;
       } else {
+        const noteIco = `<span class="ui-ico mt-playing" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>`;
+        const linkIco = `<span class="ui-ico mt-kind" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>`;
+        const lrcIco = `<span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>`;
+        const delIco = `<span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span>`;
         list.innerHTML = allTracks.map((t, i) => {
           const active = i === Music.data.current;
           const isUrl = t.kind === "url";
           const sizeLabel = isUrl ? "在线" : fmtSize(t.size);
-          return `<li class="music-track${active ? " active" : ""}" data-tid="${t.id}">
-            <div class="mt-num">${active && playing ? "🎵" : i + 1}</div>
+          return `<li class="music-track${active ? " active" : ""}${active && playing ? " is-playing" : ""}" data-tid="${t.id}">
+            <div class="mt-num">${active && playing ? noteIco : (i + 1)}</div>
             <div class="mt-main">
-              <div class="mt-name">${isUrl ? "🌐 " : ""}${escapeHtml(t.name)}</div>
-              <div class="mt-sub">${sizeLabel}${t.duration ? ` · ${fmtTime(t.duration)}` : ""}${t.lrc ? " · 🎤" : ""}</div>
+              <div class="mt-name">${isUrl ? linkIco + " " : ""}${escapeHtml(t.name)}</div>
+              <div class="mt-sub">${sizeLabel}${t.duration ? ` · ${fmtTime(t.duration)}` : ""}${t.lrc ? " · 歌词" : ""}</div>
             </div>
             <div class="mt-actions">
-              <button data-act="lrc" title="绑定歌词（粘贴 LRC 文本或 .lrc 文件）">📝</button>
-              <button data-act="del" title="移除">✕</button>
+              <button data-act="lrc" title="绑定歌词（粘贴 LRC 文本或 .lrc 文件）" aria-label="绑定歌词">${lrcIco}</button>
+              <button data-act="del" title="移除" aria-label="移除">${delIco}</button>
             </div>
           </li>`;
         }).join("");
