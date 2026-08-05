@@ -323,3 +323,21 @@ test("unsaved-changes guard and inputmode (guidelines pass 4)", () => {
   assert.match(dialog, /submitCloseGuard|data-guard-unsaved|GUARD/);
   assert.match(dialog, /serializeForm/);
 });
+
+
+test("AI panel two-row head layout is structured and not a single wrapping toolbar", () => {
+  const index = fs.readFileSync("index.html", "utf8");
+  const css = fs.readFileSync("styles/ai-chat.css", "utf8");
+  assert.match(index, /class="ai-head-primary"/);
+  assert.match(index, /class="ai-head-toolbar"/);
+  assert.match(index, /id="ai-persona-select"/);
+  assert.match(index, /id="ai-model-select"/);
+  assert.match(index, /id="ai-close"/);
+  // close lives in primary row, tools in toolbar
+  const primary = /ai-head-primary[\s\S]*?ai-head-toolbar/.exec(index);
+  assert.ok(primary, "primary row should precede toolbar");
+  assert.match(primary[0], /ai-close/);
+  assert.match(css, /\.ai-head-primary\s*\{[^}]*grid-template-columns/);
+  assert.match(css, /\.ai-head-toolbar\s*\{/);
+  assert.match(css, /\.ai-input-row\s*\{[^}]*grid-template-columns:\s*auto\s+auto\s+minmax\(0,\s*1fr\)\s+auto/);
+});
