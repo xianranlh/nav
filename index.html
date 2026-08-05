@@ -8,9 +8,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.20.5" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.20.5" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.20.5" />
+  <link rel="stylesheet" href="styles.css?v=v1.20.6" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.20.6" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.20.6" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -1342,24 +1342,25 @@
       </div>
     </header>
 
-    <!-- 完成计数条：任意视图可见 -->
-    <div id="cal-count-bar" class="cal-count-bar glass" aria-live="polite">
+    <!-- 完成节奏条：紧贴日历顶栏，避免「通用 KPI 仪表盘」观感 -->
+    <div id="cal-count-bar" class="cal-count-bar" aria-live="polite">
       <div class="cal-count-item" title="最近 7 天（含今天）已完成的任务次数">
         <span class="cal-count-label">近一周</span>
-        <span class="cal-count-value"><span id="cal-count-week">0</span> 次</span>
-        <span class="cal-count-sub" id="cal-count-week-sub">0 / 0 计划</span>
+        <strong class="cal-count-value"><span id="cal-count-week">0</span></strong>
+        <span class="cal-count-unit">次</span>
+        <span class="cal-count-sub" id="cal-count-week-sub">—</span>
       </div>
-      <div class="cal-count-sep" aria-hidden="true"></div>
       <div class="cal-count-item" title="历史累计完成次数（含单次完成与重复任务的每次打卡）">
         <span class="cal-count-label">累计</span>
-        <span class="cal-count-value"><span id="cal-count-total">0</span> 次</span>
-        <span class="cal-count-sub" id="cal-count-total-sub">0 个任务</span>
+        <strong class="cal-count-value"><span id="cal-count-total">0</span></strong>
+        <span class="cal-count-unit">次</span>
+        <span class="cal-count-sub" id="cal-count-total-sub">—</span>
       </div>
-      <div class="cal-count-sep" aria-hidden="true"></div>
-      <div class="cal-count-item" title="连续每天有任务且全部完成的天数">
-        <span class="cal-count-label">连续打卡</span>
-        <span class="cal-count-value"><span id="cal-count-streak">0</span> 天</span>
-        <span class="cal-count-sub">🔥 保持节奏</span>
+      <div class="cal-count-item cal-count-item--streak" title="连续每天有任务且全部完成的天数">
+        <span class="cal-count-label">连续</span>
+        <strong class="cal-count-value"><span id="cal-count-streak">0</span></strong>
+        <span class="cal-count-unit">天</span>
+        <span class="cal-count-sub" id="cal-count-streak-sub">有任务的日子</span>
       </div>
     </div>
 
@@ -1401,7 +1402,7 @@
           <div class="stat-tile">
             <div class="stat-label">连续打卡</div>
             <div class="stat-value"><span id="stat-streak">0</span> 天</div>
-            <div class="stat-sub">🔥 别断！</div>
+            <div class="stat-sub">有任务且全部完成的连续天数</div>
           </div>
         </div>
         <div class="stats-chart-wrap">
@@ -1691,13 +1692,13 @@
   </dialog>
 
   <script src="js/homepage-theme.js"></script>
-  <script src="js/dialog.js?v=v1.20.5"></script>
+  <script src="js/dialog.js?v=v1.20.6"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.20.5"></script>
+  <script src="js/ai.js?v=v1.20.6"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
@@ -1715,12 +1716,12 @@
   <script src="js/pet-engine.js"></script>
   <script src="js/pet-widget.js"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.20.5"></script>
-  <script src="js/ui/todo.ui.js?v=v1.20.5"></script>
-  <script src="js/ui/calendar.ui.js?v=v1.20.5"></script>
-  <script src="js/ui/weather.ui.js?v=v1.20.5"></script>
-  <script src="js/ui/sync.ui.js?v=v1.20.5"></script>
-  <script src="js/ui/misc.ui.js?v=v1.20.5"></script>
+  <script src="js/ui/ai.ui.js?v=v1.20.6"></script>
+  <script src="js/ui/todo.ui.js?v=v1.20.6"></script>
+  <script src="js/ui/calendar.ui.js?v=v1.20.6"></script>
+  <script src="js/ui/weather.ui.js?v=v1.20.6"></script>
+  <script src="js/ui/sync.ui.js?v=v1.20.6"></script>
+  <script src="js/ui/misc.ui.js?v=v1.20.6"></script>
   <script>
     // Petrichor 知识库入口：同域 /blog 路由（openresty 反代 → 127.0.0.1:3100）；
     // 可在控制台 localStorage.setItem('sakura_nav_blog_url', 'https://...') 覆盖
@@ -1732,6 +1733,6 @@
       a.href = custom || "/blog";
     })();
   </script>
-  <script src="js/app.js?v=v1.20.5"></script>
+  <script src="js/app.js?v=v1.20.6"></script>
 </body>
 </html>

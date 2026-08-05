@@ -62,11 +62,15 @@
       if (weekSub) {
         const t = s.last7?.total ?? 0;
         const r = Math.round((s.last7?.ratio || 0) * 100);
-        weekSub.textContent = t ? `计划 ${t} · 完成率 ${r}%` : "暂无已过期任务";
+        weekSub.textContent = t ? `完成率 ${r}%` : "暂无";
       }
       if (totalEl) totalEl.textContent = String(s.totalCompleted ?? 0);
       if (totalSub) totalSub.textContent = `${s.totalTasks ?? 0} 个任务`;
       if (streakEl) streakEl.textContent = String(s.streak ?? 0);
+      const streakSub = $("#cal-count-streak-sub");
+      if (streakSub) {
+        streakSub.textContent = (s.streak ?? 0) > 0 ? "保持中" : "从今天开始";
+      }
     }
 
     function renderWeekdays() {
