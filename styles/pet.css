@@ -336,27 +336,52 @@ body.night .pe-sprite { filter: brightness(0.88); }
   padding: 0;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 16px 48px rgba(74, 59, 82, 0.2);
   color: var(--ink);
-  max-width: min(400px, calc(100vw - 32px));
-  width: 100%;
+  /* 勿用 width:100%：会顶满 max-width，再叠加 UA 的 dialog 边距/overflow 易出现多余滚动条 */
+  width: min(360px, calc(100vw - 32px));
+  max-width: min(360px, calc(100vw - 32px));
+  max-height: min(90vh, 100%);
+  /* 浏览器 UA 对 <dialog> 默认 overflow:auto，短弹窗也常出现空白滚动条 */
+  overflow: hidden;
+  box-sizing: border-box;
 }
 .pet-dialog::backdrop {
   background: rgba(40, 30, 50, 0.35);
 }
+/* 改名：内容很少，禁止滚动条 */
+#dlg-rename {
+  overflow: hidden;
+  height: fit-content;
+}
+#dlg-rename form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px 16px;
+  overflow: visible;
+  min-width: 0;
+}
 .pet-dialog form,
 .pet-dialog .help-body {
   padding: 18px 20px 16px;
+  box-sizing: border-box;
+  min-width: 0;
 }
 .pet-dialog h3 { margin: 0 0 12px; font-size: 1.05rem; }
+#dlg-rename h3 { margin: 0; }
 .pet-dialog input[type="text"] {
+  display: block;
   width: 100%;
+  max-width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid rgba(229, 99, 138, 0.35);
   font-size: 15px;
   font-family: inherit;
   outline: none;
+  box-sizing: border-box;
 }
 .pet-dialog input[type="text"]:focus {
   border-color: var(--pk-deep);
@@ -367,6 +392,18 @@ body.night .pe-sprite { filter: brightness(0.88); }
   justify-content: flex-end;
   gap: 8px;
   margin-top: 14px;
+  flex-shrink: 0;
+}
+#dlg-rename .dlg-actions { margin-top: 2px; }
+/* 帮助弹窗内容较长时才允许内部滚动，而不是整窗空白条 */
+#dlg-help {
+  overflow: hidden;
+}
+#dlg-help .help-body {
+  max-height: min(70vh, 520px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .help-body ul {
   margin: 0;
