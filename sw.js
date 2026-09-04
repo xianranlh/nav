@@ -4,9 +4,17 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.24.0";
+const VERSION = "v1.24.1";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
+
+const LOCAL_SITE_ICON_FILES = [
+  "ai-chat.webp", "api-gateway.webp", "astral-bot.webp", "authentik.webp",
+  "capsule.webp", "chat-tavern.webp", "chores.webp", "cinema.webp",
+  "cli-proxy.webp", "clippings.webp", "comics-library.webp", "idle-farm.webp",
+  "image-host.webp", "jm-boom.webp", "kaleidoscope.webp", "local-dashboard.webp",
+  "minio.webp", "obsidian-sync.webp", "server-panel.webp", "writer.webp",
+].map((file) => `./assets/icons/local-sites/${file}`);
 
 const CORE_FILES = [
   "./",
@@ -51,6 +59,7 @@ const CORE_FILES = [
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
   "./assets/icons/apple-touch-icon.png",
+  ...LOCAL_SITE_ICON_FILES,
 ];
 const CORE_PATHS = CORE_FILES.map((file) => new URL(file, location.href).pathname);
 

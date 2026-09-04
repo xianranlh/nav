@@ -18,6 +18,16 @@
   padding: clamp(14px, 2vw, 26px) clamp(12px, 2.2vw, 30px) 78px;
 }
 
+/* 主容器负责纵向滚动，直接子区块不得因内容过多而被 Flex 压扁。 */
+.app > .header-bar,
+.app > .search-box,
+.app > .toolbar,
+.app > .top-row,
+.app > .upcoming-card,
+.app > .group-tabs,
+.app > .groups,
+.app > .footer { flex: 0 0 auto; }
+
 .header-bar {
   position: relative;
   min-height: 88px;
@@ -93,7 +103,14 @@
 [data-density="tight"] .cards[data-view="icons"] { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
 [data-density="tight"] .cards[data-view="icons"] .card { min-height: 76px; }
 .group { padding: 12px clamp(12px, 1.5vw, 18px) 16px; }
-.group-head { min-height: 34px; margin-bottom: 10px; }
+.group-head { min-height: 34px; margin-bottom: 10px; flex-wrap: wrap; }
+.group-handle,
+.group-toggle,
+.group-emblem,
+.group-count,
+.group-view,
+.group-actions { flex-shrink: 0; }
+.group-head .group-name { flex: 1 1 180px; min-width: 120px; }
 .group-emblem {
   width: 30px;
   height: 30px;
@@ -105,6 +122,8 @@
   box-shadow: inset 0 0 12px rgba(73, 200, 255, .08);
 }
 .group-emblem .astral-icon { width: 18px; height: 18px; }
+.group-emblem.local-group-emblem { padding: 2px; overflow: hidden; }
+.group-emblem.local-group-emblem img { width: 100%; height: 100%; display: block; object-fit: cover; border-radius: 7px; }
 .group-dot { display: none; }
 .group-actions button { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .group-actions .astral-icon { width: 15px; height: 15px; }
@@ -113,6 +132,23 @@
 .card .pin.pinned { color: var(--astral-gold); }
 .gv-btn { display: inline-flex; align-items: center; justify-content: center; }
 .gv-btn .astral-icon { width: 14px; height: 14px; }
+
+/* 分组快速导航原先会在长页面里被压成一条细缝。 */
+.group-tabs {
+  min-height: 46px;
+  align-items: center;
+  overflow-y: hidden;
+}
+.group-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.group-tab .astral-icon { width: 14px; height: 14px; }
 
 /* 本机站点：轨道终端框架，保留 favicon 识别度。 */
 .group-local-sites {
@@ -130,6 +166,7 @@
 }
 .card.local-site .icon-slot > img,
 .card.local-site .icon-slot > .fallback { width: 100%; height: 100%; border-radius: 8px; }
+.card.local-site .icon-slot > img { display: block; object-fit: cover; }
 .fallback.astral-local { position: relative; overflow: hidden; background: linear-gradient(150deg, #123f72, #06162f) !important; color: var(--astral-ivory); }
 .fallback.astral-local .astral-icon { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); opacity: .33; }
 .fallback.astral-local .local-letter { position: relative; z-index: 1; text-shadow: 0 1px 8px #000; }
@@ -197,9 +234,12 @@
   .toolbar-left .filter-wrap { grid-column: 1 / -1; width: 100%; min-width: 0; }
   .top-row { grid-template-columns: 1fr; }
   .top-row > .weather-card { grid-column: auto; }
+  .group-tabs { min-height: 42px; }
   .group-head { align-items: center; }
-  .group-name { flex: 1 1 120px; }
+  .group-head .group-name { flex: 1 1 120px; }
   .group-view { overflow-x: auto; padding-bottom: 2px; }
+  .group-view,
+  .group-actions { max-width: 100%; overflow-x: auto; }
 }
 @media (max-width: 430px) {
   .header-bar { align-items: flex-start; }

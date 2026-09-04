@@ -105,6 +105,41 @@
     return window.AstralIcons?.markup(name, className) || "";
   }
 
+  const LOCAL_SITE_ICON_DIR = "assets/icons/local-sites/";
+  const LOCAL_SITE_ICON_BY_NAME = Object.freeze({
+    "本机导航": "local-dashboard.webp",
+    "1panel面板": "server-panel.webp",
+    "authentik": "authentik.webp",
+    "minio": "minio.webp",
+    "星际机器人": "astral-bot.webp",
+    "新api": "api-gateway.webp",
+    "cli代理api": "cli-proxy.webp",
+    "格洛克对话": "ai-chat.webp",
+    "傻瓜酒馆": "chat-tavern.webp",
+    "观影": "cinema.webp",
+    "胶囊": "capsule.webp",
+    "科姆加": "comics-library.webp",
+    "万花筒": "kaleidoscope.webp",
+    "jmboom": "jm-boom.webp",
+    "兰空图床": "image-host.webp",
+    "灯下剪报": "clippings.webp",
+    "黑曜石同步": "obsidian-sync.webp",
+    "打开写入": "writer.webp",
+    "农场挂机": "idle-farm.webp",
+    "凌霄杂役": "chores.webp",
+  });
+
+  function normalizeLocalSiteName(value) {
+    return String(value || "").trim().toLowerCase().replace(/[\s._-]+/g, "");
+  }
+
+  function localSiteIconFor(link, group) {
+    if (!isLocalSiteLink(link, group)) return "";
+    const key = normalizeLocalSiteName(link?.name);
+    const file = LOCAL_SITE_ICON_BY_NAME[key];
+    return file ? LOCAL_SITE_ICON_DIR + file : "";
+  }
+
   const VISUAL_THEMES = Theme.VISUAL_THEMES;
 
   // ===================== 数据层 =====================
@@ -433,7 +468,9 @@
       <div class="group-head">
         <span class="group-handle" title="拖动以重排分组" aria-label="拖动以重排">⠿</span>
         <button type="button" class="group-toggle" data-act="toggle" title="折叠/展开" aria-label="折叠/展开" aria-expanded="${Store.settings.collapsedGroups?.[g.id] ? "false" : "true"}">▾</button>
-        <span class="group-emblem" data-astral-icon="${localGroup ? "station" : "folder"}" aria-hidden="true"></span>
+        ${localGroup
+          ? `<span class="group-emblem local-group-emblem" aria-hidden="true"><img src="${LOCAL_SITE_ICON_DIR}local-dashboard.webp" alt="" /></span>`
+          : `<span class="group-emblem" data-astral-icon="folder" aria-hidden="true"></span>`}
         <span class="group-dot" aria-hidden="true"></span>
         <input class="group-name" value="${escapeHtml(g.name)}" aria-label="分组名称" />
         <span class="group-count">${g.links.length} 个</span>
@@ -710,6 +747,18 @@
       fb.style.background = `linear-gradient(135deg, hsl(${hue},70%,68%), hsl(${(hue + 40) % 360},70%,78%))`;
       slot.appendChild(fb);
     };
+
+    const bundledLocalIcon = localSiteIconFor(link, group);
+    if (bundledLocalIcon) {
+      const img = new Image();
+      img.loading = "eager";
+      img.decoding = "async";
+      img.src = bundledLocalIcon;
+      img.alt = "";
+      img.onerror = showFallback;
+      slot.appendChild(img);
+      return;
+    }
 
     const BT = window.BookmarkTools;
     const pageUrl = BT && BT.normalizePageUrl ? BT.normalizePageUrl(link.url) : null;
