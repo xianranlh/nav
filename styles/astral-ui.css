@@ -95,7 +95,9 @@
 .topbar-btn:hover .topbar-ico { color: var(--astral-blue); }
 
 /* 内容卡：天气保持足够宽；网址卡不再强制方形。 */
-.top-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.top-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.top-row:has(#starred-card[hidden]) > #recent-card:not([hidden]),
+.top-row:has(#recent-card[hidden]) > #starred-card:not([hidden]) { grid-column: 1 / -1; }
 .top-row > .weather-card { grid-column: 1 / -1; }
 .weather-daily { grid-template-columns: repeat(7, minmax(76px, 1fr)); }
 .cards[data-view="icons"] { grid-template-columns: repeat(auto-fill, minmax(max(112px, var(--view-card-size)), 1fr)); }

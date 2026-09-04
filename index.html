@@ -15,14 +15,14 @@
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0b1f42" />
-  <link rel="stylesheet" href="styles.css?v=v1.24.2" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.24.2" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.24.2" />
+  <link rel="stylesheet" href="styles.css?v=v1.24.3" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.24.3" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.24.3" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
   <link rel="stylesheet" href="themes/paper.css" />
-  <link rel="stylesheet" href="styles/astral-ui.css?v=v1.24.2" />
+  <link rel="stylesheet" href="styles/astral-ui.css?v=v1.24.3" />
 </head>
 <body class="pre-auth">
   <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -147,7 +147,7 @@
       <!-- 最近使用 卡片 -->
       <section id="recent-card" class="recent-card glass" hidden>
         <header class="recent-head">
-          <h3><span data-astral-icon="signal" aria-hidden="true"></span> 最近使用</h3>
+          <h3><span data-astral-icon="signal" aria-hidden="true"></span> 最近使用 <span class="recent-count" id="recent-count" aria-label="最近使用数量"></span></h3>
           <button type="button" class="mini-btn" id="recent-clear" title="清空最近记录" aria-label="清空最近记录">清空</button>
         </header>
         <div class="recent-grid" id="recent-grid"></div>
@@ -1847,20 +1847,20 @@
     </div>
   </dialog>
 
-  <script src="js/astral-icons.js?v=v1.24.2"></script>
+  <script src="js/astral-icons.js?v=v1.24.3"></script>
   <script src="js/homepage-theme.js"></script>
-  <script src="js/dialog.js?v=v1.24.2"></script>
-  <script src="js/install.js?v=v1.24.2"></script>
-  <script src="js/homepage-layout.js"></script>
+  <script src="js/dialog.js?v=v1.24.3"></script>
+  <script src="js/install.js?v=v1.24.3"></script>
+  <script src="js/homepage-layout.js?v=v1.24.3"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.24.2"></script>
+  <script src="js/ai.js?v=v1.24.3"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
-  <script src="js/sync.js"></script>
+  <script src="js/sync.js?v=v1.24.3"></script>
   <script src="js/sakura-remote.js"></script>
   <script src="js/sakura-media.js"></script>
   <script src="js/weather.js"></script>
@@ -1868,19 +1868,19 @@
   <script src="js/idb.js"></script>
   <script src="js/archive.js"></script>
   <script src="js/image-editor.js"></script>
-  <script src="js/music.js?v=v1.24.2"></script>
-  <script src="js/music-lx.js?v=v1.24.2"></script>
+  <script src="js/music.js?v=v1.24.3"></script>
+  <script src="js/music-lx.js?v=v1.24.3"></script>
   <script src="js/storage-inspector.js"></script>
   <!-- 首页漫游小宠物（开关见 pet.html） -->
-  <script src="js/pet-engine.js"></script>
-  <script src="js/pet-widget.js"></script>
+  <script src="js/pet-engine.js?v=v1.24.3"></script>
+  <script src="js/pet-widget.js?v=v1.24.3"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.24.2"></script>
-  <script src="js/ui/todo.ui.js?v=v1.24.2"></script>
-  <script src="js/ui/calendar.ui.js?v=v1.24.2"></script>
-  <script src="js/ui/weather.ui.js?v=v1.24.2"></script>
-  <script src="js/ui/sync.ui.js?v=v1.24.2"></script>
-  <script src="js/ui/misc.ui.js?v=v1.24.2"></script>
+  <script src="js/ui/ai.ui.js?v=v1.24.3"></script>
+  <script src="js/ui/todo.ui.js?v=v1.24.3"></script>
+  <script src="js/ui/calendar.ui.js?v=v1.24.3"></script>
+  <script src="js/ui/weather.ui.js?v=v1.24.3"></script>
+  <script src="js/ui/sync.ui.js?v=v1.24.3"></script>
+  <script src="js/ui/misc.ui.js?v=v1.24.3"></script>
   <script>
     // Petrichor 知识库入口：同域 /blog 路由（openresty 反代 → 127.0.0.1:3100）；
     // 可在控制台 localStorage.setItem('sakura_nav_blog_url', 'https://...') 覆盖
@@ -1892,6 +1892,6 @@
       a.href = custom || "/blog";
     })();
   </script>
-  <script src="js/app.js?v=v1.24.2"></script>
+  <script src="js/app.js?v=v1.24.3"></script>
 </body>
 </html>

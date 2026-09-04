@@ -6,7 +6,8 @@
   "use strict";
 
   window.MiscUIFactory = function (ctx) {
-    const { $, $$, toast, escapeHtml, Store } = ctx;
+    const { $, $$, toast, escapeHtml, Store, recordRecentUsage, persistNavNow } = ctx;
+    const Layout = window.HomepageLayout;
   // ===================== 语音输入 UI =====================
   const UIVoice = (() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -172,16 +173,11 @@
   const UIRecent = (() => {
     const card = $("#recent-card");
     const grid = $("#recent-grid");
+    const count = $("#recent-count");
     let inited = false;
 
     function collect() {
-      const all = [];
-      (Store.state.groups || []).forEach((g) => {
-        g.links.forEach((l) => {
-          if (l.lastClickAt) all.push({ ...l, groupId: g.id, groupName: g.name });
-        });
-      });
-      return all.sort((a, b) => b.lastClickAt - a.lastClickAt).slice(0, 10);
+      return Layout.collectRecentLinks(Store.state.groups, 20);
     }
 
     function refresh() {
@@ -189,6 +185,7 @@
       const list = collect();
       if (!list.length) { card.hidden = true; return; }
       card.hidden = false;
+      if (count) count.textContent = String(list.length);
       grid.innerHTML = list.map((l) => {
         const letter = (l.name || l.url || "?").trim().charAt(0).toUpperCase();
         const icon = l.icon
@@ -204,9 +201,7 @@
           const id = el.dataset.id;
           const link = Store.state.groups.flatMap((g) => g.links).find((x) => x.id === id);
           if (link) {
-            link.clickCount = (link.clickCount || 0) + 1;
-            link.lastClickAt = Date.now();
-            Store.save();
+            recordRecentUsage(link);
             setTimeout(refresh, 100);
           }
         });
@@ -221,7 +216,7 @@
         (Store.state.groups || []).forEach((g) => g.links.forEach((l) => {
           delete l.lastClickAt; delete l.clickCount;
         }));
-        Store.save();
+        persistNavNow();
         refresh();
       });
       refresh();

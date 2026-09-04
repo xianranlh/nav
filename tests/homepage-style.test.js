@@ -208,6 +208,7 @@ test("pet page stylesheet exposes focus-visible for primary controls", () => {
 
 test("homepage shell uses responsive app gap tokens and toolbar grid", () => {
   const css = fs.readFileSync("styles.css", "utf8");
+  const astralCss = fs.readFileSync("styles/astral-ui.css", "utf8");
   const appBlock = /\.app\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
   const toolbarBlock = /\.toolbar\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
   const topRowBlock = /\.top-row\s*\{(?<body>[^}]+)\}/.exec(css)?.groups?.body || "";
@@ -217,6 +218,8 @@ test("homepage shell uses responsive app gap tokens and toolbar grid", () => {
   assert.match(appBlock, /gap:\s*var\(--app-gap\)/);
   assert.match(toolbarBlock, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/);
   assert.match(topRowBlock, /grid-template-columns:\s*repeat\(auto-fit/);
+  assert.match(astralCss, /\.top-row\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit/);
+  assert.match(astralCss, /#starred-card\[hidden\][^}]*#recent-card:not\(\[hidden\]\)[^}]*grid-column:\s*1\s*\/\s*-1/);
   assert.match(calBodyBlock, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(css, /\.filter-wrap\s*\{[^}]*flex:\s*1\s+1\s+180px/);
 });

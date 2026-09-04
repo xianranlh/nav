@@ -2,8 +2,11 @@
    宠物页 pet.js —— 精简版
    改名 / 换装 / 首页开关 / 状态预览 / 轻互动
    =============================== */
-(() => {
+(async () => {
   "use strict";
+  if (window.SakuraRemote?.ready) {
+    try { await window.SakuraRemote.ready; } catch (_) {}
+  }
   const { Config, PetActor, Status, LINES, pick, rand } = window.SakuraPet;
   const $ = (id) => document.getElementById(id);
   const DEFAULT_PORTRAIT = "assets/pet/xiaoying-portrait.png";
@@ -40,6 +43,40 @@
       a.emote(Math.random() < 0.5 ? "shy" : "joy");
     },
   });
+
+  function syncActivityUI() {
+    const mode = cfg.activityMode === "patrol" ? "patrol" : "guard";
+    $("pet-activity-mode")?.querySelectorAll("button[data-mode]").forEach((button) => {
+      const active = button.dataset.mode === mode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    const hint = $("pg-hint");
+    if (hint) {
+      hint.textContent = mode === "patrol"
+        ? "巡逻中 · 点击平台可让她跑过去"
+        : "站岗中 · 切换巡逻后可点击平台移动";
+      hint.classList.remove("fade");
+    }
+  }
+
+  function setActivityMode(next, { announce = true } = {}) {
+    const mode = next === "patrol" ? "patrol" : "guard";
+    cfg.activityMode = mode;
+    Config.save(cfg);
+    actor.setActivityMode(mode);
+    actor.speed = mode === "patrol" ? 95 : 60;
+    if (mode === "patrol") {
+      actor.s.stateTimer = 0.3;
+    } else {
+      actor.s.targetX = null;
+      actor.setAnim("idle", true);
+    }
+    syncActivityUI();
+    if (!announce) return;
+    actor.say(pick(LINES[mode] || LINES.idle), 2200);
+    toast(mode === "patrol" ? "已切换为巡逻" : "已切换为站岗");
+  }
 
   playground.addEventListener("click", (e) => {
     if (actor.el.contains(e.target)) return;
@@ -100,35 +137,14 @@
       const btn = e.target.closest("button[data-mode]");
       if (!btn) return;
       const next = btn.dataset.mode === "patrol" ? "patrol" : "guard";
-      cfg.activityMode = next;
-      Config.save(cfg);
-      actor.setActivityMode(next);
-      actor.speed = next === "patrol" ? 95 : 60;
-      actor.say(pick(LINES[next] || LINES.idle), 2200);
-      if (next === "patrol") {
-        actor.s.stateTimer = 0.3;
-      } else {
-        actor.s.targetX = null;
-        actor.setAnim("idle", true);
-      }
-      const hint = $("pg-hint");
-      if (hint) {
-        hint.textContent = next === "patrol" ? "巡逻中 · 点击地面移动" : "站岗中 · 右键可切换巡逻";
-        hint.classList.remove("fade");
-      }
-      toast(next === "patrol" ? "已切换为巡逻" : "已切换为站岗");
+      setActivityMode(next);
       hide();
     });
     document.addEventListener("pointerdown", (e) => {
       if (!menu.hidden && !menu.contains(e.target) && e.target !== actor.el) hide();
     });
     // 应用存档中的活动方式
-    actor.setActivityMode(cfg.activityMode === "patrol" ? "patrol" : "guard");
-    actor.speed = cfg.activityMode === "patrol" ? 95 : 60;
-    if (cfg.activityMode !== "patrol") {
-      actor.s.targetX = null;
-      actor.setAnim("idle", true);
-    }
+    setActivityMode(cfg.activityMode, { announce: false });
   })();
 
   function refreshUI() {
@@ -136,6 +152,8 @@
     $("pet-portrait-img").src = cfg.custom ? cfg.custom.img : DEFAULT_PORTRAIT;
     $("btn-restore").hidden = !cfg.custom;
     $("chk-home").checked = cfg.homeWidget;
+    if ($("pet-home-scale")) $("pet-home-scale").value = cfg.homeScale || "md";
+    syncActivityUI();
     actor.el.setAttribute("aria-label", cfg.name);
   }
 
@@ -243,6 +261,27 @@
     Config.save(cfg);
     toast(cfg.homeWidget ? "已开启首页桌宠" : "已关闭首页桌宠");
     actor.say(cfg.homeWidget ? "我会去首页陪你～" : "那我待在这里", 2200);
+  });
+
+  $("pet-activity-mode")?.addEventListener("click", (e) => {
+    const button = e.target.closest("button[data-mode]");
+    if (!button) return;
+    setActivityMode(button.dataset.mode);
+  });
+
+  $("pet-home-scale")?.addEventListener("change", (e) => {
+    cfg.homeScale = ["sm", "md", "lg"].includes(e.target.value) ? e.target.value : "md";
+    Config.save(cfg);
+    toast("首页桌宠尺寸已更新");
+    actor.say(cfg.homeScale === "lg" ? "这样更醒目啦～" : cfg.homeScale === "sm" ? "变得小巧一些" : "标准尺寸正合适", 2200);
+  });
+
+  $("btn-reset-position")?.addEventListener("click", () => {
+    cfg.homeX = null;
+    cfg.homeY = null;
+    Config.save(cfg);
+    toast("桌宠已回到首页右下角");
+    actor.say("回到默认位置啦～", 2200);
   });
 
   /* ---------- 抠图 ---------- */

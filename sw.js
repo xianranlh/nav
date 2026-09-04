@@ -4,7 +4,7 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.24.2";
+const VERSION = "v1.24.3";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
 
@@ -19,7 +19,9 @@ const LOCAL_SITE_ICON_FILES = [
 const CORE_FILES = [
   "./",
   "./index.html",
+  "./pet.html",
   "./styles.css",
+  `./styles/pet.css?v=${VERSION}`,
   "./themes/sakura.css",
   "./themes/q-anime.css",
   "./themes/dark-minimal.css",
@@ -30,7 +32,7 @@ const CORE_FILES = [
   `./js/dialog.js?v=${VERSION}`,
   `./styles/dialogs.css?v=${VERSION}`,
   `./styles/ai-chat.css?v=${VERSION}`,
-  "./js/homepage-layout.js",
+  `./js/homepage-layout.js?v=${VERSION}`,
   "./js/sakura.js",
   "./js/bookmarks.js",
   "./js/auth.js",
@@ -39,13 +41,16 @@ const CORE_FILES = [
   "./js/calendar.js",
   "./js/holidays.js",
   "./js/todo.js",
-  "./js/sync.js",
+  `./js/sync.js?v=${VERSION}`,
   "./js/weather.js",
   "./js/suggest.js",
   "./js/idb.js",
   `./js/music.js?v=${VERSION}`,
   `./js/music-lx.js?v=${VERSION}`,
   "./js/storage-inspector.js",
+  `./js/pet-engine.js?v=${VERSION}`,
+  `./js/pet-widget.js?v=${VERSION}`,
+  `./js/pet.js?v=${VERSION}`,
   `./js/ui/ai.ui.js?v=${VERSION}`,
   `./js/ui/todo.ui.js?v=${VERSION}`,
   `./js/ui/calendar.ui.js?v=${VERSION}`,
@@ -59,6 +64,8 @@ const CORE_FILES = [
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
   "./assets/icons/apple-touch-icon.png",
+  "./assets/pet/xiaoying-sheet.png",
+  "./assets/pet/xiaoying-portrait.png",
   ...LOCAL_SITE_ICON_FILES,
 ];
 const CORE_PATHS = CORE_FILES.map((file) => new URL(file, location.href).pathname);

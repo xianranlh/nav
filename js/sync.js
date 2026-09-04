@@ -49,6 +49,7 @@
       chat: JSON.parse(localStorage.getItem("sakura_nav_chat_v1") || "null"),
       weather: JSON.parse(localStorage.getItem("sakura_nav_weather_v1") || "null"),
       music: JSON.parse(localStorage.getItem("sakura_nav_music_v1") || "null"),
+      pet: JSON.parse(localStorage.getItem("sakura_pet_v2") || "null"),
       sync: JSON.parse(localStorage.getItem("sakura_nav_sync_v1") || "null"),
       // 提醒事项 v2（v1.20.0+）+ 兼容老 v1 数据
       todos: JSON.parse(localStorage.getItem("sakura_nav_todos_v2") || "null"),
@@ -121,6 +122,7 @@
     if ("chat" in data) set("sakura_nav_chat_v1", data.chat);
     if ("weather" in data) set("sakura_nav_weather_v1", data.weather);
     if ("music" in data) set("sakura_nav_music_v1", data.music);
+    if ("pet" in data) set("sakura_pet_v2", data.pet);
     if ("sync" in data) set("sakura_nav_sync_v1", data.sync);
     if ("todos" in data) set("sakura_nav_todos_v2", data.todos);
     if ("todosV1" in data) set("sakura_nav_todos_v1", data.todosV1);

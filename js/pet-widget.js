@@ -10,8 +10,7 @@
   if (!window.SakuraPet) return;
   const { Config, PetActor, Status, LINES, STATUS_META, pick } = window.SakuraPet;
 
-  let cfg = Config.load();
-  if (!cfg.homeWidget) return;
+  let cfg = null;
 
   function boot() {
     const shell = document.createElement("div");
@@ -24,6 +23,10 @@
           <span class="hp-badge-text" id="hp-badge-text">待命</span>
         </div>
         <div class="hp-name" id="hp-name"></div>
+      </div>
+      <div class="hp-quick" aria-label="桌宠快捷操作">
+        <button type="button" data-quick="mode" title="切换站岗/巡逻" aria-label="切换站岗或巡逻"><span id="hp-mode-icon">巡</span></button>
+        <a href="pet.html" title="打开桌宠设置" aria-label="打开桌宠设置">设</a>
       </div>
     `;
     document.body.appendChild(shell);
@@ -45,12 +48,14 @@
       st.id = "home-pet-widget-css";
       st.textContent = `
 #home-pet-shell{
-  position:fixed;z-index:960;width:132px;height:148px;
-  right:18px;bottom:18px;
+  position:fixed;z-index:960;width:168px;height:188px;
+  right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));
   pointer-events:none;
   font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
-  transition:width .25s ease,height .2s ease;
+  transition:width .25s ease,height .2s ease,opacity .18s ease;
 }
+#home-pet-shell[data-size="sm"]{width:144px;height:166px}
+#home-pet-shell[data-size="lg"]{width:194px;height:214px}
 #home-pet-shell.dragging{opacity:.92;cursor:grabbing}
 #home-pet-shell.is-patrol{
   left:0 !important;right:0 !important;width:100% !important;
@@ -71,6 +76,9 @@
 }
 #home-pet-shell .hp-stage .pe-sprite{pointer-events:auto;cursor:grab}
 #home-pet-shell.is-patrol .hp-stage .pe-sprite{cursor:pointer}
+#home-pet-shell .hp-stage .pe-sprite:focus-visible{
+  outline:2px solid #58cfff;outline-offset:4px;border-radius:22px;
+}
 #home-pet-shell .hp-meta{
   position:absolute;left:0;right:0;bottom:0;
   display:flex;flex-direction:column;align-items:center;gap:2px;
@@ -101,10 +109,33 @@
 #home-pet-shell .hp-badge-emoji{font-size:11px}
 #home-pet-shell .hp-badge-text{overflow:hidden;text-overflow:ellipsis;max-width:7.5em}
 #home-pet-shell .hp-name{
-  font-size:11px;color:rgba(74,59,82,.72);
-  text-shadow:0 1px 0 rgba(255,255,255,.85);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:124px;
+  padding:2px 9px;border:1px solid rgba(216,173,105,.3);border-radius:999px;
+  background:rgba(6,27,57,.86);backdrop-filter:blur(10px);
+  font-size:11.5px;color:#eef7ff;
+  text-shadow:0 1px 8px rgba(0,0,0,.3);box-shadow:0 5px 16px rgba(0,16,38,.18);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;
 }
+#home-pet-shell .hp-quick{
+  position:absolute;right:2px;top:48px;z-index:8;
+  display:flex;flex-direction:column;gap:6px;
+  opacity:0;transform:translateX(5px);transition:opacity .16s ease,transform .16s ease;
+  pointer-events:none;
+}
+#home-pet-shell:hover .hp-quick,
+#home-pet-shell:focus-within .hp-quick{opacity:1;transform:none;pointer-events:auto}
+#home-pet-shell .hp-quick button,
+#home-pet-shell .hp-quick a{
+  display:grid;place-items:center;width:30px;height:30px;padding:0;
+  border:1px solid rgba(216,173,105,.42);border-radius:10px;
+  background:linear-gradient(145deg,rgba(17,63,105,.96),rgba(6,25,55,.96));
+  color:#f5deb0;font:700 11px/1 inherit;text-decoration:none;cursor:pointer;
+  box-shadow:0 5px 14px rgba(0,16,38,.24);backdrop-filter:blur(10px);
+}
+#home-pet-shell .hp-quick button:hover,
+#home-pet-shell .hp-quick a:hover{color:#fff;border-color:rgba(88,207,255,.7);transform:translateY(-1px)}
+#home-pet-shell .hp-quick button:focus-visible,
+#home-pet-shell .hp-quick a:focus-visible{outline:2px solid #58cfff;outline-offset:2px}
+#home-pet-shell.is-patrol .hp-quick{position:fixed;right:18px;top:auto;bottom:22px}
 #home-pet-ctx{
   position:fixed;z-index:10050;min-width:148px;
   padding:6px;border-radius:12px;
@@ -126,7 +157,8 @@
 #home-pet-ctx .hp-ctx-check{font-size:12px;min-width:1em;color:#e5638a}
 #home-pet-ctx .hp-ctx-sep{height:1px;margin:4px 6px;background:rgba(0,0,0,.08)}
 @media (max-width:560px){
-  #home-pet-shell:not(.is-patrol){right:8px;bottom:8px;transform:scale(.92);transform-origin:bottom right}
+  #home-pet-shell:not(.is-patrol){right:max(8px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom))}
+  #home-pet-shell .hp-quick{opacity:.92;transform:none;pointer-events:auto}
 }
 `;
       document.head.appendChild(st);
@@ -138,14 +170,17 @@
     const badgeText = shell.querySelector("#hp-badge-text");
     const nameEl = shell.querySelector("#hp-name");
     const metaEl = shell.querySelector("#hp-meta");
+    const modeIcon = shell.querySelector("#hp-mode-icon");
     nameEl.textContent = cfg.name;
 
     const mode = cfg.activityMode === "patrol" ? "patrol" : "guard";
+    const scaleBySize = { sm: 1.65, md: 1.95, lg: 2.25 };
+    shell.dataset.size = cfg.homeScale || "md";
 
     const actor = new PetActor({
       container: stage,
       fxLayer: stage,
-      scale: 1.55,
+      scale: scaleBySize[cfg.homeScale] || scaleBySize.md,
       speed: mode === "patrol" ? 72 : 40,
       groundBottom: 2,
       autonomous: mode === "patrol",
@@ -165,6 +200,9 @@
 
     function applyShellLayout() {
       const m = cfg.activityMode === "patrol" ? "patrol" : "guard";
+      const size = ["sm", "md", "lg"].includes(cfg.homeScale) ? cfg.homeScale : "md";
+      shell.dataset.size = size;
+      actor.setScale(scaleBySize[size]);
       shell.classList.toggle("is-patrol", m === "patrol");
       actor.setActivityMode(m);
       actor.speed = m === "patrol" ? 72 : 40;
@@ -186,8 +224,10 @@
         shell.style.left = "";
         shell.style.bottom = "";
         if (typeof cfg.homeX === "number" && typeof cfg.homeY === "number") {
-          shell.style.left = cfg.homeX + "px";
-          shell.style.bottom = cfg.homeY + "px";
+          const maxX = Math.max(8, window.innerWidth - shell.offsetWidth - 8);
+          const maxY = Math.max(8, window.innerHeight - shell.offsetHeight - 8);
+          shell.style.left = Math.max(8, Math.min(maxX, cfg.homeX)) + "px";
+          shell.style.bottom = Math.max(8, Math.min(maxY, cfg.homeY)) + "px";
           shell.style.right = "auto";
         } else {
           shell.style.right = "18px";
@@ -201,6 +241,7 @@
         metaEl.style.left = "";
         metaEl.style.transform = "";
       }
+      if (modeIcon) modeIcon.textContent = m === "patrol" ? "岗" : "巡";
       refreshTitle();
       syncCtxChecks();
     }
@@ -308,6 +349,16 @@
       ctx.style.top = top + "px";
     }
 
+    function changeMode(next) {
+      cfg = Config.load();
+      cfg.activityMode = next === "patrol" ? "patrol" : "guard";
+      Config.save(cfg);
+      applyShellLayout();
+      actor.say(pick(LINES[cfg.activityMode] || LINES.idle), 2200);
+      if (cfg.activityMode === "patrol") actor.emote("runR", 1.2);
+      else actor.emote("wave", 1.6);
+    }
+
     actor.el.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -327,14 +378,7 @@
       const btn = e.target.closest("button");
       if (!btn) return;
       if (btn.dataset.mode) {
-        const next = btn.dataset.mode === "patrol" ? "patrol" : "guard";
-        cfg = Config.load();
-        cfg.activityMode = next;
-        Config.save(cfg);
-        applyShellLayout();
-        actor.say(pick(LINES[next] || LINES.idle), 2200);
-        if (next === "patrol") actor.emote("runR", 1.2);
-        else actor.emote("wave", 1.6);
+        changeMode(btn.dataset.mode);
         hideCtx();
         return;
       }
@@ -342,6 +386,10 @@
         hideCtx();
         location.href = "pet.html";
       }
+    });
+
+    shell.querySelector('[data-quick="mode"]')?.addEventListener("click", () => {
+      changeMode(cfg.activityMode === "patrol" ? "guard" : "patrol");
     });
 
     // 双击 → 宠物页（避免与拖拽冲突：仅未拖动时）
@@ -403,6 +451,9 @@
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
+    window.addEventListener("resize", () => {
+      if (cfg.activityMode !== "patrol") applyShellLayout();
+    });
 
     /* ---------- 状态源 ---------- */
     function wireStatusSources() {
@@ -448,8 +499,7 @@
     }
     wireStatusSources();
 
-    addEventListener("storage", (e) => {
-      if (e.key !== window.SakuraPet.SAVE_KEY) return;
+    function reloadConfig() {
       cfg = Config.load();
       if (!cfg.homeWidget) {
         cancelAnimationFrame(metaRaf);
@@ -462,12 +512,28 @@
       if (img !== actor.custom) actor.setCustom(img);
       nameEl.textContent = cfg.name;
       applyShellLayout();
+    }
+    addEventListener("storage", (e) => {
+      if (e.key === window.SakuraPet.SAVE_KEY) reloadConfig();
     });
+    addEventListener("sakura-pet-config", reloadConfig);
+    try {
+      const channel = new BroadcastChannel("sakura-pet-config");
+      channel.addEventListener("message", reloadConfig);
+    } catch (_) {}
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
+  async function start() {
+    if (window.SakuraRemote?.ready) {
+      try { await window.SakuraRemote.ready; } catch (_) {}
+    }
+    cfg = Config.load();
+    if (!cfg.homeWidget) return;
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", boot, { once: true });
+    } else {
+      boot();
+    }
   }
+  start();
 })();

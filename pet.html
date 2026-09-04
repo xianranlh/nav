@@ -7,7 +7,7 @@
   <title>桌宠 · 闲然导航</title>
   <link rel="icon" href="assets/icons/app-icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1f42" />
-  <link rel="stylesheet" href="styles/pet.css?v=v1.24.0" />
+  <link rel="stylesheet" href="styles/pet.css?v=v1.24.3" />
 </head>
 <body>
   <div class="pet-bg" aria-hidden="true"></div>
@@ -54,8 +54,26 @@
             <input type="checkbox" id="chk-home" checked /> 首页显示桌宠
           </label>
         </div>
+        <div class="pet-preferences" aria-label="首页桌宠设置">
+          <div class="pet-preference-row">
+            <span>活动方式</span>
+            <div class="pet-segment" id="pet-activity-mode" role="group" aria-label="活动方式">
+              <button type="button" data-mode="guard">站岗</button>
+              <button type="button" data-mode="patrol">巡逻</button>
+            </div>
+          </div>
+          <label class="pet-preference-row" for="pet-home-scale">
+            <span>首页尺寸</span>
+            <select id="pet-home-scale">
+              <option value="sm">小巧</option>
+              <option value="md">标准</option>
+              <option value="lg">醒目</option>
+            </select>
+          </label>
+          <button type="button" class="pet-reset-position" id="btn-reset-position">回到右下角</button>
+        </div>
         <input type="file" id="pet-file" accept="image/*" hidden />
-        <p class="pet-tip">首页：单击互动 · 拖拽移动 · 双击打开本页。点下方草地可让她跑过去。</p>
+        <p class="pet-tip">首页：单击互动 · 拖拽移动 · 悬停可快速切换活动方式。下方预览区会同步演示站岗与巡逻。</p>
       </div>
     </section>
 
@@ -71,11 +89,11 @@
         <span class="pg-flower" style="left:58%">🌻</span>
         <span class="pg-flower" style="left:82%">🌷</span>
       </div>
-      <div class="pg-hint" id="pg-hint">预览场地 · 点击地面移动</div>
+      <div class="pg-hint" id="pg-hint">站岗中 · 切换巡逻后可点击平台移动</div>
       <div class="fx-layer" id="fx-layer"></div>
     </section>
 
-    <footer class="pet-footer">🌸 闲然导航 — 状态桌宠（Codex 风格）</footer>
+    <footer class="pet-footer">✦ 闲然导航 — 星轨状态桌宠</footer>
   </main>
 
   <dialog class="pet-dialog" id="dlg-rename">
@@ -106,7 +124,10 @@
 
   <div class="pet-toast" id="pet-toast" hidden></div>
 
-  <script src="js/pet-engine.js"></script>
-  <script src="js/pet.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/sync.js?v=v1.24.3"></script>
+  <script src="js/sakura-remote.js"></script>
+  <script src="js/pet-engine.js?v=v1.24.3"></script>
+  <script src="js/pet.js?v=v1.24.3"></script>
 </body>
 </html>

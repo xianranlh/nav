@@ -7,7 +7,8 @@
 (() => {
   "use strict";
 
-  const SAVE_KEY = "sakura-pet@1";
+  const SAVE_KEY = "sakura_pet_v2";
+  const LEGACY_SAVE_KEY = "sakura-pet@1";
   const SHEET_URL = "assets/pet/xiaoying-sheet.png";
   const CELL_W = 52, CELL_H = 56, SHEET_W = 416, SHEET_H = 504;
 
@@ -62,6 +63,7 @@
         homeWidget: true,
         homeX: null,        // 首页桌宠 left（px），null=默认右下
         homeY: null,        // 首页桌宠 bottom（px）
+        homeScale: "md",   // sm | md | lg
         /** 活动方式：guard 站岗（定点）| patrol 巡逻（底部来回走） */
         activityMode: "guard",
         last: Date.now(),
@@ -69,34 +71,48 @@
     },
     load() {
       try {
-        const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+        const current = localStorage.getItem(SAVE_KEY);
+        const legacy = current == null ? localStorage.getItem(LEGACY_SAVE_KEY) : null;
+        const s = JSON.parse(current || legacy || "null");
         if (!s) return this.defaults();
         const mode = s.activityMode === "patrol" ? "patrol" : "guard";
-        return {
+        const scale = ["sm", "md", "lg"].includes(s.homeScale) ? s.homeScale : "md";
+        const normalized = {
           name: s.name || (s.custom && s.custom.img ? "我的宠物" : "小樱"),
           custom: s.custom && s.custom.img ? s.custom : null,
           homeWidget: s.homeWidget !== false,
           homeX: typeof s.homeX === "number" ? s.homeX : null,
           homeY: typeof s.homeY === "number" ? s.homeY : null,
+          homeScale: scale,
           activityMode: mode,
           last: s.last || Date.now(),
         };
+        if (!current && legacy) this.save(normalized);
+        return normalized;
       } catch {
         return this.defaults();
       }
     },
     save(cfg) {
       cfg.last = Date.now();
+      const payload = {
+        name: cfg.name,
+        custom: cfg.custom,
+        homeWidget: cfg.homeWidget !== false,
+        homeX: cfg.homeX,
+        homeY: cfg.homeY,
+        homeScale: ["sm", "md", "lg"].includes(cfg.homeScale) ? cfg.homeScale : "md",
+        activityMode: cfg.activityMode === "patrol" ? "patrol" : "guard",
+        last: cfg.last,
+      };
       try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify({
-          name: cfg.name,
-          custom: cfg.custom,
-          homeWidget: cfg.homeWidget !== false,
-          homeX: cfg.homeX,
-          homeY: cfg.homeY,
-          activityMode: cfg.activityMode === "patrol" ? "patrol" : "guard",
-          last: cfg.last,
-        }));
+        localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+      } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent("sakura-pet-config", { detail: payload })); } catch (_) {}
+      try {
+        const channel = new BroadcastChannel("sakura-pet-config");
+        channel.postMessage(payload);
+        channel.close();
       } catch (_) {}
     },
   };
@@ -193,6 +209,7 @@
       el.className = "pe-sprite";
       el.setAttribute("role", "img");
       el.setAttribute("aria-label", "宠物");
+      el.tabIndex = 0;
       el.style.bottom = `${this.groundBottom}px`;
       const shadow = document.createElement("div");
       shadow.className = "pe-shadow";
@@ -228,6 +245,11 @@
           return;
         }
         if (this.onPetClick) this.onPetClick(this);
+      });
+      el.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        el.click();
       });
 
       if (this.statusDriven) {
@@ -298,6 +320,15 @@
       this.custom = dataUrl || null;
       this.applyMode();
       this.setAnim("idle", true);
+    }
+    setScale(scale) {
+      const next = Number(scale);
+      if (!Number.isFinite(next) || next <= 0) return;
+      this.scale = next;
+      this.applyMode();
+      const bounds = this.bounds();
+      this.s.x = Math.max(bounds.min, Math.min(bounds.max, this.s.x));
+      this._render();
     }
 
     /** 跟随全局状态切换动作 */
@@ -565,5 +596,6 @@
     rand,
     SHEET_URL,
     SAVE_KEY,
+    LEGACY_SAVE_KEY,
   };
 })();

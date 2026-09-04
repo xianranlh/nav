@@ -26,6 +26,31 @@
     return list.slice(0, Math.max(0, limit));
   }
 
+  function collectRecentLinks(groups, limit = 20) {
+    const list = [];
+    (Array.isArray(groups) ? groups : []).forEach((group) => {
+      const links = Array.isArray(group && group.links) ? group.links : [];
+      links.forEach((link) => {
+        if (!link || !Number.isFinite(Number(link.lastClickAt))) return;
+        list.push({
+          ...link,
+          groupId: group.id,
+          groupName: group.name,
+        });
+      });
+    });
+    return list
+      .sort((a, b) => Number(b.lastClickAt) - Number(a.lastClickAt))
+      .slice(0, Math.max(0, limit));
+  }
+
+  function recordLinkUsage(link, now = Date.now()) {
+    if (!link || typeof link !== "object") return null;
+    link.clickCount = Math.max(0, Number(link.clickCount) || 0) + 1;
+    link.lastClickAt = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+    return link;
+  }
+
   function shouldShowGroupTabs(groups, minGroups = 4) {
     return Array.isArray(groups) && groups.length >= minGroups;
   }
@@ -49,6 +74,8 @@
 
   return {
     collectStarredLinks,
+    collectRecentLinks,
+    recordLinkUsage,
     shouldShowGroupTabs,
     buildGroupTabItems,
     createGroupDraft,

@@ -273,6 +273,21 @@
     },
   };
 
+  function persistNavNow() {
+    Store.save();
+    const remote = window.SakuraRemote;
+    if (!remote || typeof remote.isRemote !== "function" || !remote.isRemote()) return;
+    if (typeof remote.pushNow !== "function") return;
+    remote.pushNow().catch((e) => {
+      console.warn("recent usage immediate save failed", e);
+    });
+  }
+
+  function recordRecentUsage(link) {
+    if (!Layout.recordLinkUsage(link)) return;
+    persistNavNow();
+  }
+
   /** 同一站点 favicon 请求合并；失败过的 URL 本页内不再反复请求 */
   const _faviconByPageUrl = new Map();
   const _faviconFailedPageUrl = new Set();
@@ -699,9 +714,7 @@
 
     // 点击打点
     a.addEventListener("click", () => {
-      link.clickCount = (link.clickCount || 0) + 1;
-      link.lastClickAt = Date.now();
-      try { Store.save(); } catch (_) {}
+      recordRecentUsage(link);
       if (typeof UIRecent !== "undefined") UIRecent.refresh();
     });
 
@@ -3352,6 +3365,8 @@
   const UIContext = {
     $, $$, toast, uid, escapeHtml,
     Store,
+    recordRecentUsage,
+    persistNavNow,
     render,
     Bg,
   };
