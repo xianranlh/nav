@@ -14,7 +14,7 @@ WORKDIR /app
 COPY server/package.json server/package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 
-COPY server/index.js server/database.js server/metadata.js ./
+COPY server/index.js server/database.js server/metadata.js server/music-lx.js server/sso.js ./
 
 COPY index.html pet.html styles.css manifest.json sw.js /usr/share/nginx/html/
 COPY js/ /usr/share/nginx/html/js/

@@ -24,6 +24,7 @@
   --radius-lg: 22px;
   --radius-md: 14px;
   --radius-sm: 10px;
+  --fab-inset: 22px;
 
   --font-base: 15px;
   --gap: 18px;
@@ -105,15 +106,19 @@ html[data-visual-theme="sycamore"] {
 html, body {
   margin: 0;
   padding: 0;
-  min-height: 100%;
+  height: 100%;
+  height: 100dvh;
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
                "Segoe UI", "Helvetica Neue", sans-serif;
   font-size: var(--font-base);
   background: var(--bg-gradient) fixed;
   background-size: cover;
-  overflow-x: hidden;
+  overflow: hidden;
+  scrollbar-width: none;
 }
+html::-webkit-scrollbar,
+body::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* 背景层（双层淡入淡出） */
 .bg-layer {
@@ -181,12 +186,19 @@ body.has-bg {
   z-index: 1;
   width: min(1280px, 100%);
   max-width: 1280px;
+  height: 100%;
   margin: 0 auto;
-  padding: var(--app-pad-y) var(--app-pad-x) 72px;
+  padding: var(--app-pad-y) var(--app-pad-x) 96px;
   display: flex;
   flex-direction: column;
   gap: var(--app-gap);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior: contain;
 }
+.app::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* ===================== 玻璃材质 ===================== */
 .glass {
@@ -2138,7 +2150,7 @@ body.pre-auth #upcoming-card { display: none !important; }
   }
   .blog-panel { padding: 16px; }
   .blog-detail { padding: 24px 22px; }
-  .ai-fab { right: 14px; bottom: 14px; }
+  .ai-fab { right: max(var(--fab-inset), env(safe-area-inset-right, 0px)); bottom: max(var(--fab-inset), env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ===================== 日历按钮角标 ===================== */
@@ -3237,22 +3249,23 @@ body.pre-auth #weather-card { display: none !important; }
 /* 浮动入口始终可用；层级高于登录层 (2000)，未登录时也可打开播放器 */
 .music-fab {
   position: fixed;
-  left: 22px;
-  bottom: 22px;
-  width: 58px;
-  height: 58px;
+  left: max(var(--fab-inset), env(safe-area-inset-left, 0px));
+  right: auto;
+  bottom: max(var(--fab-inset), env(safe-area-inset-bottom, 0px));
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  background: linear-gradient(135deg, #ffd6e6, #ff8fab);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: white;
   font-size: 24px;
-  box-shadow: 0 10px 25px rgba(255, 143, 171, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
-  z-index: 2100;
+  box-shadow: 0 10px 30px rgba(var(--accent-rgb), 0.5), 0 0 0 1px rgba(255,255,255,0.4) inset;
+  z-index: 500;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, background 0.25s ease;
 }
 
 /* 樱花主题 (默认/Sakura) 暗色适配 */
@@ -3305,9 +3318,9 @@ html[data-visual-theme="paper"] .music-fab {
 }
 
 .music-fab:hover {
-  transform: scale(1.1) rotate(8deg);
+  transform: scale(1.08) rotate(-6deg);
 }
-.music-fab:active { transform: scale(0.92); }
+.music-fab:active { transform: scale(0.95); }
 
 /* 激活状态统一使用主色渐变，以示区分 */
 .music-fab.active {
@@ -3575,6 +3588,29 @@ html[data-visual-theme="paper"] .music-fab {
   font-size: 13px;
   color: var(--text-faint);
 }
+.music-vol-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.music-vol-btn:hover {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+}
+.music-volume-wrap.is-muted .music-vol-btn {
+  color: var(--accent);
+}
+.music-volume-wrap.is-muted .music-volume {
+  opacity: 0.45;
+}
 .music-volume {
   width: 80px;
   -webkit-appearance: none;
@@ -3691,9 +3727,298 @@ html[data-visual-theme="paper"] .music-fab {
 
 @media (max-width: 640px) {
   .music-panel { top: 8px; bottom: 8px; left: 8px; width: calc(100vw - 16px); }
-  .music-fab { left: 14px; bottom: 14px; }
-  .music-search-fab { left: 14px; bottom: 76px; }
+  .music-fab { left: max(var(--fab-inset), env(safe-area-inset-left, 0px)); right: auto; bottom: max(var(--fab-inset), env(safe-area-inset-bottom, 0px)); }
   .music-stage { height: 220px; }
+}
+
+/* ===================== 搜歌 / 音源（跟播放列表同一套行） ===================== */
+.music-lx-dialog form,
+.music-src-dialog form {
+  overscroll-behavior: contain;
+}
+.mlx-head {
+  align-items: flex-start;
+}
+.mlx-head-copy {
+  min-width: 0;
+  flex: 1;
+}
+.mlx-head-copy h3 {
+  text-wrap: balance;
+}
+.mlx-head-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+.mlx-search-block {
+  padding: 12px 20px 4px;
+}
+.mlx-q-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+.mlx-search-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.mlx-search-row input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.mlx-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 10px;
+}
+.mlx-plats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.mlx-tab.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
+  font-weight: 600;
+}
+.mlx-tab:focus-visible,
+.mlx-hit:focus-visible,
+.mlx-hit-acts button:focus-visible,
+.mlx-src-acts button:focus-visible,
+#mlx-go-sources:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.mlx-quality-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+.mlx-quality-label select {
+  width: auto;
+  min-width: 76px;
+  padding: 5px 8px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--text);
+}
+[data-theme="dark"] .mlx-quality-label select {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+.mlx-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 20px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(180, 83, 9, 0.1);
+  color: #9a3412;
+  font-size: 12px;
+}
+[data-theme="dark"] .mlx-banner {
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+}
+.mlx-banner[hidden] { display: none; }
+.mlx-banner p { margin: 0; min-width: 0; }
+.mlx-body {
+  flex: 1;
+  min-height: 260px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 8px 12px 10px;
+}
+.mlx-empty {
+  margin: 18px 8px;
+  padding: 28px 18px;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.7;
+  border: 1px dashed var(--glass-border);
+  border-radius: 12px;
+}
+.mlx-empty p { margin: 0; }
+.mlx-empty-note { font-size: 12px; color: var(--text-faint); }
+.mlx-count {
+  font-size: 12px;
+  color: var(--text-faint);
+  padding: 4px 10px 8px;
+}
+.mlx-hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.mlx-hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.mlx-hit:hover { background: rgba(255, 255, 255, 0.35); }
+[data-theme="dark"] .mlx-hit:hover { background: rgba(255, 255, 255, 0.08); }
+.mlx-hit-num {
+  width: 22px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.mlx-hit-main { flex: 1; min-width: 0; }
+.mlx-hit-name,
+.mlx-hit-sub,
+.mlx-src-name,
+.mlx-src-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mlx-hit-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mlx-hit-sub,
+.mlx-hit-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+.mlx-hit-meta {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mlx-hit-acts {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.mlx-hit:hover .mlx-hit-acts,
+.mlx-hit:focus-within .mlx-hit-acts { opacity: 1; }
+.mlx-hit-acts button,
+.mlx-src-acts button {
+  border: 0;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.mlx-hit-acts button:hover,
+.mlx-src-acts button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+.mlx-foot { justify-content: space-between; }
+.mlx-src-body {
+  padding: 8px 22px 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  gap: 4px;
+}
+.mlx-sec-block { margin: 0 0 16px; }
+.mlx-sec {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+  font-weight: 600;
+  text-wrap: balance;
+}
+.mlx-source-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mlx-src-empty {
+  padding: 14px;
+  border: 1px dashed var(--glass-border);
+  border-radius: 12px;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.mlx-src {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  background: rgba(255, 255, 255, 0.22);
+}
+[data-theme="dark"] .mlx-src { background: rgba(255, 255, 255, 0.04); }
+.mlx-src.off { opacity: 0.55; }
+.mlx-src-main { flex: 1; min-width: 0; }
+.mlx-src-name { font-weight: 600; font-size: 13px; }
+.mlx-src-sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+.mlx-src-alert {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #9a3412;
+  background: rgba(234, 88, 12, 0.12);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.mlx-src-alert a { color: inherit; font-weight: 600; }
+[data-theme="dark"] .mlx-src-alert {
+  color: #fdba74;
+  background: rgba(234, 88, 12, 0.18);
+}
+.mlx-src-acts { display: flex; gap: 6px; flex-shrink: 0; }
+.mlx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 0;
+}
+.mlx-import-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+.mlx-import-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.mlx-field-span { grid-column: 1 / -1; }
+.mlx-import-row input,
+.mlx-field input,
+.mlx-field select { margin: 0; min-width: 0; }
+@media (max-width: 720px) {
+  .mlx-import-row,
+  .mlx-import-grid { grid-template-columns: 1fr; }
+  .mlx-hit-meta { display: none; }
+  .mlx-hit-acts { opacity: 1; }
+  .mlx-banner { flex-direction: column; align-items: stretch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mlx-hit,
+  .mlx-hit-acts { transition: none; }
 }
 
 /* ===================== 城市搜索（天气） ===================== */
@@ -7290,8 +7615,9 @@ body.has-offline-banner #ai-panel { top: 56px; }
 }
 .music-vol-ico.ui-ico {
   font-size: 15px;
-  color: var(--text-faint);
+  color: inherit;
 }
+.music-vol-btn .ui-ico { font-size: 15px; }
 .music-volume { width: 88px; }
 
 .music-playlist { min-height: 0; }
@@ -7334,7 +7660,7 @@ body.has-offline-banner #ai-panel { top: 56px; }
     width: calc(100vw - 16px);
     border-radius: 16px;
   }
-  .music-fab { left: 14px; bottom: 14px; width: 50px; height: 50px; border-radius: 16px; }
+  .music-fab { left: max(var(--fab-inset), env(safe-area-inset-left, 0px)); right: auto; bottom: max(var(--fab-inset), env(safe-area-inset-bottom, 0px)); width: 50px; height: 50px; border-radius: 16px; }
   .music-volume { width: 64px; }
   .music-pl-hint { display: none; }
 }
@@ -7430,14 +7756,19 @@ h1, h2, h3, .greet h1, .dialog-header h3, .music-title {
   font-variant-numeric: tabular-nums;
 }
 
-/* Safe areas for fabs / full-bleed panels */
+/* Safe areas for fabs / full-bleed panels
+   音乐左下、AI 右下，同一套 --fab-inset，离边缘距离相同 */
+@media (max-width: 640px) {
+  :root { --fab-inset: 14px; }
+}
 .ai-fab {
-  right: max(14px, env(safe-area-inset-right, 0px));
-  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  right: max(var(--fab-inset), env(safe-area-inset-right, 0px));
+  bottom: max(var(--fab-inset), env(safe-area-inset-bottom, 0px));
 }
 .music-fab {
-  left: max(14px, env(safe-area-inset-left, 0px));
-  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  left: max(var(--fab-inset), env(safe-area-inset-left, 0px));
+  right: auto;
+  bottom: max(var(--fab-inset), env(safe-area-inset-bottom, 0px));
 }
 .ai-panel {
   top: max(12px, env(safe-area-inset-top, 0px));
@@ -7527,7 +7858,6 @@ h1, h2, h3, .greet h1, .dialog-header h3, .music-title {
   contain-intrinsic-size: auto 48px;
 }
 .music-track {
-  content-visibility: auto;
   contain-intrinsic-size: auto 44px;
 }
 .group,
@@ -7542,14 +7872,12 @@ h1, h2, h3, .greet h1, .dialog-header h3, .music-title {
 
 
 /* v1.21.3 guidelines: list perf + long content */
-.music-list,
 .ai-messages,
 .cal-day-list,
 #groups-container .cards {
   content-visibility: auto;
   contain-intrinsic-size: auto 400px;
 }
-.music-list > .music-track,
 .ai-messages > .ai-msg {
   content-visibility: auto;
   contain-intrinsic-size: auto 56px;
@@ -7573,6 +7901,12 @@ h1, h2, h3, .greet h1, .dialog-header h3, .music-title {
  * ============================================================ */
 [data-tip] {
   position: relative;
+}
+/* FAB 本身是 position:fixed，已经能当 tooltip 的 containing block。
+   若被上面的 relative 盖掉，left/right/bottom 会按文档流计算，按钮会被挤出视口。 */
+.music-fab[data-tip],
+.ai-fab[data-tip] {
+  position: fixed;
 }
 [data-tip]::after,
 [data-tip]::before {

@@ -85,6 +85,37 @@
     clearToken();
   }
 
+  /** 向 .xianran.de 签发 SSO cookie，本机反代据此跳过 Basic Auth */
+  async function issueSso() {
+    if (!getToken()) return false;
+    try {
+      const r = await fetch("/api/sso/issue");
+      return !!(r && r.ok);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function isLocalProxyUrl(url) {
+    try {
+      const u = new URL(url, location.href);
+      if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+      const h = u.hostname.toLowerCase();
+      if (h === location.hostname.toLowerCase()) return false;
+      return h === "xianran.de" || h.endsWith(".xianran.de");
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function openLocal(url, target) {
+    if (isLocalProxyUrl(url)) {
+      try { await issueSso(); } catch (_) {}
+    }
+    if (!target || target === "_self") location.href = url;
+    else window.open(url, target, "noopener");
+  }
+
   /**
    * 修改用户名与密码（先在服务端验证当前凭据，再提交新凭据）
    * @returns {Promise<{ok: boolean, reason?: string}>}
@@ -159,10 +190,25 @@
     isAuthed,
     login,
     logout,
+    issueSso,
     changeCredentials,
     getToken,
     currentUser,
     hasCustomCredentials: () => true, // 多账号版恒为服务端凭据
     _sha256: sha256,
   };
+
+  window.NavSso = { isLocal: isLocalProxyUrl, open: openLocal };
+
+  // 捕获本机反代链接点击：先刷新 SSO cookie 再跳转（卡片 / 最近 / 星标共用）
+  document.addEventListener("click", (e) => {
+    if (e.defaultPrevented || e.button !== 0) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    if (!a) return;
+    if (a.hasAttribute("download")) return;
+    if (!isLocalProxyUrl(a.href)) return;
+    e.preventDefault();
+    openLocal(a.href, a.target || "_self");
+  }, true);
 })();

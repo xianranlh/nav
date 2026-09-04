@@ -2751,7 +2751,10 @@
     if (!btn || !ctxTarget) return;
     const { link, group } = ctxTarget;
     const act = btn.dataset.act;
-    if (act === "open") window.open(link.url, "_blank", "noopener");
+    if (act === "open") {
+      if (window.NavSso && NavSso.isLocal(link.url)) NavSso.open(link.url, "_blank");
+      else window.open(link.url, "_blank", "noopener");
+    }
     else if (act === "copy") {
       if (navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(link.url).then(
@@ -3068,6 +3071,8 @@
     if (!(await Auth.isAuthed())) {
       toast("登录已过期，请重新登录");
       setTimeout(() => location.reload(), 1500);
+    } else {
+      try { await Auth.issueSso(); } catch (_) {}
     }
   }, 5 * 60 * 1000);
 
@@ -3081,6 +3086,7 @@
     if (booted) return;
     booted = true;
     document.body.classList.remove("pre-auth");
+    try { await Auth.issueSso(); } catch (_) {}
     Store.load();
     await AI.AIStore.load();
     // 茶话会按钮 + 模型/角色下拉的禁用态需要在 council 数据加载完成后再刷一次

@@ -134,14 +134,15 @@ test("visual theme setting uses a select instead of preview cards", () => {
   assert.match(app, /#set-visual-theme/);
 });
 
-test("stylesheet no longer carries removed music source search UI selectors", () => {
-  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8") + fs.readFileSync("styles/ai-chat.css", "utf8");
+test("stylesheet ships LX search and source-manager surfaces", () => {
+  const css = fs.readFileSync("styles.css", "utf8") + fs.readFileSync("styles/dialogs.css", "utf8");
 
-  assert.doesNotMatch(css, /\.music-sources-row\b/);
+  assert.match(css, /\.music-lx-dialog\b/);
+  assert.match(css, /\.mlx-hits\b/);
+  assert.match(css, /\.mlx-hit\b/);
+  assert.match(css, /\.mlx-source-list\b/);
   assert.doesNotMatch(css, /\.music-search-dialog\b/);
   assert.doesNotMatch(css, /\.msd-/);
-  assert.doesNotMatch(css, /\.music-source-list\b/);
-  assert.doesNotMatch(css, /\.mt-source-badge\b/);
 });
 
 test("login surface keeps hidden-state safety and focusable primary CTA", () => {
@@ -240,6 +241,22 @@ test("AI and music panels use shared SVG icon class and polished shells", () => 
   assert.match(music, /ICO_PLAY/);
   assert.match(music, /ICO_PAUSE/);
   assert.match(music, /innerHTML\s*=\s*playing \? ICO_PAUSE : ICO_PLAY/);
+  assert.match(music, /_fetchLxLyrics/);
+  assert.match(css, /\.music-fab\s*\{[^}]*position:\s*fixed/);
+  assert.match(css, /--fab-inset:\s*22px/);
+  assert.match(css, /\.music-fab\s*\{[^}]*left:\s*max\(var\(--fab-inset\)/);
+  assert.match(css, /\.ai-fab\s*\{[^}]*right:\s*max\(var\(--fab-inset\)/);
+  assert.match(css, /\.music-fab\s*\{[^}]*bottom:\s*max\(var\(--fab-inset\)/);
+  assert.match(css, /\.ai-fab\s*\{[^}]*bottom:\s*max\(var\(--fab-inset\)/);
+  const tipIdx = css.lastIndexOf("[data-tip] {");
+  assert.ok(tipIdx >= 0, "data-tip tooltip rule should exist");
+  assert.match(
+    css.slice(tipIdx),
+    /\.music-fab\[data-tip\][\s\S]*?position:\s*fixed/,
+    "data-tip must not steal music-fab's position:fixed (otherwise it clips at the page edge)",
+  );
+  assert.match(music, /toggleMute/);
+  assert.match(index, /id="music-mute"/);
   assert.match(css, /\.ai-input-row\s*\{[^}]*border-radius:\s*16px/);
   assert.match(css, /\.music-panel\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(var\(--accent-rgb\)/);
 });

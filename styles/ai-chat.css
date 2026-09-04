@@ -9,8 +9,8 @@
 /* ===================== AI 浮动按钮 ===================== */
 .ai-fab {
   position: fixed;
-  right: 22px;
-  bottom: 22px;
+  right: max(var(--fab-inset), env(safe-area-inset-right, 0px));
+  bottom: max(var(--fab-inset), env(safe-area-inset-bottom, 0px));
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -2774,7 +2774,7 @@
     max-width: none;
     border-radius: 16px;
   }
-  .ai-fab { right: 14px; bottom: 14px; width: 50px; height: 50px; border-radius: 16px; }
+  .ai-fab { right: max(var(--fab-inset), env(safe-area-inset-right, 0px)); bottom: max(var(--fab-inset), env(safe-area-inset-bottom, 0px)); width: 50px; height: 50px; border-radius: 16px; }
 }
 
 /* ============================================================

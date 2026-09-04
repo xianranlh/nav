@@ -2,6 +2,15 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
+test("nav SSO helpers exist so local reverse-proxy links can skip basic auth", () => {
+  const auth = fs.readFileSync("js/auth.js", "utf8");
+  const app = fs.readFileSync("js/app.js", "utf8");
+  assert.match(auth, /window\.NavSso/);
+  assert.match(auth, /\/api\/sso\/issue/);
+  assert.match(auth, /isLocalProxyUrl/);
+  assert.match(app, /Auth\.issueSso/);
+});
+
 test("version-busts the main app controller so dialog behavior updates reach the browser", () => {
   const index = fs.readFileSync("index.html", "utf8");
   const sw = fs.readFileSync("sw.js", "utf8");
@@ -47,8 +56,11 @@ test("Docker image includes current theme assets and excludes removed LX source 
   assert.match(dockerfile, /COPY themes\/\s+\/usr\/share\/nginx\/html\/themes\//);
   assert.match(dockerfile, /COPY styles\/\s+\/usr\/share\/nginx\/html\/styles\//);
   assert.doesNotMatch(dockerfile, /lx-sources/);
+  assert.match(dockerfile, /server\/music-lx\.js/);
+  assert.match(dockerfile, /server\/sso\.js/);
   assert.ok(fs.existsSync("js/homepage-theme.js"), "homepage-theme.js ships under js/");
   assert.ok(fs.existsSync("js/homepage-layout.js"), "homepage-layout.js ships under js/");
+  assert.ok(fs.existsSync("js/music-lx.js"), "music-lx.js ships under js/");
 });
 
 test("service worker does not keep unused stale-while-revalidate helper", () => {

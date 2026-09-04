@@ -8,9 +8,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.21.6" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.21.6" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.21.6" />
+  <link rel="stylesheet" href="styles.css?v=v1.22.10" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.22.10" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.22.10" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
@@ -756,11 +756,13 @@
         </div>
       </div>
       <div class="music-head-right">
+        <button type="button" class="icon-btn small music-tool" id="music-search" aria-label="搜索在线歌曲" data-tip="搜索（洛雪音源）"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg></span></button>
+        <button type="button" class="icon-btn small music-tool" id="music-sources" aria-label="管理音源" data-tip="音源 / AIMP"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><circle cx="12" cy="12" r="3"/><path d="m5.6 5.6 2.1 2.1"/><path d="m16.3 16.3 2.1 2.1"/><path d="m16.3 7.7 2.1-2.1"/><path d="m5.6 18.4 2.1-2.1"/></svg></span></button>
         <button type="button" class="icon-btn small music-tool" id="music-add" aria-label="导入本地音乐" data-tip="导入本地音乐"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></button>
         <button type="button" class="icon-btn small music-tool" id="music-add-url" aria-label="添加在线 URL" data-tip="添加在线音乐链接"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span></button>
         <button type="button" class="icon-btn small music-tool" id="music-clear" aria-label="清空播放列表" data-tip="清空播放列表"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></span></button>
         <button type="button" class="icon-btn small music-tool music-close-btn" id="music-close" aria-label="关闭音乐面板" data-tip="关闭音乐面板"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></button>
-        <input type="file" id="music-file-input" accept="audio/*,.lrc,.mp3,.m4a,.flac,.wav,.ogg,.aac,.opus" multiple hidden />
+        <input type="file" id="music-file-input" accept="audio/*,.lrc,.mp3,.m4a,.flac,.wav,.ogg,.aac,.opus,.aimppl,.aimppl4,.m3u,.m3u8,.pls" multiple hidden />
       </div>
     </header>
 
@@ -784,7 +786,9 @@
         <button type="button" class="music-btn" id="music-next" aria-label="下一首" data-tip="下一首"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></span></button>
         <button type="button" class="music-btn" id="music-loop" data-mode="all" aria-label="循环模式" data-tip="循环模式"><span class="ui-ico" data-ico="loop" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span></button>
         <div class="music-volume-wrap">
-          <span class="ui-ico music-vol-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+          <button type="button" class="music-vol-btn" id="music-mute" aria-label="静音" data-tip="静音" aria-pressed="false">
+            <span class="ui-ico music-vol-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+          </button>
           <input type="range" id="music-volume" class="music-volume" min="0" max="1" step="0.01" value="0.75" aria-label="音量" />
         </div>
       </div>
@@ -793,11 +797,114 @@
     <div class="music-playlist">
       <header class="music-pl-head">
         <h4>播放列表 <span id="music-list-count" class="music-list-count"></span></h4>
-        <span class="hint music-pl-hint">拖拽 / 粘贴音乐文件到此面板也可导入</span>
+        <span class="hint music-pl-hint">拖拽音频或 AIMP / M3U 播放列表也可导入</span>
       </header>
       <ul id="music-list" class="music-list"></ul>
     </div>
   </aside>
+
+  <!-- 音乐 · 搜歌 -->
+  <dialog aria-modal="true" id="dialog-music-search" class="glass-dialog music-lx-dialog" data-backdrop-close>
+    <form id="form-music-search" data-no-guard onsubmit="return false;">
+      <header class="dialog-header mlx-head">
+        <div class="mlx-head-copy">
+          <h3>搜歌</h3>
+          <p class="mlx-head-sub" id="mlx-source-hint">搜索后点一行即可播放</p>
+        </div>
+        <button type="button" class="icon-btn small" data-close aria-label="关闭搜歌" data-tip="关闭">
+          <span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span>
+        </button>
+      </header>
+      <div class="mlx-search-block">
+        <label class="mlx-q-label" for="mlx-q">歌名或歌手</label>
+        <div class="mlx-search-row">
+          <input id="mlx-q" name="q" type="search" placeholder="周杰伦 晴天…" autocomplete="off" inputmode="search" spellcheck="false">
+          <button type="submit" class="btn-primary" id="mlx-search-btn">搜索</button>
+        </div>
+        <div class="mlx-filters">
+          <div class="mlx-plats" id="mlx-plats" role="radiogroup" aria-label="曲库"></div>
+          <label class="mlx-quality-label" for="mlx-quality">音质
+            <select id="mlx-quality" name="quality">
+              <option value="128k">128k</option>
+              <option value="320k" selected>320k</option>
+              <option value="flac">flac</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="mlx-banner" id="mlx-banner" hidden>
+        <p>还没接入音源，搜得到但播不了。</p>
+        <button type="button" class="btn-secondary" id="mlx-go-sources">去接入</button>
+      </div>
+      <div class="mlx-body" id="mlx-results" role="region" aria-live="polite" aria-label="搜索结果"></div>
+      <div class="dialog-actions mlx-foot">
+        <button type="button" class="btn-secondary" id="mlx-more" hidden>再加载 25 首</button>
+        <span class="hint">回车搜索 · 点一行即播 · Alt+F</span>
+        <button type="button" class="btn-secondary" data-close>关闭</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 音乐 · 音源 / AIMP -->
+  <dialog aria-modal="true" id="dialog-music-sources" class="glass-dialog music-src-dialog" data-backdrop-close>
+    <form method="dialog" class="dialog-form" data-no-guard>
+      <header class="dialog-header">
+        <h3>音源</h3>
+        <button type="button" class="icon-btn small" data-close aria-label="关闭音源" data-tip="关闭">
+          <span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span>
+        </button>
+      </header>
+      <div class="dialog-body mlx-src-body">
+        <p class="hint">播放器不自带破解源。先导入你自己的洛雪 <code>.js</code> 或 HTTP API，再去搜歌。</p>
+
+        <section class="mlx-sec-block">
+          <h4 class="mlx-sec">已接入</h4>
+          <ul id="mlx-source-list" class="mlx-source-list"></ul>
+        </section>
+
+        <section class="mlx-sec-block">
+          <h4 class="mlx-sec">洛雪脚本</h4>
+          <label class="mlx-field" for="mlx-script-url">脚本地址
+            <span class="mlx-import-row">
+              <input id="mlx-script-url" name="scriptUrl" type="url" placeholder="https://example.com/source.js…" autocomplete="off" inputmode="url" spellcheck="false">
+              <button type="button" class="btn-secondary" id="mlx-import-script-url">从网址导入</button>
+              <button type="button" class="btn-secondary" id="mlx-import-script-file">从文件导入</button>
+            </span>
+          </label>
+          <input type="file" id="mlx-script-file" accept=".js,text/javascript" hidden>
+        </section>
+
+        <section class="mlx-sec-block">
+          <h4 class="mlx-sec">HTTP 音源 API</h4>
+          <div class="mlx-import-grid">
+            <label class="mlx-field" for="mlx-api-name">名称
+              <input id="mlx-api-name" name="apiName" placeholder="家里的音源…" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="mlx-field" for="mlx-api-preset">接口风格
+              <select id="mlx-api-preset" name="apiPreset">
+                <option value="query">Query · /search /url /lrc</option>
+                <option value="lx-api">洛雪 API Server · /url/{source}/{id}/{quality}</option>
+              </select>
+            </label>
+            <label class="mlx-field mlx-field-span" for="mlx-api-base">根地址
+              <input id="mlx-api-base" name="apiBase" type="url" placeholder="https://api.example.com…" autocomplete="off" inputmode="url" spellcheck="false">
+            </label>
+          </div>
+          <button type="button" class="btn-primary" id="mlx-import-api">接入这个 API</button>
+        </section>
+
+        <section class="mlx-sec-block">
+          <h4 class="mlx-sec">AIMP / M3U / PLS</h4>
+          <p class="hint">远程 http 曲目会进播放列表。Windows 本地路径进不了浏览器，请改用「导入本地音乐」。</p>
+          <button type="button" class="btn-secondary" id="mlx-import-playlist">选择播放列表文件</button>
+          <input type="file" id="mlx-playlist-file" accept=".aimppl,.aimppl4,.m3u,.m3u8,.pls" hidden>
+        </section>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" data-close>完成</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- 音乐 · 在线导入 -->
   <dialog aria-modal="true" id="dialog-music-url" class="glass-dialog">
@@ -1692,13 +1799,13 @@
   </dialog>
 
   <script src="js/homepage-theme.js"></script>
-  <script src="js/dialog.js?v=v1.21.6"></script>
+  <script src="js/dialog.js?v=v1.22.10"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.21.6"></script>
+  <script src="js/ai.js?v=v1.22.10"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
@@ -1710,18 +1817,19 @@
   <script src="js/idb.js"></script>
   <script src="js/archive.js"></script>
   <script src="js/image-editor.js"></script>
-  <script src="js/music.js"></script>
+  <script src="js/music.js?v=v1.22.10"></script>
+  <script src="js/music-lx.js?v=v1.22.10"></script>
   <script src="js/storage-inspector.js"></script>
   <!-- 首页漫游小宠物（开关见 pet.html） -->
   <script src="js/pet-engine.js"></script>
   <script src="js/pet-widget.js"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.21.6"></script>
-  <script src="js/ui/todo.ui.js?v=v1.21.6"></script>
-  <script src="js/ui/calendar.ui.js?v=v1.21.6"></script>
-  <script src="js/ui/weather.ui.js?v=v1.21.6"></script>
-  <script src="js/ui/sync.ui.js?v=v1.21.6"></script>
-  <script src="js/ui/misc.ui.js?v=v1.21.6"></script>
+  <script src="js/ui/ai.ui.js?v=v1.22.10"></script>
+  <script src="js/ui/todo.ui.js?v=v1.22.10"></script>
+  <script src="js/ui/calendar.ui.js?v=v1.22.10"></script>
+  <script src="js/ui/weather.ui.js?v=v1.22.10"></script>
+  <script src="js/ui/sync.ui.js?v=v1.22.10"></script>
+  <script src="js/ui/misc.ui.js?v=v1.22.10"></script>
   <script>
     // Petrichor 知识库入口：同域 /blog 路由（openresty 反代 → 127.0.0.1:3100）；
     // 可在控制台 localStorage.setItem('sakura_nav_blog_url', 'https://...') 覆盖
@@ -1733,6 +1841,6 @@
       a.href = custom || "/blog";
     })();
   </script>
-  <script src="js/app.js?v=v1.21.6"></script>
+  <script src="js/app.js?v=v1.22.10"></script>
 </body>
 </html>

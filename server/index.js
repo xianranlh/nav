@@ -55,6 +55,16 @@ import {
   createTtlCache,
   readResponseTextLimited,
 } from "./metadata.js";
+import { registerMusicRoutes } from "./music-lx.js";
+import {
+  loadOrCreateSecret,
+  mintToken,
+  verifyToken,
+  cookieHeader,
+  readCookie,
+  isAllowedSsoTarget,
+  COOKIE_NAME as SSO_COOKIE_NAME,
+} from "./sso.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -103,6 +113,26 @@ app.disable("x-powered-by");
 app.use(express.json({ limit: "50mb" }));
 
 openDatabase(DATA_DIR);
+const ssoSecret = loadOrCreateSecret(DATA_DIR);
+
+function issueSsoCookie(res, userId, ttlMs) {
+  const ttlSec = Math.max(60, Math.floor((Number(ttlMs) || SESSION_TTL_MS) / 1000));
+  const token = mintToken(ssoSecret, userId, ttlSec);
+  res.setHeader("Set-Cookie", cookieHeader(token, { maxAgeSec: ttlSec }));
+}
+
+function clearSsoCookie(res) {
+  res.setHeader("Set-Cookie", cookieHeader("", { clear: true }));
+}
+
+function sessionFromSsoCookie(req) {
+  const raw = readCookie(req.headers.cookie, SSO_COOKIE_NAME);
+  const v = verifyToken(ssoSecret, raw);
+  if (!v) return null;
+  const u = getUser(v.userId);
+  if (!u) return null;
+  return { userId: u.id, username: u.username, isAdmin: !!u.is_admin };
+}
 
 function ensureDir() {
   try {
@@ -184,6 +214,7 @@ app.post("/api/auth/login", (req, res) => {
   }
   const ttl = body.remember ? SESSION_TTL_LONG_MS : SESSION_TTL_MS;
   const sess = createSession(u.id, ttl);
+  issueSsoCookie(res, u.id, ttl);
   return res.json({
     ok: true,
     token: sess.token,
@@ -194,7 +225,42 @@ app.post("/api/auth/login", (req, res) => {
 
 app.post("/api/auth/logout", auth, (req, res) => {
   if (req.sessionToken) deleteSession(req.sessionToken);
+  clearSsoCookie(res);
   res.json({ ok: true });
+});
+
+/** 已登录时刷新 .xianran.de SSO cookie，供本机反代跳过 Basic Auth */
+app.get("/api/sso/issue", auth, (req, res) => {
+  issueSsoCookie(res, req.user.userId, SESSION_TTL_LONG_MS);
+  res.json({ ok: true });
+});
+
+/** OpenResty / 调试：校验 SSO cookie，200 或 401（无 JSON，方便 auth_request） */
+app.get("/api/sso/check", (req, res) => {
+  const v = sessionFromSsoCookie(req);
+  if (!v) return res.status(401).type("text/plain").send("no\n");
+  res.status(200).type("text/plain").send("ok\n");
+});
+
+/** 顶栏跳转兜底：签发 cookie 后 302 到本机域名 */
+app.get("/api/sso/go", (req, res) => {
+  const to = String(req.query.to || "").trim();
+  if (!isAllowedSsoTarget(to)) {
+    return res.status(400).json({ error: "目标不是本机域名" });
+  }
+  let user = null;
+  const h = req.headers.authorization || "";
+  const m = /^Bearer\s+(.+)$/i.exec(h);
+  const key = (m ? m[1] : String(req.query.token || "")).trim();
+  if (key && API_KEY && key === API_KEY) user = { userId: 1 };
+  else if (key) {
+    const sess = getSession(key);
+    if (sess) user = sess;
+  }
+  if (!user) user = sessionFromSsoCookie(req);
+  if (!user) return res.redirect(302, "/");
+  issueSsoCookie(res, user.userId, SESSION_TTL_LONG_MS);
+  res.redirect(302, to);
 });
 
 app.get("/api/auth/me", auth, (req, res) => {
@@ -209,6 +275,7 @@ app.put("/api/auth/password", auth, (req, res) => {
       username: body.username,
       credHash: body.hash,
     });
+    clearSsoCookie(res);
     res.json({ ok: true, user: u });
   } catch (e) {
     res.status(400).json({ error: String(e.message || e) });
@@ -533,6 +600,7 @@ function sendMedia(cat, req, res) {
 app.get("/api/media/file/bg/:filename", (req, res) => sendMedia("bg", req, res));
 app.get("/api/media/file/music/:filename", (req, res) => sendMedia("music", req, res));
 app.get("/api/media/file/lrc/:filename", (req, res) => sendMedia("lrc", req, res));
+app.get("/api/media/file/icon/:filename", (req, res) => sendMedia("icon", req, res));
 
 app.delete("/api/media/file/:category/:filename", auth, (req, res) => {
   const cat = req.params.category;
@@ -706,6 +774,8 @@ async function _fetchWithTimeout(url, ms) {
     clearTimeout(t);
   }
 }
+
+registerMusicRoutes(app, { auth, dataDir: DATA_DIR, isSafeHttpUrl });
 
 app.get("/api/weather/forecast", async (req, res) => {
   const lat = parseFloat(req.query.lat);

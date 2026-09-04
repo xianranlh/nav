@@ -17,6 +17,8 @@
 .shortcuts-dialog    { --dlg-max: 600px; }
 .council-dialog      { --dlg-max: 640px; }
 .gallery-dialog      { --dlg-max: 920px; width: 94vw; }
+.music-lx-dialog     { --dlg-max: 920px; width: 94vw; }
+.music-src-dialog    { --dlg-max: 620px; }
 .reminders-dialog    { --dlg-max: 1100px; }
 .image-editor-dialog {
   --dlg-max: 96vw;
@@ -30,6 +32,8 @@
 /* 内壳(form)特殊宽度 */
 .shortcuts-dialog form { width: min(560px, 92vw); max-height: 85vh; }
 .council-dialog form   { width: min(620px, 92vw); max-height: 90vh; }
+.music-lx-dialog form  { width: min(920px, 94vw); max-height: 88vh; }
+.music-src-dialog form { width: min(620px, 92vw); max-height: 88vh; }
 
 /* ===== 2. 基础壳 ===== */
 .glass-dialog {

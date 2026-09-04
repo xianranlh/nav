@@ -5,7 +5,7 @@
 - **🐳 Docker / Node 部署**（推荐）：自带 Node + SQLite 服务端，**业务数据存在服务器**，多浏览器 / 多机器访问同一地址看到的就是同一份数据
 - **🌐 纯静态打开**：仅用于查看静态资源；没有同源 `/api/data` 时应用会停止进入主界面，避免把业务数据写入浏览器
 
-> 当前版本：**v1.19.3** · 最近更新见下方"📅 更新汇总"
+> 当前版本：**v1.22.0** · 最近更新见下方"📅 更新汇总"
 
 ---
 
@@ -229,13 +229,16 @@
 - 📊 **点击统计**：每次点击自动打点 `clickCount` / `lastClickAt`（可用于未来智能排序）
 
 ### 🎵 音乐播放器（新！）
+- 🔍 **洛雪式搜索**：`Alt + F` 或面板上的搜索按钮，按酷我 / 酷狗 / 网易 / QQ / 咪咕 / 聚合搜歌，双击即播
+- 🧩 **自定义音源**：自行导入洛雪 `.js` 脚本，或接入 HTTP 音源 API（洛雪 API Server / Query 风格）。播放器不内置任何破解源
+- 🎞 **AIMP / M3U / PLS**：导入桌面播放列表；远程 http 曲目进列表，本地 Windows 路径会跳过并提示改用上传
 - 📥 **导入本地音频**：mp3 / m4a / flac / wav / ogg / aac / opus，支持多选与**拖拽**导入
 - 💾 文件本体上传到服务端 `media/music`，刷新 / 换浏览器不丢
 - 🎤 **LRC 歌词**：为任意曲目附加 `.lrc` 文件；或将同名 `.lrc` 与音频一起拖入自动匹配；逐行高亮 + 居中滚动
 - 📊 **频谱可视化**：Web Audio `AnalyserNode` → canvas 柔和光带，跟随节奏起伏
 - 🔁 播放/暂停 / 上一首/下一首 / 随机 / 单曲循环 / 列表循环
 - 🎚 音量滑杆 + 进度条（可拖动）
-- ⌨️ 快捷键：`Alt + M` 打开面板，面板内按 `空格` 播停，`Esc` 关闭
+- ⌨️ 快捷键：`Alt + M` 打开面板，`Alt + F` 打开搜索，面板内按 `空格` 播停，`Esc` 关闭
 - 📌 浮动按钮在左下，与 AI（右下）左右呼应；播放时按钮显示动态波纹
 
 ### 🔊 AI 语音能力（新！）
@@ -456,6 +459,7 @@ nav/
 │   ├── blog.js             # 博客系统（数据模型 + CRUD）
 │   ├── calendar.js         # 日历 & 重复任务（规则引擎 / 倒计时 / 通知 / iCal）
 │   ├── music.js            # 音乐播放器（服务端媒体 + LRC + Web Audio 频谱）
+│   ├── music-lx.js         # 洛雪搜索弹窗 + 自定义音源 / AIMP 导入
 │   ├── weather.js          # 天气（Open-Meteo + IP/浏览器定位）
 │   ├── suggest.js          # 搜索下拉联想（本地 + DuckDuckGo + 百度 JSONP）
 │   ├── progress.js         # 通用进度面板（NavProgress）
@@ -506,6 +510,10 @@ nav/
 | `GET /api/media/file/:cat/:filename` | 媒体文件直链读取 |
 | `DELETE /api/media/file/:cat/:filename` | 媒体文件删除 |
 | `GET /api/export` / `POST /api/import` | 整包 ZIP 备份导出 / 一键导入 |
+| `GET/POST/PATCH/DELETE /api/music/sources` | 用户导入的洛雪脚本 / HTTP 音源（按账号隔离，不内置破解源） |
+| `GET /api/music/search` / `url` / `lyric` | 曲库搜索 + 向已导入音源要直链 / 歌词 |
+| `GET /api/music/stream/:ticket` | 同源音频代理（短时票据，给 `<audio>` 播） |
+| `POST /api/music/playlist/parse` | 解析 AIMP / M3U / PLS 播放列表 |
 | `* /api/ai-proxy/*` | **AI 反代**（v1.18+）：浏览器 → 同源 → 上游 AI |
 
 `/api/ai-proxy/*` 通过 `X-Sakura-Target-Base` / `X-Sakura-Target-Auth` 头指定上游和鉴权，
