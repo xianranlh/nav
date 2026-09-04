@@ -4,7 +4,7 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.22.10";
+const VERSION = "v1.24.0";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
 
@@ -16,6 +16,8 @@ const CORE_FILES = [
   "./themes/q-anime.css",
   "./themes/dark-minimal.css",
   "./themes/paper.css",
+  `./styles/astral-ui.css?v=${VERSION}`,
+  `./js/astral-icons.js?v=${VERSION}`,
   "./js/homepage-theme.js",
   `./js/dialog.js?v=${VERSION}`,
   `./styles/dialogs.css?v=${VERSION}`,
@@ -24,6 +26,7 @@ const CORE_FILES = [
   "./js/sakura.js",
   "./js/bookmarks.js",
   "./js/auth.js",
+  `./js/install.js?v=${VERSION}`,
   "./js/ai.js",
   "./js/calendar.js",
   "./js/holidays.js",
@@ -43,6 +46,11 @@ const CORE_FILES = [
   `./js/ui/misc.ui.js?v=${VERSION}`,
   `./js/app.js?v=${VERSION}`,
   "./manifest.json",
+  "./assets/icons/app-icon.svg",
+  "./assets/icons/astral-app-icon.png",
+  "./assets/icons/icon-192.png",
+  "./assets/icons/icon-512.png",
+  "./assets/icons/apple-touch-icon.png",
 ];
 const CORE_PATHS = CORE_FILES.map((file) => new URL(file, location.href).pathname);
 

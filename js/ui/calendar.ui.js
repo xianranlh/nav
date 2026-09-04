@@ -488,7 +488,8 @@
   function openTaskDialog(task, dateHint) {
     formTask.reset();
     editingTaskId = task ? task.id : null;
-    $("#task-title-head").textContent = task ? "编辑任务" : "新建任务";
+    const taskHead = $("#task-title-head");
+    if (taskHead) taskHead.innerHTML = `${window.AstralIcons?.markup("calendar") || ""} ${task ? "编辑任务" : "新建任务"}`;
     $("#task-delete-btn").hidden = !task;
 
     // 默认值

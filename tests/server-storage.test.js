@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
 test("requires the same-origin data API instead of falling back to browser storage", () => {
-  const remote = fs.readFileSync("sakura-remote.js", "utf8");
+  const remote = fs.readFileSync("js/sakura-remote.js", "utf8");
 
   assert.match(remote, /const STORAGE_REQUIRED = true;/);
   assert.match(remote, /isRequired:\s*\(\)\s*=>\s*STORAGE_REQUIRED/);
@@ -11,7 +11,7 @@ test("requires the same-origin data API instead of falling back to browser stora
 });
 
 test("purges legacy browser business keys after server storage is active", () => {
-  const remote = fs.readFileSync("sakura-remote.js", "utf8");
+  const remote = fs.readFileSync("js/sakura-remote.js", "utf8");
 
   assert.match(remote, /function purgeLegacyBusinessStorage/);
   assert.match(remote, /realRemoveItem\.call\(window\.localStorage/);
@@ -21,7 +21,7 @@ test("purges legacy browser business keys after server storage is active", () =>
 });
 
 test("blocks app boot when required server storage is unavailable", () => {
-  const app = fs.readFileSync("app.js", "utf8");
+  const app = fs.readFileSync("js/app.js", "utf8");
 
   assert.match(app, /function serverStorageUnavailable/);
   assert.match(app, /function showStorageUnavailable/);
@@ -29,8 +29,8 @@ test("blocks app boot when required server storage is unavailable", () => {
 });
 
 test("does not store uploaded media in IndexedDB when server storage is required", () => {
-  const app = fs.readFileSync("app.js", "utf8");
-  const music = fs.readFileSync("music.js", "utf8");
+  const app = fs.readFileSync("js/app.js", "utf8");
+  const music = fs.readFileSync("js/music.js", "utf8");
 
   assert.match(app, /serverStorageRequired\(\)/);
   assert.match(app, /服务端背景上传失败，未写入浏览器/);

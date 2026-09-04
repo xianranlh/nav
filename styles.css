@@ -4716,6 +4716,40 @@ a.topbar-btn { text-decoration: none; font-size: 13px; }
 [data-theme="dark"] .topbar-btn { background: rgba(255,255,255,0.06); }
 [data-theme="dark"] .topbar-btn:hover { background: rgba(var(--accent-rgb), 0.20); }
 
+/* ---- 可安装应用说明 ---- */
+.install-app-dialog .dialog-form { max-width: 560px; }
+.install-app-intro {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+.install-app-intro img {
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.24);
+}
+.install-app-intro strong { font-size: 16px; }
+.install-app-intro p,
+.install-app-steps { color: var(--text-soft); line-height: 1.65; }
+.install-app-intro p { margin: 5px 0 0; }
+.install-app-intro code {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.install-app-steps {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: rgba(var(--accent-rgb), 0.06);
+}
+.install-app-steps p { margin: 0 0 6px; }
+.install-app-steps ol { margin: 0; padding-left: 22px; }
+@media (max-width: 480px) {
+  .install-app-intro { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; }
+  .install-app-intro img { width: 56px; height: 56px; border-radius: 14px; }
+}
+
 /* ---- 无分组时的引导卡片 ---- */
 .groups-empty {
   padding: 48px 32px 44px;

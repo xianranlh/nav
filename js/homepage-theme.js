@@ -17,50 +17,50 @@
       id: "sakura",
       label: "樱 · 樱粉",
       accent: "#ff8fab",
-      fab: "🌸",
-      aiLogo: "🌸",
-      musicLogo: "🎵",
-      calendarLogo: "📅",
+      fab: "star",
+      aiLogo: "star",
+      musicLogo: "music",
+      calendarLogo: "calendar",
       particleMode: "sakura",
     },
     "q-anime": {
       id: "q-anime",
       label: "✨ Q 版二次元",
       accent: "#c4a8e8",
-      fab: "✨",
-      aiLogo: "✨",
-      musicLogo: "🎧",
-      calendarLogo: "🌟",
+      fab: "star",
+      aiLogo: "star",
+      musicLogo: "music",
+      calendarLogo: "calendar",
       particleMode: "candy-stars",
     },
     "dark-minimal": {
       id: "dark-minimal",
       label: "🌙 暗夜极简",
       accent: "#8da4c0",
-      fab: "🌙",
-      aiLogo: "🌙",
-      musicLogo: "♫",
-      calendarLogo: "◷",
+      fab: "star",
+      aiLogo: "star",
+      musicLogo: "music",
+      calendarLogo: "calendar",
       particleMode: "none",
     },
     paper: {
       id: "paper",
       label: "📜 复古纸质",
       accent: "#b07c4f",
-      fab: "📜",
-      aiLogo: "📜",
-      musicLogo: "🎼",
-      calendarLogo: "🗓️",
+      fab: "star",
+      aiLogo: "star",
+      musicLogo: "music",
+      calendarLogo: "calendar",
       particleMode: "sycamore",
     },
     starlight: {
       id: "starlight",
       label: "星光（旧）",
       accent: "#8b9fff",
-      fab: "✨",
-      aiLogo: "✨",
-      musicLogo: "🎧",
-      calendarLogo: "✨",
+      fab: "star",
+      aiLogo: "star",
+      musicLogo: "music",
+      calendarLogo: "calendar",
       particleMode: "starlight",
       legacy: true,
     },
@@ -68,10 +68,10 @@
       id: "sycamore",
       label: "梧桐叶（旧）",
       accent: "#c4a06e",
-      fab: "🍂",
-      aiLogo: "🍂",
-      musicLogo: "🎶",
-      calendarLogo: "🍁",
+      fab: "star",
+      aiLogo: "star",
+      musicLogo: "music",
+      calendarLogo: "calendar",
       particleMode: "sycamore",
       legacy: true,
     },
@@ -102,19 +102,17 @@
     if (!doc || !doc.documentElement) return;
     const meta = getVisualTheme(themeId);
     doc.documentElement.dataset.visualTheme = meta.id;
-    const fab = doc.querySelector(".ai-fab-icon");
-    if (fab) fab.textContent = meta.fab;
-    doc.querySelectorAll(".ai-logo, .ai-empty-logo").forEach((el) => {
-      el.textContent = meta.aiLogo;
-    });
-    const loginLogo = doc.querySelector(".login-logo");
-    if (loginLogo) loginLogo.textContent = meta.aiLogo;
-    doc.querySelectorAll(".music-fab-icon, .music-logo").forEach((el) => {
-      el.textContent = meta.musicLogo || meta.fab;
-    });
-    doc.querySelectorAll(".calendar-icon, .calendar-logo").forEach((el) => {
-      el.textContent = meta.calendarLogo || "📅";
-    });
+    const iconApi = doc.defaultView && doc.defaultView.AstralIcons;
+    const setIcon = (el, name) => {
+      if (!el || el.tagName === "IMG") return;
+      if (el.dataset) el.dataset.astralIcon = name;
+      if (iconApi && typeof iconApi.mount === "function") iconApi.mount(el, name);
+      else el.textContent = name;
+    };
+    setIcon(doc.querySelector(".ai-fab-icon"), meta.fab);
+    doc.querySelectorAll(".ai-logo, .ai-empty-logo").forEach((el) => setIcon(el, meta.aiLogo));
+    doc.querySelectorAll(".music-fab-icon, .music-logo").forEach((el) => setIcon(el, meta.musicLogo || meta.fab));
+    doc.querySelectorAll(".calendar-icon, .calendar-logo").forEach((el) => setIcon(el, meta.calendarLogo || "calendar"));
   }
 
   function applyHeroModeDom(doc, mode) {

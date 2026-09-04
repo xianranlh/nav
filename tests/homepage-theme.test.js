@@ -61,11 +61,11 @@ test("applies the visual theme to homepage entry icons", () => {
   const { applyVisualThemeDom } = require("../js/homepage-theme.js");
   applyVisualThemeDom(doc, "paper");
 
-  assert.equal(nodes[".music-fab-icon"].textContent, "🎼");
-  assert.equal(nodes[".music-logo"].textContent, "🎼");
-  assert.equal(nodes[".calendar-icon"].textContent, "🗓️");
-  assert.equal(nodes[".calendar-logo"].textContent, "🗓️");
-  assert.equal(nodes[".ai-fab-icon"].textContent, "📜");
+  assert.equal(nodes[".music-fab-icon"].textContent, "music");
+  assert.equal(nodes[".music-logo"].textContent, "music");
+  assert.equal(nodes[".calendar-icon"].textContent, "calendar");
+  assert.equal(nodes[".calendar-logo"].textContent, "calendar");
+  assert.equal(nodes[".ai-fab-icon"].textContent, "star");
   assert.notEqual(nodes[".music-fab-icon"].textContent, nodes[".ai-fab-icon"].textContent);
 });
 

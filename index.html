@@ -4,17 +4,25 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="light dark" />
+  <meta name="application-name" content="闲然导航" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="闲然导航" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no" />
   <title>闲然导航</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E🌸%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="assets/icons/app-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#ff8fab" />
-  <link rel="stylesheet" href="styles.css?v=v1.22.10" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.22.10" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.22.10" />
+  <meta name="theme-color" content="#0b1f42" />
+  <link rel="stylesheet" href="styles.css?v=v1.24.0" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.24.0" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.24.0" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
   <link rel="stylesheet" href="themes/paper.css" />
+  <link rel="stylesheet" href="styles/astral-ui.css?v=v1.24.0" />
 </head>
 <body class="pre-auth">
   <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -26,7 +34,7 @@
 
   <!-- 离线状态横幅 -->
   <div id="offline-banner" role="status" aria-live="polite" hidden>
-    <span class="ob-icon" aria-hidden="true">📶</span>
+    <span class="ob-icon" data-astral-icon="signal" aria-hidden="true"></span>
     <span class="ob-msg">您的浏览器似乎已离线，部分功能（数据同步、AI 调用）暂不可用</span>
     <button type="button" class="ob-close" id="offline-banner-close" title="本会话内不再提示" aria-label="关闭离线提示">关闭</button>
   </div>
@@ -34,7 +42,7 @@
   <!-- 登录遮罩层 -->
   <div id="login-overlay" class="login-overlay" hidden>
     <form class="glass login-card" id="login-form" autocomplete="off">
-      <div class="login-logo">🌸</div>
+      <img class="login-logo" src="assets/icons/icon-192.png" alt="" width="78" height="78" />
       <h2>闲然导航</h2>
       <p class="login-sub">请登录后继续</p>
       <label>
@@ -58,7 +66,13 @@
     <!-- 顶部：问候与时钟 -->
     <header class="glass header-bar">
       <div class="greet">
-        <h1 id="greeting">你好</h1>
+        <div class="brand-lockup">
+          <img class="brand-mark" src="assets/icons/icon-192.png" alt="" width="56" height="56" />
+          <div class="brand-copy">
+            <span class="brand-title" id="brand-title">闲然导航 · ASTRAL NAV</span>
+            <h1 id="greeting">你好，旅人</h1>
+          </div>
+        </div>
         <p id="sub-greet">愿你今天也被温柔以待</p>
         <p id="hitokoto" class="hitokoto" hidden></p>
       </div>
@@ -78,9 +92,7 @@
           placeholder="搜索书签或网页…"
           spellcheck="false"
         autocomplete="off" inputmode="search">
-        <button type="submit" aria-label="搜索">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
-        </button>
+        <button type="submit" aria-label="搜索"><span data-astral-icon="search" aria-hidden="true"></span></button>
         <div id="search-suggest" class="search-suggest glass" hidden></div>
       </form>
     </section>
@@ -101,21 +113,24 @@
         <button type="button" class="chip" id="btn-import-json">导入 JSON</button>
         <div class="filter-wrap">
           <input id="filter-input" class="filter-input" placeholder="过滤已添加网址…" aria-label="过滤已添加网址" autocomplete="off" spellcheck="false" inputmode="search">
-          <button type="button" id="filter-clear" class="filter-clear" hidden aria-label="清除过滤" data-tip="清除过滤">✕</button>
+          <button type="button" id="filter-clear" class="filter-clear" hidden aria-label="清除过滤" data-tip="清除过滤"><span data-astral-icon="close" aria-hidden="true"></span></button>
         </div>
       </div>
       <div class="toolbar-right">
+        <button type="button" class="topbar-btn" id="btn-install-app" aria-label="将闲然导航安装为应用" data-tip="安装应用" hidden>
+          <span class="topbar-ico" data-astral-icon="install" aria-hidden="true"></span><span class="topbar-txt">安装</span>
+        </button>
         <button type="button" class="topbar-btn" id="btn-calendar" aria-label="打开日历面板查看任务和日程" data-tip="日历">
-          <span class="topbar-ico calendar-icon">📅</span><span class="topbar-txt">日历</span><span class="icon-badge" id="cal-badge" hidden></span>
+          <span class="topbar-ico calendar-icon" data-astral-icon="calendar" aria-hidden="true"></span><span class="topbar-txt">日历</span><span class="icon-badge" id="cal-badge" hidden></span>
         </button>
         <button type="button" class="topbar-btn" id="btn-todo" aria-label="打开待办事项（可选同步到日历）" data-tip="待办">
-          <span class="topbar-ico">✅</span><span class="topbar-txt">待办</span><span class="icon-badge" id="todo-badge" hidden></span>
+          <span class="topbar-ico" data-astral-icon="tasks" aria-hidden="true"></span><span class="topbar-txt">待办</span><span class="icon-badge" id="todo-badge" hidden></span>
         </button>
-        <a class="topbar-btn" id="btn-pet" href="pet.html" title="桌宠设置：改名、换装、首页显示"><span class="topbar-ico">🐾</span><span class="topbar-txt">宠物</span></a>
-        <a class="topbar-btn" id="btn-blog" href="#" target="_blank" rel="noopener" title="打开 Petrichor 知识库与博客"><span class="topbar-ico">📚</span><span class="topbar-txt">知识库</span></a>
-        <button type="button" class="topbar-btn" id="btn-theme" aria-label="切换亮色 / 暗色 / 跟随系统" data-tip="切换主题"><span class="topbar-ico">🌓</span><span class="topbar-txt">主题</span></button>
-        <button type="button" class="topbar-btn" id="btn-settings" aria-label="打开整站设置：账号、外观、组件、同步" data-tip="设置"><span class="topbar-ico">⚙</span><span class="topbar-txt">设置</span></button>
-        <button type="button" class="topbar-btn" id="btn-logout" aria-label="退出当前账号" data-tip="退出登录"><span class="topbar-ico">⎋</span><span class="topbar-txt">退出</span></button>
+        <a class="topbar-btn" id="btn-pet" href="pet.html" title="桌宠设置：改名、换装、首页显示"><span class="topbar-ico" data-astral-icon="pet" aria-hidden="true"></span><span class="topbar-txt">宠物</span></a>
+        <a class="topbar-btn" id="btn-blog" href="#" target="_blank" rel="noopener" title="打开 Petrichor 知识库与博客"><span class="topbar-ico" data-astral-icon="library" aria-hidden="true"></span><span class="topbar-txt">知识库</span></a>
+        <button type="button" class="topbar-btn" id="btn-theme" aria-label="切换亮色 / 暗色 / 跟随系统" data-tip="切换主题"><span class="topbar-ico" data-astral-icon="theme" aria-hidden="true"></span><span class="topbar-txt">主题</span></button>
+        <button type="button" class="topbar-btn" id="btn-settings" aria-label="打开整站设置：账号、外观、组件、同步" data-tip="设置"><span class="topbar-ico" data-astral-icon="settings" aria-hidden="true"></span><span class="topbar-txt">设置</span></button>
+        <button type="button" class="topbar-btn" id="btn-logout" aria-label="退出当前账号" data-tip="退出登录"><span class="topbar-ico" data-astral-icon="logout" aria-hidden="true"></span><span class="topbar-txt">退出</span></button>
       </div>
     </section>
 
@@ -124,7 +139,7 @@
       <!-- 星标置顶 卡片 -->
       <section id="starred-card" class="recent-card glass" hidden>
         <header class="recent-head">
-          <h3>⭐ 星标置顶</h3>
+          <h3><span data-astral-icon="star" aria-hidden="true"></span> 星标置顶</h3>
         </header>
         <div class="recent-grid" id="starred-grid"></div>
       </section>
@@ -132,7 +147,7 @@
       <!-- 最近使用 卡片 -->
       <section id="recent-card" class="recent-card glass" hidden>
         <header class="recent-head">
-          <h3>⚡ 最近使用</h3>
+          <h3><span data-astral-icon="signal" aria-hidden="true"></span> 最近使用</h3>
           <button type="button" class="mini-btn" id="recent-clear" title="清空最近记录" aria-label="清空最近记录">清空</button>
         </header>
         <div class="recent-grid" id="recent-grid"></div>
@@ -141,7 +156,7 @@
       <!-- 天气卡片（多城市横向滚动） -->
       <section id="weather-card" class="weather-card glass" hidden>
         <header class="weather-head">
-          <h3>☁ 天气</h3>
+          <h3><span data-astral-icon="weather" aria-hidden="true"></span> 天气</h3>
           <div class="weather-head-actions">
             <span id="w-active-name" class="w-active-name" title="当前详情所属城市">--</span>
             <button type="button" class="icon-btn small" id="w-refresh" aria-label="刷新所有城市" data-tip="刷新天气">↻</button>
@@ -162,7 +177,7 @@
     <!-- 即将到来的任务 卡片 -->
     <section id="upcoming-card" class="upcoming-card glass" hidden>
       <header class="upcoming-head">
-        <h3><span class="calendar-logo">📅</span> 即将到来</h3>
+        <h3><span class="calendar-logo" data-astral-icon="calendar" aria-hidden="true"></span> 即将到来</h3>
         <button type="button" class="mini-btn" id="upcoming-expand">打开日历</button>
       </header>
       <ul id="upcoming-list" class="upcoming-list"></ul>
@@ -204,7 +219,7 @@
         </div>
 
         <details class="sec link-more">
-          <summary>⚙ 更多设置 <small class="hint-inline">图标 / 描述 / 背景媒体（可选）</small></summary>
+          <summary><span data-astral-icon="settings" aria-hidden="true"></span> 更多设置 <small class="hint-inline">图标 / 描述 / 背景媒体（可选）</small></summary>
           <label>
             <span>图标设置 <small class="hint-inline">留空自动抓取站点 favicon</small></span>
             <div class="icon-picker" id="icon-picker">
@@ -324,7 +339,7 @@
   <dialog aria-modal="true" id="dialog-settings" data-backdrop-close class="glass-dialog settings-dialog">
     <div id="form-settings" class="dialog-form">
       <div class="dialog-header">
-        <h3><span>⚙️</span> 设置</h3>
+        <h3><span data-astral-icon="settings" aria-hidden="true"></span> 设置</h3>
         <button type="button" class="close-btn" data-close aria-label="关闭" data-tip="关闭">&times;</button>
       </div>
 
@@ -543,7 +558,7 @@
 
         <!-- 背景粒子 -->
         <details class="sec">
-          <summary>✨ 背景特效</summary>
+          <summary><span data-astral-icon="star" aria-hidden="true"></span> 背景特效</summary>
           <label class="row">粒子数量
             <input type="range" id="set-sakura-count" min="0" max="200" step="5" />
             <span id="set-sakura-count-val"></span>
@@ -1050,7 +1065,7 @@
         </details>
 
         <details class="sec">
-          <summary>⚡ 交互行为控制</summary>
+          <summary><span data-astral-icon="signal" aria-hidden="true"></span> 交互行为控制</summary>
           <div class="sec-body">
             <label class="row row-tight">
               <input type="checkbox" id="ai-auto-apply" />
@@ -1164,7 +1179,7 @@
           <div class="council-sec-head">
             <h4>成员（建议 2-4 位；深度研究 16 位）</h4>
             <div class="council-sec-actions">
-              <button type="button" class="mini-btn" id="council-deep-research" title="一键创建 16 个差异化角色的成员，覆盖你已配置的所有供应商，模拟 grok-4.20-multi-agent-xhigh 体验" aria-label="一键创建 16 个差异化角色的成员，覆盖你已配置的所有供应商，模拟 grok-4.20-multi-agent-xhigh 体验">⚡ 深度研究 (16)</button>
+              <button type="button" class="mini-btn" id="council-deep-research" title="一键创建 16 个差异化角色的成员，覆盖你已配置的所有供应商，模拟 grok-4.20-multi-agent-xhigh 体验" aria-label="一键创建 16 个差异化角色的成员，覆盖你已配置的所有供应商，模拟 grok-4.20-multi-agent-xhigh 体验"><span data-astral-icon="signal" aria-hidden="true"></span> 深度研究 (16)</button>
               <button type="button" class="mini-btn" id="council-add-member">+ 添加成员</button>
             </div>
           </div>
@@ -1287,7 +1302,7 @@
             <button type="button" class="gallery-filter is-active" data-filter="all" role="tab" aria-selected="true">全部</button>
             <button type="button" class="gallery-filter" data-filter="generated" role="tab" aria-selected="false">生图</button>
             <button type="button" class="gallery-filter" data-filter="uploaded" role="tab" aria-selected="false">上传</button>
-            <button type="button" class="gallery-filter" data-filter="favorite" role="tab" aria-selected="false">⭐ 收藏</button>
+            <button type="button" class="gallery-filter" data-filter="favorite" role="tab" aria-selected="false"><span data-astral-icon="star" aria-hidden="true"></span> 收藏</button>
           </div>
           <input type="search" id="gallery-search" placeholder="搜索 prompt / 文件名 / 模型…" autocomplete="off" inputmode="search">
           <button type="button" class="mini-btn" id="gallery-select-toggle" title="进入选择模式：勾选若干张当作背景轮询" aria-label="进入选择模式：勾选若干张当作背景轮询">☑ 选择</button>
@@ -1425,7 +1440,7 @@
   <section id="calendar-panel" class="calendar-panel" hidden>
     <header class="cal-head glass">
       <div class="cal-head-left">
-        <h2>📅 日历</h2>
+        <h2><span data-astral-icon="calendar" aria-hidden="true"></span> 日历</h2>
         <div class="cal-nav">
           <button type="button" class="icon-btn small" id="cal-prev" aria-label="上月" data-tip="上一月">‹</button>
           <button type="button" class="chip" id="cal-today">今天</button>
@@ -1445,7 +1460,7 @@
           <input type="file" id="cal-ics-import" accept=".ics,text/calendar" hidden />
         </label>
         <button type="button" class="chip" id="cal-new-task">+ 新任务</button>
-        <button type="button" class="icon-btn" id="cal-close" aria-label="关闭" data-tip="关闭日历">✕</button>
+        <button type="button" class="icon-btn" id="cal-close" aria-label="关闭" data-tip="关闭日历"><span data-astral-icon="close" aria-hidden="true"></span></button>
       </div>
     </header>
 
@@ -1533,7 +1548,7 @@
   <dialog aria-modal="true" id="dialog-task" class="glass-dialog task-dialog">
     <form method="dialog" id="form-task" data-guard-unsaved>
       <div class="dialog-header">
-        <h3 id="task-title-head"><span>📅</span> 新建任务</h3>
+        <h3 id="task-title-head"><span data-astral-icon="calendar" aria-hidden="true"></span> 新建任务</h3>
         <button type="button" class="close-btn" data-close aria-label="关闭" data-tip="关闭">&times;</button>
       </div>
 
@@ -1675,8 +1690,8 @@
             <div class="rem-sb-section-head">
               <span>我的列表</span>
               <div class="rem-sb-actions">
-                <button type="button" class="rem-mini-btn" id="rem-tpl" aria-label="从模板创建列表" data-tip="从模板创建列表">📋</button>
-                <button type="button" class="rem-mini-btn" id="rem-ai-gen" aria-label="让 AI 一句话生成一个列表" data-tip="让 AI 一句话生成一个列表">✨</button>
+                <button type="button" class="rem-mini-btn" id="rem-tpl" aria-label="从模板创建列表" data-tip="从模板创建列表"><span data-astral-icon="tasks" aria-hidden="true"></span></button>
+                <button type="button" class="rem-mini-btn" id="rem-ai-gen" aria-label="让 AI 一句话生成一个列表" data-tip="让 AI 一句话生成一个列表"><span data-astral-icon="star" aria-hidden="true"></span></button>
                 <button type="button" class="rem-mini-btn" id="rem-add-list" aria-label="新建空白列表" data-tip="新建空白列表">+</button>
               </div>
             </div>
@@ -1709,7 +1724,7 @@
 
           <div class="rem-items" id="rem-items"></div>
 
-          <p class="rem-empty" id="rem-empty" hidden>这里还没有提醒事项 🌸</p>
+          <p class="rem-empty" id="rem-empty" hidden>这里还没有提醒事项 ✦</p>
         </main>
 
       </div>
@@ -1751,7 +1766,7 @@
   <dialog aria-modal="true" id="dialog-rem-ai" class="glass-dialog rem-ai-dialog">
     <form method="dialog" id="form-rem-ai">
       <div class="dialog-header">
-        <h3><span>✨</span> AI 一句话生成列表</h3>
+        <h3><span data-astral-icon="star" aria-hidden="true"></span> AI 一句话生成列表</h3>
         <button type="button" class="close-btn" data-close aria-label="关闭" data-tip="关闭">&times;</button>
       </div>
       <div class="dialog-body">
@@ -1770,7 +1785,7 @@
       </div>
       <div class="dialog-actions">
         <button type="button" class="btn-secondary" data-close>取消</button>
-        <button type="submit" class="btn-primary" id="rem-ai-go">✨ 生成</button>
+        <button type="submit" class="btn-primary" id="rem-ai-go"><span data-astral-icon="star" aria-hidden="true"></span> 生成</button>
       </div>
     </form>
   </dialog>
@@ -1798,14 +1813,38 @@
     </form>
   </dialog>
 
+  <dialog aria-modal="true" id="dialog-install-app" class="glass-dialog install-app-dialog" data-backdrop-close>
+    <div class="dialog-form">
+      <div class="dialog-header">
+        <h3><span data-astral-icon="install" aria-hidden="true"></span> 安装闲然导航</h3>
+        <button type="button" class="close-btn" data-close aria-label="关闭" data-tip="关闭">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="install-app-intro">
+          <img src="assets/icons/icon-192.png" width="72" height="72" alt="闲然导航应用图标" />
+          <div>
+            <strong>把导航页放到桌面或主屏幕</strong>
+            <p>安装后会以独立窗口启动，仍使用当前账号连接 <code>nav.xianran.de</code>，书签、任务、设置和媒体数据与网页端保持一致。</p>
+          </div>
+        </div>
+        <div class="install-app-steps" id="install-app-steps" role="status"></div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-primary" data-close>知道了</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="js/astral-icons.js?v=v1.24.0"></script>
   <script src="js/homepage-theme.js"></script>
-  <script src="js/dialog.js?v=v1.22.10"></script>
+  <script src="js/dialog.js?v=v1.24.0"></script>
+  <script src="js/install.js?v=v1.24.0"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.22.10"></script>
+  <script src="js/ai.js?v=v1.24.0"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
@@ -1817,19 +1856,19 @@
   <script src="js/idb.js"></script>
   <script src="js/archive.js"></script>
   <script src="js/image-editor.js"></script>
-  <script src="js/music.js?v=v1.22.10"></script>
-  <script src="js/music-lx.js?v=v1.22.10"></script>
+  <script src="js/music.js?v=v1.24.0"></script>
+  <script src="js/music-lx.js?v=v1.24.0"></script>
   <script src="js/storage-inspector.js"></script>
   <!-- 首页漫游小宠物（开关见 pet.html） -->
   <script src="js/pet-engine.js"></script>
   <script src="js/pet-widget.js"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.22.10"></script>
-  <script src="js/ui/todo.ui.js?v=v1.22.10"></script>
-  <script src="js/ui/calendar.ui.js?v=v1.22.10"></script>
-  <script src="js/ui/weather.ui.js?v=v1.22.10"></script>
-  <script src="js/ui/sync.ui.js?v=v1.22.10"></script>
-  <script src="js/ui/misc.ui.js?v=v1.22.10"></script>
+  <script src="js/ui/ai.ui.js?v=v1.24.0"></script>
+  <script src="js/ui/todo.ui.js?v=v1.24.0"></script>
+  <script src="js/ui/calendar.ui.js?v=v1.24.0"></script>
+  <script src="js/ui/weather.ui.js?v=v1.24.0"></script>
+  <script src="js/ui/sync.ui.js?v=v1.24.0"></script>
+  <script src="js/ui/misc.ui.js?v=v1.24.0"></script>
   <script>
     // Petrichor 知识库入口：同域 /blog 路由（openresty 反代 → 127.0.0.1:3100）；
     // 可在控制台 localStorage.setItem('sakura_nav_blog_url', 'https://...') 覆盖
@@ -1841,6 +1880,6 @@
       a.href = custom || "/blog";
     })();
   </script>
-  <script src="js/app.js?v=v1.22.10"></script>
+  <script src="js/app.js?v=v1.24.0"></script>
 </body>
 </html>

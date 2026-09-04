@@ -64,7 +64,7 @@
     loginOverlay.hidden = false;
     loginOverlay.innerHTML = `
       <section class="glass login-card storage-required-card" role="alert">
-        <div class="login-logo">💾</div>
+        <img class="login-logo" src="assets/icons/icon-192.png" alt="" width="78" height="78" />
         <h2>服务端存储不可用</h2>
         <p class="login-sub">当前项目已切换为服务端存储模式，业务数据不会再写入浏览器。</p>
         <p class="login-msg">${escapeHtml(text)}</p>
@@ -83,6 +83,26 @@
     // 取首个字符（支持中英文）
     const ch = [...s][0];
     return ch.toUpperCase();
+  }
+
+  function isLocalSiteGroup(group) {
+    return /本机|本地|内网|自建|local/i.test(String(group?.name || ""));
+  }
+
+  function isLocalSiteLink(link, group) {
+    if (isLocalSiteGroup(group)) return true;
+    try {
+      const host = new URL(link?.url || "").hostname.toLowerCase();
+      return host === "localhost" || host === "127.0.0.1" || host === "::1" ||
+        host.endsWith(".local") || /^10\./.test(host) || /^192\.168\./.test(host) ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function astralIcon(name, className) {
+    return window.AstralIcons?.markup(name, className) || "";
   }
 
   const VISUAL_THEMES = Theme.VISUAL_THEMES;
@@ -309,7 +329,7 @@
       const empty = document.createElement("section");
       empty.className = "glass groups-empty";
       empty.innerHTML = `
-        <div class="ge-icon" aria-hidden="true">📚</div>
+        <div class="ge-icon" data-astral-icon="star" aria-hidden="true"></div>
         <h2 class="ge-title">还没有任何网址分组</h2>
         <p class="ge-sub">先建一个分组开始整理你的导航，或者直接导入浏览器书签：</p>
         <div class="ge-actions">
@@ -320,6 +340,7 @@
         </div>
         <p class="ge-tip">小 tips：按 <kbd>/</kbd> 聚焦搜索；按 <kbd>Ctrl</kbd>+<kbd>K</kbd> 快速添加；按 <kbd>E</kbd> 切换编辑模式</p>
       `;
+      window.AstralIcons?.mountAll(empty);
       empty.addEventListener("click", (e) => {
         const b = e.target.closest("[data-ge-act]");
         if (!b) return;
@@ -353,7 +374,12 @@
       b.type = "button";
       b.className = "group-tab";
       b.dataset.groupId = item.id;
-      b.textContent = item.label;
+      if (isLocalSiteGroup(groups.find((g) => g.id === item.id))) {
+        b.innerHTML = `${astralIcon("station")}<span>${escapeHtml(item.label)}</span>`;
+        b.classList.add("is-local");
+      } else {
+        b.textContent = item.label;
+      }
       b.addEventListener("click", () => {
         const target = document.querySelector(`section.group[data-gid="${CSS.escape(item.id)}"]`);
         if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -396,7 +422,8 @@
 
   function renderGroup(g) {
     const el = document.createElement("section");
-    el.className = "glass group" + (Store.settings.collapsedGroups?.[g.id] ? " collapsed" : "");
+    const localGroup = isLocalSiteGroup(g);
+    el.className = "glass group" + (Store.settings.collapsedGroups?.[g.id] ? " collapsed" : "") + (localGroup ? " group-local-sites" : "");
     el.dataset.gid = g.id;
     el.style.setProperty("--group-color", g.color || "#ff8fab");
 
@@ -406,14 +433,15 @@
       <div class="group-head">
         <span class="group-handle" title="拖动以重排分组" aria-label="拖动以重排">⠿</span>
         <button type="button" class="group-toggle" data-act="toggle" title="折叠/展开" aria-label="折叠/展开" aria-expanded="${Store.settings.collapsedGroups?.[g.id] ? "false" : "true"}">▾</button>
+        <span class="group-emblem" data-astral-icon="${localGroup ? "station" : "folder"}" aria-hidden="true"></span>
         <span class="group-dot" aria-hidden="true"></span>
         <input class="group-name" value="${escapeHtml(g.name)}" aria-label="分组名称" />
         <span class="group-count">${g.links.length} 个</span>
         <div class="group-view" title="查看方式（类似资源管理器）" data-show-cols="${showCols ? "1" : "0"}">
           <div class="group-view-modes" role="group" aria-label="查看方式">
-            <button type="button" class="gv-btn${gv.mode === "icons" ? " is-active" : ""}" data-view-mode="icons" data-tip="图标视图" aria-label="图标视图" aria-pressed="${gv.mode === "icons" ? "true" : "false"}">▦</button>
-            <button type="button" class="gv-btn${gv.mode === "list" ? " is-active" : ""}" data-view-mode="list" data-tip="列表视图" aria-label="列表视图" aria-pressed="${gv.mode === "list" ? "true" : "false"}">☰</button>
-            <button type="button" class="gv-btn${gv.mode === "details" ? " is-active" : ""}" data-view-mode="details" data-tip="详细信息" aria-label="详细信息视图" aria-pressed="${gv.mode === "details" ? "true" : "false"}">≣</button>
+            <button type="button" class="gv-btn${gv.mode === "icons" ? " is-active" : ""}" data-view-mode="icons" data-tip="图标视图" aria-label="图标视图" aria-pressed="${gv.mode === "icons" ? "true" : "false"}">${astralIcon("grid")}</button>
+            <button type="button" class="gv-btn${gv.mode === "list" ? " is-active" : ""}" data-view-mode="list" data-tip="列表视图" aria-label="列表视图" aria-pressed="${gv.mode === "list" ? "true" : "false"}">${astralIcon("list")}</button>
+            <button type="button" class="gv-btn${gv.mode === "details" ? " is-active" : ""}" data-view-mode="details" data-tip="详细信息" aria-label="详细信息视图" aria-pressed="${gv.mode === "details" ? "true" : "false"}">${astralIcon("details")}</button>
           </div>
           <div class="group-view-sizes" role="group" aria-label="图标大小">
             <button type="button" class="gv-btn gv-size${gv.size === "sm" ? " is-active" : ""}" data-view-size="sm" data-tip="小图标" aria-label="小图标" aria-pressed="${gv.size === "sm" ? "true" : "false"}">S</button>
@@ -429,15 +457,16 @@
           </div>
         </div>
         <div class="group-actions">
-          <button type="button" data-act="edit" data-tip="编辑分组" aria-label="编辑分组">✏️</button>
-          <button type="button" data-act="color" data-tip="分组颜色" aria-label="分组颜色">🎨</button>
-          <button type="button" data-act="up" data-tip="上移分组" aria-label="上移分组">↑</button>
-          <button type="button" data-act="down" data-tip="下移分组" aria-label="下移分组">↓</button>
-          <button type="button" data-act="del" data-tip="删除分组" aria-label="删除分组">✕</button>
+          <button type="button" data-act="edit" data-tip="编辑分组" aria-label="编辑分组">${astralIcon("edit")}</button>
+          <button type="button" data-act="color" data-tip="分组颜色" aria-label="分组颜色">${astralIcon("palette")}</button>
+          <button type="button" data-act="up" data-tip="上移分组" aria-label="上移分组">${astralIcon("up")}</button>
+          <button type="button" data-act="down" data-tip="下移分组" aria-label="下移分组">${astralIcon("down")}</button>
+          <button type="button" data-act="del" data-tip="删除分组" aria-label="删除分组">${astralIcon("close")}</button>
         </div>
       </div>
       <div class="cards" data-view="${gv.mode}" data-size="${gv.size}" data-cols="${gv.cols}"></div>
     `;
+    window.AstralIcons?.mountAll(el);
     applyBgLayer(el, g.bg, "group-bg");
 
     const cards = $(".cards", el);
@@ -451,7 +480,7 @@
     addBtn.type = "button";
     addBtn.title = "添加到此分组";
     addBtn.setAttribute("aria-label", "添加到此分组");
-    addBtn.innerHTML = gv.mode === "icons" ? "+" : `<span class="card-add-ico" aria-hidden="true">+</span><span class="card-add-txt">添加网址</span>`;
+    addBtn.innerHTML = gv.mode === "icons" ? astralIcon("add") : `<span class="card-add-ico" aria-hidden="true">${astralIcon("add")}</span><span class="card-add-txt">添加网址</span>`;
     addBtn.addEventListener("click", () => openLinkDialog(null, g.id));
     cards.appendChild(addBtn);
 
@@ -489,7 +518,7 @@
       applyCardsViewAttrs(cards, g);
       const mode = resolveGroupView(g).mode;
       syncGroupViewColsVisibility(viewBox, mode);
-      addBtn.innerHTML = mode === "icons" ? "+" : `<span class="card-add-ico">+</span><span class="card-add-txt">添加网址</span>`;
+      addBtn.innerHTML = mode === "icons" ? astralIcon("add") : `<span class="card-add-ico">${astralIcon("add")}</span><span class="card-add-txt">添加网址</span>`;
       Store.save();
     });
 
@@ -564,6 +593,7 @@
     a.rel = "noopener noreferrer";
     a.dataset.lid = link.id;
     a.dataset.gid = group.id;
+    if (isLocalSiteLink(link, group)) a.classList.add("local-site");
     a.title = (link.desc ? link.desc + "\n" : "") + link.url;
     a.draggable = true;
 
@@ -600,7 +630,7 @@
     const del = document.createElement("button");
     del.className = "del";
     del.type = "button";
-    del.textContent = "✕";
+    del.innerHTML = astralIcon("close");
     del.setAttribute("aria-label", "删除此网址");
     del.setAttribute("data-tip", "删除此网址");
     del.addEventListener("click", (e) => {
@@ -618,7 +648,7 @@
     const pin = document.createElement("button");
     pin.className = "pin" + (link.pinned ? " pinned" : "");
     pin.type = "button";
-    pin.textContent = link.pinned ? "★" : "☆";
+    pin.innerHTML = astralIcon("star");
     pin.setAttribute("aria-label", link.pinned ? "取消置顶" : "置顶");
     pin.setAttribute("data-tip", link.pinned ? "取消置顶" : "置顶");
     pin.addEventListener("click", (e) => {
@@ -639,7 +669,7 @@
     });
 
     // 图标渲染
-    renderIcon(iconSlot, link);
+    renderIcon(iconSlot, link, group);
 
     // 编辑：双击
     a.addEventListener("dblclick", (e) => {
@@ -660,13 +690,19 @@
     return a;
   }
 
-  function renderIcon(slot, link) {
+  function renderIcon(slot, link, group) {
     slot.innerHTML = "";
     const showFallback = () => {
       slot.innerHTML = "";
       const fb = document.createElement("div");
       fb.className = "fallback";
-      fb.textContent = initialLetter(link.name, link.url);
+      const letter = initialLetter(link.name, link.url);
+      if (isLocalSiteLink(link, group)) {
+        fb.classList.add("astral-local");
+        fb.innerHTML = `${astralIcon("station")}<span class="local-letter">${escapeHtml(letter)}</span>`;
+      } else {
+        fb.textContent = letter;
+      }
       // 用 host 生成稳定色调
       const host = safeHost(link.url) || link.name || "?";
       const hash = [...host].reduce((s, c) => s + c.charCodeAt(0), 0);
@@ -1669,6 +1705,8 @@
     try { document.title = t; } catch (_) {}
     const heading = document.querySelector("#login-overlay .login-card h2");
     if (heading) heading.textContent = t;
+    const brand = document.querySelector("#brand-title");
+    if (brand) brand.textContent = t + " · ASTRAL NAV";
   }
 
   function applyTheme() {

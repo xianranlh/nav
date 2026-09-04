@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="闲然导航星轨图标">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#123f76"/>
+      <stop offset=".62" stop-color="#071b3a"/>
+      <stop offset="1" stop-color="#030914"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="80" y1="42" x2="430" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff1bd"/>
+      <stop offset=".35" stop-color="#d9a85f"/>
+      <stop offset=".7" stop-color="#fff0ac"/>
+      <stop offset="1" stop-color="#8b5b2e"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="256" y1="138" x2="256" y2="346" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset=".46" stop-color="#66dcff"/>
+      <stop offset="1" stop-color="#0878db"/>
+    </linearGradient>
+    <filter id="glow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#sky)"/>
+  <rect x="30" y="30" width="452" height="452" rx="85" fill="none" stroke="url(#gold)" stroke-width="10"/>
+  <circle cx="256" cy="248" r="154" fill="none" stroke="url(#gold)" stroke-width="8" opacity=".92"/>
+  <ellipse cx="256" cy="248" rx="191" ry="77" fill="none" stroke="#5ed8ff" stroke-width="5" opacity=".8" transform="rotate(-18 256 248)"/>
+  <g fill="#dff8ff"><circle cx="113" cy="155" r="3"/><circle cx="397" cy="126" r="4"/><circle cx="410" cy="323" r="3"/><circle cx="92" cy="333" r="4"/></g>
+  <path d="M256 105 286 218 399 248 286 278 256 391 226 278 113 248 226 218Z" fill="#38c8ff" opacity=".25" filter="url(#glow)"/>
+  <path d="M256 119 280 224 385 248 280 272 256 377 232 272 127 248 232 224Z" fill="url(#gold)"/>
+  <path d="M256 149 271 233 355 248 271 263 256 347 241 263 157 248 241 233Z" fill="url(#beam)" filter="url(#glow)"/>
+  <path d="M171 414c52-62 97-91 174-137" fill="none" stroke="url(#gold)" stroke-width="17" stroke-linecap="round"/>
+  <path d="M157 410c52-68 100-100 176-145" fill="none" stroke="#6bdcff" stroke-width="4" stroke-linecap="round" opacity=".9"/>
+</svg>

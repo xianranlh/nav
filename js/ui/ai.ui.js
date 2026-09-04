@@ -1368,7 +1368,7 @@
       if (!ms.length) {
         messagesEl.innerHTML = messagesEl.querySelector(".ai-empty") ? messagesEl.innerHTML :
           `<div class="ai-empty">
-            <div class="ai-empty-logo">🌸</div>
+            <div class="ai-empty-logo" data-astral-icon="star">${window.AstralIcons?.markup("star") || ""}</div>
             <p>让 AI 帮你整理导航页。</p>
           </div>`;
         return;
@@ -1404,7 +1404,7 @@
         if (m.ts) el.dataset.time = new Date(m.ts).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
         if (isCouncil) el.style.setProperty("--member-color", m.councilMember.color || "#ff6b8a");
         el.innerHTML = `
-          <div class="ai-avatar">${m.role === "user" ? "我" : (isCouncil ? escapeHtml(m.councilMember.emoji || "🌸") : "🌸")}</div>
+          <div class="ai-avatar">${m.role === "user" ? "我" : (isCouncil ? escapeHtml(m.councilMember.emoji || "✦") : (window.AstralIcons?.markup("star") || "✦"))}</div>
           <div class="ai-bubble"></div>
         `;
         const bubble = el.querySelector(".ai-bubble");

@@ -3,13 +3,13 @@
    =============================== */
 
 :root {
-  --pk: #ff8fab;
-  --pk-deep: #e5638a;
-  --lav: #b8a9e8;
-  --ink: #4a3b52;
-  --glass: rgba(255, 255, 255, 0.68);
-  --glass-brd: rgba(255, 255, 255, 0.55);
-  --shadow: 0 8px 28px rgba(229, 99, 138, 0.12);
+  --pk: #58cfff;
+  --pk-deep: #165f9f;
+  --lav: #d7ad69;
+  --ink: #eaf5ff;
+  --glass: rgba(7, 25, 53, 0.72);
+  --glass-brd: rgba(216, 173, 104, 0.32);
+  --shadow: 0 12px 34px rgba(0, 9, 25, 0.34);
 }
 
 * { box-sizing: border-box; }
@@ -25,7 +25,10 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: -2;
-  background: linear-gradient(160deg, #ffe3ec 0%, #f4e8ff 45%, #dcedff 100%);
+  background:
+    radial-gradient(900px 540px at 16% 12%, rgba(27, 111, 179, .55), transparent 64%),
+    radial-gradient(760px 520px at 86% 78%, rgba(216, 173, 104, .2), transparent 60%),
+    linear-gradient(160deg, #06142d 0%, #0a2346 48%, #030914 100%);
   transition: filter 2s ease;
 }
 body.night .pet-bg {
@@ -68,7 +71,12 @@ body.night .pet-bg {
   font-size: 1.15rem;
   text-align: center;
   letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
+.pet-title-mark { border-radius: 9px; box-shadow: 0 0 14px rgba(88, 207, 255, .24); }
 .back-link {
   color: var(--pk-deep);
   text-decoration: none;

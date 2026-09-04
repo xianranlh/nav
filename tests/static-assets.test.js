@@ -69,3 +69,26 @@ test("service worker does not keep unused stale-while-revalidate helper", () => 
   assert.doesNotMatch(sw, /function\s+staleWhileRevalidate/);
   assert.doesNotMatch(sw, /stale-while-revalidate/);
 });
+
+test("ships a complete installable PWA surface", () => {
+  const index = fs.readFileSync("index.html", "utf8");
+  const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+  const sw = fs.readFileSync("sw.js", "utf8");
+
+  assert.equal(manifest.id, "/");
+  assert.equal(manifest.scope, "/");
+  assert.equal(manifest.display, "standalone");
+  assert.match(manifest.start_url, /^\//);
+  assert.ok(manifest.icons.some((icon) => icon.sizes === "192x192" && icon.type === "image/png"));
+  assert.ok(manifest.icons.some((icon) => icon.sizes === "512x512" && /maskable/.test(icon.purpose)));
+  for (const icon of manifest.icons) {
+    assert.ok(fs.existsSync(icon.src.replace(/^\//, "")), `missing manifest icon: ${icon.src}`);
+  }
+
+  assert.match(index, /apple-mobile-web-app-capable/);
+  assert.match(index, /rel="apple-touch-icon"/);
+  assert.match(index, /id="btn-install-app"/);
+  assert.match(index, /js\/install\.js\?v=/);
+  assert.match(sw, /js\/install\.js/);
+  assert.ok(fs.existsSync("assets/icons/apple-touch-icon.png"));
+});

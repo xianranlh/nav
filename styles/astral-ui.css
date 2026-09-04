@@ -1,0 +1,214 @@
+/* 星轨导航视觉层：原创宇宙科幻图标、品牌标题与响应式布局修正。 */
+:root {
+  --astral-navy: #07172f;
+  --astral-blue: #49c8ff;
+  --astral-gold: #d8ad68;
+  --astral-ivory: #fff4cf;
+}
+
+.astral-icon { width: 1em; height: 1em; display: block; overflow: visible; }
+[data-astral-icon] { display: inline-flex; align-items: center; justify-content: center; }
+
+/* 主布局：扩大可用宽度，收紧无意义的纵向留白。 */
+.app {
+  width: min(1440px, 100%);
+  max-width: 1440px;
+  height: 100dvh;
+  gap: clamp(12px, 1.4vw, 18px);
+  padding: clamp(14px, 2vw, 26px) clamp(12px, 2.2vw, 30px) 78px;
+}
+
+.header-bar {
+  position: relative;
+  min-height: 88px;
+  padding: 14px clamp(16px, 2vw, 24px);
+  background:
+    linear-gradient(105deg, rgba(7, 23, 47, .74), rgba(16, 55, 92, .34) 55%, rgba(216, 173, 104, .12)),
+    var(--glass-bg);
+  border-color: color-mix(in srgb, var(--astral-gold) 42%, transparent);
+  overflow: hidden;
+}
+.header-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 55%, rgba(91, 211, 255, .09) 55.2%, transparent 65%);
+}
+.header-bar .greet { position: relative; z-index: 1; }
+.brand-lockup { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.brand-mark {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 15px;
+  box-shadow: 0 0 24px rgba(73, 200, 255, .22), 0 8px 22px rgba(0, 0, 0, .2);
+}
+.brand-copy { min-width: 0; }
+.brand-title {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--astral-gold);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.greet h1 { font-size: clamp(21px, 2.1vw, 28px); color: #f7fbff; text-shadow: 0 2px 14px rgba(53, 185, 255, .24); }
+.greet > p { margin-left: 69px; color: rgba(236, 245, 255, .76); }
+.header-bar .clock { position: relative; z-index: 1; }
+#clock-time { color: #f7fbff; font-weight: 300; }
+#clock-date { color: rgba(236, 245, 255, .68); }
+
+/* 搜索和工具栏：主任务更宽，操作按钮不再挤成参差多行。 */
+.search-box { padding: 12px clamp(14px, 1.8vw, 20px) 14px; }
+.search-form { min-height: 50px; border-radius: 16px; }
+.search-form button {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #174b80, #091d3c);
+  color: var(--astral-ivory);
+  border: 1px solid rgba(216, 173, 104, .5);
+}
+.search-form button .astral-icon { width: 21px; height: 21px; }
+.toolbar { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; }
+.toolbar-left { flex-wrap: nowrap; overflow-x: auto; padding: 2px 0 5px; scrollbar-width: thin; }
+.toolbar-left > * { flex: 0 0 auto; }
+.toolbar-left .filter-wrap { flex: 1 1 220px; min-width: 180px; }
+.toolbar-right { flex-wrap: nowrap; }
+.topbar-btn { min-width: 34px; }
+.topbar-btn .topbar-ico { font-size: 17px; color: color-mix(in srgb, var(--astral-gold) 78%, var(--text)); }
+.topbar-btn:hover .topbar-ico { color: var(--astral-blue); }
+
+/* 内容卡：天气保持足够宽；网址卡不再强制方形。 */
+.top-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.top-row > .weather-card { grid-column: 1 / -1; }
+.weather-daily { grid-template-columns: repeat(7, minmax(76px, 1fr)); }
+.cards[data-view="icons"] { grid-template-columns: repeat(auto-fill, minmax(max(112px, var(--view-card-size)), 1fr)); }
+.cards[data-view="icons"] .card { aspect-ratio: auto; min-height: 104px; }
+[data-density="tight"] .cards[data-view="icons"] { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
+[data-density="tight"] .cards[data-view="icons"] .card { min-height: 76px; }
+.group { padding: 12px clamp(12px, 1.5vw, 18px) 16px; }
+.group-head { min-height: 34px; margin-bottom: 10px; }
+.group-emblem {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 9px;
+  color: var(--group-color, var(--astral-gold));
+  background: linear-gradient(145deg, rgba(10, 35, 67, .9), rgba(6, 18, 38, .95));
+  border: 1px solid color-mix(in srgb, var(--group-color, var(--astral-gold)) 55%, transparent);
+  box-shadow: inset 0 0 12px rgba(73, 200, 255, .08);
+}
+.group-emblem .astral-icon { width: 18px; height: 18px; }
+.group-dot { display: none; }
+.group-actions button { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.group-actions .astral-icon { width: 15px; height: 15px; }
+.card .pin .astral-icon,
+.card .del .astral-icon { width: 14px; height: 14px; }
+.card .pin.pinned { color: var(--astral-gold); }
+.gv-btn { display: inline-flex; align-items: center; justify-content: center; }
+.gv-btn .astral-icon { width: 14px; height: 14px; }
+
+/* 本机站点：轨道终端框架，保留 favicon 识别度。 */
+.group-local-sites {
+  border-color: rgba(216, 173, 104, .34);
+  background:
+    linear-gradient(120deg, rgba(8, 28, 58, .18), transparent 42%),
+    var(--glass-bg);
+}
+.group-local-sites .group-emblem { color: var(--astral-ivory); border-color: rgba(216, 173, 104, .68); }
+.card.local-site .icon-slot {
+  border-radius: 11px;
+  padding: 3px;
+  background: linear-gradient(145deg, rgba(216, 173, 104, .76), rgba(73, 200, 255, .42));
+  box-shadow: 0 5px 16px rgba(12, 60, 111, .2);
+}
+.card.local-site .icon-slot > img,
+.card.local-site .icon-slot > .fallback { width: 100%; height: 100%; border-radius: 8px; }
+.fallback.astral-local { position: relative; overflow: hidden; background: linear-gradient(150deg, #123f72, #06162f) !important; color: var(--astral-ivory); }
+.fallback.astral-local .astral-icon { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); opacity: .33; }
+.fallback.astral-local .local-letter { position: relative; z-index: 1; text-shadow: 0 1px 8px #000; }
+
+/* 登录和安装包展示使用同一主品牌资产。 */
+.login-overlay {
+  color: #edf7ff;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(73, 200, 255, .18), transparent 28%),
+    radial-gradient(circle at 82% 72%, rgba(216, 173, 104, .16), transparent 30%),
+    linear-gradient(145deg, rgba(4, 14, 33, .91), rgba(8, 34, 67, .84));
+  backdrop-filter: blur(15px) saturate(1.18);
+}
+.login-card {
+  background:
+    linear-gradient(145deg, rgba(17, 50, 87, .82), rgba(5, 18, 39, .91)),
+    var(--glass-bg);
+  border-color: rgba(216, 173, 104, .55);
+  box-shadow: 0 24px 70px rgba(0, 7, 22, .52), inset 0 1px 0 rgba(255, 244, 207, .12);
+}
+.login-card h2 { color: var(--astral-ivory); letter-spacing: .08em; }
+.login-card .login-sub,
+.login-card label > span { color: rgba(231, 243, 255, .76); }
+.login-card input[type="text"],
+.login-card input[type="password"] {
+  color: #f7fbff;
+  background: rgba(2, 13, 32, .46);
+  border-color: rgba(117, 192, 231, .3);
+}
+.login-card input[type="text"]:focus,
+.login-card input[type="password"]:focus {
+  background: rgba(4, 21, 47, .76);
+  border-color: var(--astral-blue);
+  box-shadow: 0 0 0 3px rgba(73, 200, 255, .16);
+}
+.login-card .login-btn {
+  color: #061329;
+  background: linear-gradient(135deg, var(--astral-ivory), var(--astral-gold));
+  box-shadow: 0 8px 24px rgba(216, 173, 104, .22);
+}
+.login-logo {
+  display: block;
+  width: 78px;
+  height: 78px;
+  margin: 0 auto;
+  border-radius: 22px;
+  object-fit: cover;
+  filter: drop-shadow(0 8px 18px rgba(20, 107, 173, .34));
+}
+.install-app-intro img { border: 1px solid rgba(216, 173, 104, .56); }
+
+@media (max-width: 1040px) {
+  .toolbar { grid-template-columns: 1fr; }
+  .toolbar-right { justify-content: flex-start; overflow-x: auto; padding-bottom: 4px; }
+}
+@media (max-width: 720px) {
+  .app { padding: 10px 10px 72px; }
+  .header-bar { min-height: 78px; flex-direction: row; text-align: left; align-items: center; }
+  .brand-mark { width: 46px; height: 46px; flex-basis: 46px; border-radius: 13px; }
+  .greet > p { margin-left: 59px; }
+  #clock-time { font-size: 24px; letter-spacing: 1px; }
+  #clock-date { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .engine-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .toolbar-left { display: grid; grid-template-columns: repeat(4, max-content); }
+  .toolbar-left .filter-wrap { grid-column: 1 / -1; width: 100%; min-width: 0; }
+  .top-row { grid-template-columns: 1fr; }
+  .top-row > .weather-card { grid-column: auto; }
+  .group-head { align-items: center; }
+  .group-name { flex: 1 1 120px; }
+  .group-view { overflow-x: auto; padding-bottom: 2px; }
+}
+@media (max-width: 430px) {
+  .header-bar { align-items: flex-start; }
+  .brand-title { max-width: 150px; }
+  .greet h1 { font-size: 19px; }
+  .greet > p { display: none; }
+  .header-bar .clock { padding-top: 4px; }
+  #clock-date { display: none; }
+  .cards[data-view="icons"] { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .cards[data-view="icons"] .card { min-height: 86px; padding: 8px 4px; }
+  .group-actions { width: 100%; justify-content: flex-end; }
+}
