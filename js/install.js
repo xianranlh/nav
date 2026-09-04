@@ -1,5 +1,5 @@
-/* 闲然导航 · PWA 安装入口
- * Chromium 有原生安装事件时直接唤起；iOS/Safari 等平台展示对应的手动安装方法。
+/* 闲然导航 · 桌面安装包与 PWA 安装入口
+ * 桌面端优先提供 GitHub Release 中的 EXE / DMG，移动端继续提供 PWA 安装说明。
  */
 (function () {
   "use strict";
@@ -7,13 +7,18 @@
   const button = document.getElementById("btn-install-app");
   const dialog = document.getElementById("dialog-install-app");
   const steps = document.getElementById("install-app-steps");
-  if (!button || !dialog || !steps) return;
+  const pwaButton = document.getElementById("btn-install-pwa");
+  if (!button || !dialog || !steps || !pwaButton) return;
 
   let installPrompt = null;
 
   function isStandalone() {
     return window.matchMedia?.("(display-mode: standalone)").matches ||
       window.navigator.standalone === true;
+  }
+
+  function isElectronApp() {
+    return /Electron\//.test(navigator.userAgent || "");
   }
 
   function canOfferInstall() {
@@ -35,11 +40,12 @@
     if (isSafari) {
       return "<p><strong>在 macOS Safari 上：</strong></p><ol><li>打开菜单栏“文件”。</li><li>选择“添加到程序坞”。</li><li>确认名称并添加。</li></ol>";
     }
-    return "<p><strong>在电脑浏览器上：</strong></p><ol><li>点击地址栏右侧的安装图标。</li><li>若没有图标，请打开浏览器菜单，选择“安装闲然导航”。</li><li>确认安装。</li></ol>";
+    return "<p><strong>也可以安装网页版：</strong></p><ol><li>点击下方“安装网页版”或地址栏右侧的安装图标。</li><li>若没有图标，请打开浏览器菜单，选择“安装闲然导航”。</li><li>确认安装。</li></ol>";
   }
 
   function refreshButton() {
-    button.hidden = isStandalone() || !canOfferInstall();
+    button.hidden = isElectronApp() || isStandalone() || !canOfferInstall();
+    pwaButton.hidden = !installPrompt || isStandalone();
   }
 
   window.addEventListener("beforeinstallprompt", (event) => {
@@ -50,24 +56,27 @@
 
   window.addEventListener("appinstalled", () => {
     installPrompt = null;
-    button.hidden = true;
+    refreshButton();
     window.toast?.("闲然导航已安装，可从桌面或主屏幕打开");
   });
 
   window.matchMedia?.("(display-mode: standalone)").addEventListener?.("change", refreshButton);
 
   button.addEventListener("click", async () => {
-    if (installPrompt) {
-      const prompt = installPrompt;
-      installPrompt = null;
-      await prompt.prompt();
-      const choice = await prompt.userChoice.catch(() => null);
-      if (choice?.outcome === "accepted") button.hidden = true;
-      return;
-    }
     steps.innerHTML = manualGuide();
+    refreshButton();
     if (window.Dlg?.open) window.Dlg.open(dialog);
     else dialog.showModal();
+  });
+
+  pwaButton.addEventListener("click", async () => {
+    if (!installPrompt) return;
+    const prompt = installPrompt;
+    installPrompt = null;
+    await prompt.prompt();
+    const choice = await prompt.userChoice.catch(() => null);
+    if (choice?.outcome === "accepted") dialog.close();
+    refreshButton();
   });
 
   refreshButton();

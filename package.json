@@ -1,6 +1,11 @@
 {
   "name": "xianran-nav",
+  "version": "1.24.2",
   "private": true,
+  "description": "闲然导航桌面应用与服务端导航站",
+  "author": "xianranlh",
+  "license": "MIT",
+  "main": "desktop/main.cjs",
   "scripts": {
     "test": "node --test tests/*.test.js server/sso.test.js",
     "start": "node server/index.js",
@@ -8,6 +13,15 @@
     "install:server": "npm install --prefix server",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f xianran-nav"
+    "docker:logs": "docker compose logs -f xianran-nav",
+    "desktop:dev": "electron desktop/main.cjs",
+    "desktop:pack": "electron-builder --dir",
+    "desktop:build": "npm run desktop:build:mac && npm run desktop:build:win",
+    "desktop:build:mac": "node scripts/build-desktop.cjs mac",
+    "desktop:build:win": "node scripts/build-desktop.cjs win"
+  },
+  "devDependencies": {
+    "electron": "44.2.0",
+    "electron-builder": "26.15.3"
   }
 }

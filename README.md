@@ -5,7 +5,13 @@
 - **🐳 Docker / Node 部署**（推荐）：自带 Node + SQLite 服务端，**业务数据存在服务器**，多浏览器 / 多机器访问同一地址看到的就是同一份数据
 - **🌐 纯静态打开**：仅用于查看静态资源；没有同源 `/api/data` 时应用会停止进入主界面，避免把业务数据写入浏览器
 
-> 当前版本：**v1.24.1** · 最近更新见下方"📅 更新汇总"
+> 当前版本：**v1.24.2** · 最近更新见下方"📅 更新汇总"
+
+### v1.24.2 — Windows EXE 与 macOS DMG
+
+- 新增安全隔离的 Electron 桌面端，固定连接 `https://nav.xianran.de/`，与网页端共用账号和服务端数据。
+- 新增 Windows NSIS `.exe`、macOS Universal `.dmg` 构建配置，以及双平台 GitHub Actions 发布流程。
+- 顶部“下载应用”入口直接提供 EXE / DMG，PWA 安装保留为移动端和浏览器备选。
 
 ### v1.24.1 — 本机站点图标包与遮挡修复
 
@@ -18,11 +24,13 @@
 - 首页核心操作换为深蓝、星光与金色金属语言的线性 SVG 图标；本机 / 本地 / 内网站点分组自动使用“空间站”标识和星轨图标框。
 - 重排顶栏、工具栏、天气卡与网址卡尺寸：宽屏天气不再被压缩，图标卡由僵硬正方形改为更适合导航的横向比例，移动端固定三列并收紧空白。
 
-## 📲 安装为应用
+## 📲 下载桌面应用
 
-线上地址 [https://nav.xianran.de/](https://nav.xianran.de/) 已支持 PWA 安装。登录后点击顶部的 **“⬇ 安装”**，即可添加到 Windows/macOS 桌面或 Android 主屏幕；iPhone/iPad 请用 Safari 的 **分享 → 添加到主屏幕**。
+打开 [https://nav.xianran.de/](https://nav.xianran.de/) 并点击顶部 **“下载应用”**，可下载 Windows `.exe` 或 macOS `.dmg`。安装包也会发布到 [GitHub Releases](https://github.com/xianranlh/nav/releases/latest)。Android、iPhone 和 iPad 继续使用 PWA“添加到主屏幕”。
 
-安装版与网页端使用同一域名、同一登录账号和同一套服务端 API，因此书签、任务、日历、设置、AI 配置及服务端媒体都会继续保存在服务器 SQLite / media 目录中，无需额外配置同步地址。PWA 会缓存应用外壳以便启动，但业务数据仍以服务器为准；离线期间不会回退写入浏览器本地存储。
+EXE、DMG 与网页版使用同一域名、同一登录账号和同一套服务端 API，因此书签、任务、日历、设置、AI 配置及服务端媒体都会继续保存在服务器 SQLite / media 目录中，无需额外配置同步地址。桌面端断网时只显示重连页，不会回退写入本地业务存储。
+
+本地构建命令：`npm run desktop:build:win`、`npm run desktop:build:mac`。推送 `v*` 标签后，GitHub Actions 会构建两个安装包并创建对应 Release。
 
 ---
 

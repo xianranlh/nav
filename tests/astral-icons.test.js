@@ -20,8 +20,8 @@ test("wires the astral visual layer and local-site treatment into the app", () =
   const app = fs.readFileSync(path.join(ROOT, "js/app.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "styles/astral-ui.css"), "utf8");
 
-  assert.match(html, /styles\/astral-ui\.css\?v=v1\.24\.1/);
-  assert.match(html, /js\/astral-icons\.js\?v=v1\.24\.1/);
+  assert.match(html, /styles\/astral-ui\.css\?v=v1\.24\.2/);
+  assert.match(html, /js\/astral-icons\.js\?v=v1\.24\.2/);
   assert.match(html, /id="brand-title"/);
   assert.match(app, /function isLocalSiteGroup/);
   assert.match(app, /LOCAL_SITE_ICON_BY_NAME/);

@@ -4745,9 +4745,37 @@ a.topbar-btn { text-decoration: none; font-size: 13px; }
 }
 .install-app-steps p { margin: 0 0 6px; }
 .install-app-steps ol { margin: 0; padding-left: 22px; }
+.desktop-downloads {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+.desktop-download {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+  padding: 12px 14px;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid rgba(var(--accent-rgb), .3);
+  border-radius: 14px;
+  background: rgba(var(--accent-rgb), .08);
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+.desktop-download:hover { transform: translateY(-1px); border-color: var(--accent); background: rgba(var(--accent-rgb), .14); }
+.desktop-download:focus-visible { outline: 3px solid rgba(var(--accent-rgb), .5); outline-offset: 2px; }
+.desktop-download-icon { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border-radius: 11px; color: var(--accent); background: rgba(var(--accent-rgb), .14); font-size: 22px; }
+.desktop-download span:last-child { min-width: 0; }
+.desktop-download strong,
+.desktop-download small { display: block; }
+.desktop-download small { margin-top: 3px; color: var(--text-soft); font-size: 12px; }
+.desktop-download-note { margin: 10px 2px 0; color: var(--text-faint); font-size: 12px; line-height: 1.55; }
 @media (max-width: 480px) {
   .install-app-intro { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; }
   .install-app-intro img { width: 56px; height: 56px; border-radius: 14px; }
+  .desktop-downloads { grid-template-columns: 1fr; }
 }
 
 /* ---- 无分组时的引导卡片 ---- */

@@ -1,0 +1,54 @@
+appId: de.xianran.nav
+productName: 闲然导航
+copyright: Copyright © 2026 闲然
+asar: true
+
+directories:
+  output: dist/desktop
+  buildResources: assets/icons
+
+files:
+  - desktop/**/*
+  - assets/icons/astral-app-icon.png
+  - package.json
+  - "!**/._*"
+
+mac:
+  icon: assets/icons/astral-app-icon.png
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - universal
+  artifactName: Xianran-Nav.dmg
+  darkModeSupport: true
+  identity: null
+
+dmg:
+  title: 闲然导航 ${version}
+  iconSize: 96
+  contents:
+    - x: 150
+      y: 180
+    - x: 390
+      y: 180
+      type: link
+      path: /Applications
+
+win:
+  icon: assets/icons/astral-app-icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: Xianran-Nav-Setup.exe
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: 闲然导航
+  uninstallDisplayName: 闲然导航
+  deleteAppDataOnUninstall: false

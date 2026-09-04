@@ -15,14 +15,14 @@
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0b1f42" />
-  <link rel="stylesheet" href="styles.css?v=v1.24.1" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.24.1" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.24.1" />
+  <link rel="stylesheet" href="styles.css?v=v1.24.2" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=v1.24.2" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.24.2" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
   <link rel="stylesheet" href="themes/paper.css" />
-  <link rel="stylesheet" href="styles/astral-ui.css?v=v1.24.1" />
+  <link rel="stylesheet" href="styles/astral-ui.css?v=v1.24.2" />
 </head>
 <body class="pre-auth">
   <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -117,8 +117,8 @@
         </div>
       </div>
       <div class="toolbar-right">
-        <button type="button" class="topbar-btn" id="btn-install-app" aria-label="将闲然导航安装为应用" data-tip="安装应用" hidden>
-          <span class="topbar-ico" data-astral-icon="install" aria-hidden="true"></span><span class="topbar-txt">安装</span>
+        <button type="button" class="topbar-btn" id="btn-install-app" aria-label="下载闲然导航桌面应用" data-tip="下载应用" hidden>
+          <span class="topbar-ico" data-astral-icon="install" aria-hidden="true"></span><span class="topbar-txt">下载应用</span>
         </button>
         <button type="button" class="topbar-btn" id="btn-calendar" aria-label="打开日历面板查看任务和日程" data-tip="日历">
           <span class="topbar-ico calendar-icon" data-astral-icon="calendar" aria-hidden="true"></span><span class="topbar-txt">日历</span><span class="icon-badge" id="cal-badge" hidden></span>
@@ -1816,35 +1816,47 @@
   <dialog aria-modal="true" id="dialog-install-app" class="glass-dialog install-app-dialog" data-backdrop-close>
     <div class="dialog-form">
       <div class="dialog-header">
-        <h3><span data-astral-icon="install" aria-hidden="true"></span> 安装闲然导航</h3>
+        <h3><span data-astral-icon="install" aria-hidden="true"></span> 下载闲然导航桌面应用</h3>
         <button type="button" class="close-btn" data-close aria-label="关闭" data-tip="关闭">&times;</button>
       </div>
       <div class="dialog-body">
         <div class="install-app-intro">
           <img src="assets/icons/icon-192.png" width="72" height="72" alt="闲然导航应用图标" />
           <div>
-            <strong>把导航页放到桌面或主屏幕</strong>
-            <p>安装后会以独立窗口启动，仍使用当前账号连接 <code>nav.xianran.de</code>，书签、任务、设置和媒体数据与网页端保持一致。</p>
+            <strong>真正的 Windows 与 macOS 应用</strong>
+            <p>安装后以独立窗口运行，仍连接 <code>nav.xianran.de</code>。使用同一账号登录后，书签、任务、设置和媒体数据与网页端保持一致。</p>
           </div>
         </div>
+        <div class="desktop-downloads" aria-label="桌面安装包下载">
+          <a class="desktop-download" href="https://github.com/xianranlh/nav/releases/latest/download/Xianran-Nav-Setup.exe" target="_blank" rel="noopener">
+            <span class="desktop-download-icon" aria-hidden="true">⊞</span>
+            <span><strong>Windows</strong><small>下载 .exe 安装程序</small></span>
+          </a>
+          <a class="desktop-download" href="https://github.com/xianranlh/nav/releases/latest/download/Xianran-Nav.dmg" target="_blank" rel="noopener">
+            <span class="desktop-download-icon" aria-hidden="true">◆</span>
+            <span><strong>macOS</strong><small>下载 .dmg 安装映像</small></span>
+          </a>
+        </div>
+        <p class="desktop-download-note">当前安装包未使用商业代码签名证书；首次打开时，系统可能要求你确认来源。</p>
         <div class="install-app-steps" id="install-app-steps" role="status"></div>
       </div>
       <div class="dialog-actions">
-        <button type="button" class="btn-primary" data-close>知道了</button>
+        <button type="button" class="btn-secondary" id="btn-install-pwa" hidden>安装网页版</button>
+        <button type="button" class="btn-primary" data-close>完成</button>
       </div>
     </div>
   </dialog>
 
-  <script src="js/astral-icons.js?v=v1.24.1"></script>
+  <script src="js/astral-icons.js?v=v1.24.2"></script>
   <script src="js/homepage-theme.js"></script>
-  <script src="js/dialog.js?v=v1.24.1"></script>
-  <script src="js/install.js?v=v1.24.1"></script>
+  <script src="js/dialog.js?v=v1.24.2"></script>
+  <script src="js/install.js?v=v1.24.2"></script>
   <script src="js/homepage-layout.js"></script>
   <script src="js/sakura.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.24.1"></script>
+  <script src="js/ai.js?v=v1.24.2"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
@@ -1856,19 +1868,19 @@
   <script src="js/idb.js"></script>
   <script src="js/archive.js"></script>
   <script src="js/image-editor.js"></script>
-  <script src="js/music.js?v=v1.24.1"></script>
-  <script src="js/music-lx.js?v=v1.24.1"></script>
+  <script src="js/music.js?v=v1.24.2"></script>
+  <script src="js/music-lx.js?v=v1.24.2"></script>
   <script src="js/storage-inspector.js"></script>
   <!-- 首页漫游小宠物（开关见 pet.html） -->
   <script src="js/pet-engine.js"></script>
   <script src="js/pet-widget.js"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.24.1"></script>
-  <script src="js/ui/todo.ui.js?v=v1.24.1"></script>
-  <script src="js/ui/calendar.ui.js?v=v1.24.1"></script>
-  <script src="js/ui/weather.ui.js?v=v1.24.1"></script>
-  <script src="js/ui/sync.ui.js?v=v1.24.1"></script>
-  <script src="js/ui/misc.ui.js?v=v1.24.1"></script>
+  <script src="js/ui/ai.ui.js?v=v1.24.2"></script>
+  <script src="js/ui/todo.ui.js?v=v1.24.2"></script>
+  <script src="js/ui/calendar.ui.js?v=v1.24.2"></script>
+  <script src="js/ui/weather.ui.js?v=v1.24.2"></script>
+  <script src="js/ui/sync.ui.js?v=v1.24.2"></script>
+  <script src="js/ui/misc.ui.js?v=v1.24.2"></script>
   <script>
     // Petrichor 知识库入口：同域 /blog 路由（openresty 反代 → 127.0.0.1:3100）；
     // 可在控制台 localStorage.setItem('sakura_nav_blog_url', 'https://...') 覆盖
@@ -1880,6 +1892,6 @@
       a.href = custom || "/blog";
     })();
   </script>
-  <script src="js/app.js?v=v1.24.1"></script>
+  <script src="js/app.js?v=v1.24.2"></script>
 </body>
 </html>
