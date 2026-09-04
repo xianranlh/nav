@@ -26,19 +26,17 @@ if (!targetConfig[target]) {
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), `xianran-nav-${target}-`));
 const tempOutput = path.join(tempRoot, "output");
 const destination = path.join(projectRoot, "dist", "desktop");
-const executable = path.join(
-  projectRoot,
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "electron-builder.cmd" : "electron-builder",
-);
+const builderCli = require.resolve("electron-builder/out/cli/cli.js");
 
 try {
   const config = targetConfig[target];
-  const result = spawnSync(executable, [
+  const result = spawnSync(process.execPath, [
+    builderCli,
     "--config",
     "electron-builder.yml",
     ...config.args,
+    "--publish",
+    "never",
     `--config.directories.output=${tempOutput}`,
   ], {
     cwd: projectRoot,

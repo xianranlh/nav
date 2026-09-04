@@ -33,6 +33,8 @@ test("desktop packaging produces stable EXE and DMG asset names", () => {
   assert.match(config, /artifactName: Xianran-Nav\.dmg/);
   assert.match(workflow, /windows-latest/);
   assert.match(workflow, /macos-latest/);
+  assert.match(workflow, /release_tag/);
+  assert.match(workflow, /gh release upload/);
   assert.ok(fs.existsSync("scripts/build-desktop.cjs"));
 });
 
