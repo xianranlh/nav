@@ -11,7 +11,11 @@
   const $ = (id) => document.getElementById(id);
   const DEFAULT_PORTRAIT = "assets/pet/xiaoying-portrait.png";
 
-  const cfg = Config.load();
+  let cfg = Config.load();
+  try { cfg = await Config.ensureMigrated(cfg); } catch (error) {
+    console.warn("[pet] v2 自定义图片迁移暂未完成：", error?.message || error);
+  }
+  const configImage = (value) => Config.imageUrl ? Config.imageUrl(value) : "";
   const playground = $("playground");
   const fxLayer = $("fx-layer");
 
@@ -33,7 +37,7 @@
     container: playground,
     fxLayer,
     scale: 2,
-    custom: cfg.custom ? cfg.custom.img : null,
+    custom: configImage(cfg) || null,
     autonomous: true,
     chatty: true,
     statusDriven: false,
@@ -149,12 +153,56 @@
 
   function refreshUI() {
     $("pet-name").textContent = cfg.name;
-    $("pet-portrait-img").src = cfg.custom ? cfg.custom.img : DEFAULT_PORTRAIT;
-    $("btn-restore").hidden = !cfg.custom;
+    $("pet-portrait-img").src = configImage(cfg) || DEFAULT_PORTRAIT;
+    $("btn-restore")?.classList.toggle("is-active", cfg.skin?.kind !== "custom" && !cfg._legacyDataUrl);
+    $("btn-upload")?.classList.toggle("is-active", cfg.skin?.kind === "custom" || !!cfg._legacyDataUrl);
+    if ($("pet-custom-name")) {
+      $("pet-custom-name").textContent = cfg.skin?.kind === "custom" || cfg._legacyDataUrl ? "我的形象" : "我的图片";
+    }
     $("chk-home").checked = cfg.homeWidget;
     if ($("pet-home-scale")) $("pet-home-scale").value = cfg.homeScale || "md";
+    if ($("pet-speech-frequency")) $("pet-speech-frequency").value = cfg.speechFrequency || "normal";
+    if ($("chk-status-badge")) $("chk-status-badge").checked = cfg.showStatusBadge !== false;
+    syncAnchorUI();
+    syncQuickActionsUI();
     syncActivityUI();
     actor.el.setAttribute("aria-label", cfg.name);
+  }
+
+  const ANCHORS = {
+    "top-left": { xRatio: 0.06, yRatio: 0.88 },
+    "top-right": { xRatio: 0.88, yRatio: 0.88 },
+    "bottom-left": { xRatio: 0.06, yRatio: 0.08 },
+    "bottom-right": { xRatio: 0.88, yRatio: 0.08 },
+  };
+
+  function closestAnchor() {
+    let best = "bottom-right";
+    let distance = Infinity;
+    for (const [name, anchor] of Object.entries(ANCHORS)) {
+      const current = Math.abs((cfg.anchor?.xRatio ?? 0.88) - anchor.xRatio) + Math.abs((cfg.anchor?.yRatio ?? 0.08) - anchor.yRatio);
+      if (current < distance) { best = name; distance = current; }
+    }
+    return best;
+  }
+
+  function syncAnchorUI() {
+    const active = closestAnchor();
+    $("pet-anchor-map")?.querySelectorAll("button[data-anchor]").forEach((button) => {
+      const selected = button.dataset.anchor === active;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+  }
+
+  function syncQuickActionsUI() {
+    const selected = new Set(cfg.quickActions || []);
+    const inputs = [...($("pet-quick-actions")?.querySelectorAll('input[type="checkbox"]') || [])];
+    for (const input of inputs) {
+      input.checked = selected.has(input.value);
+      input.disabled = !input.checked && selected.size >= 4;
+    }
+    if ($("pet-shortcut-count")) $("pet-shortcut-count").textContent = `${selected.size} / 4`;
   }
 
   $("btn-pat").addEventListener("click", () => {
@@ -194,11 +242,16 @@
     try {
       toast("处理图片中…");
       const dataUrl = await processImage(file);
-      cfg.custom = { img: dataUrl };
+      toast("上传形象中…");
+      const previousFilename = cfg.skin?.kind === "custom" ? cfg.skin.mediaFilename : "";
+      cfg.skin = await Config.uploadCustomImage(dataUrl, "pet.png");
       const base = (file.name.replace(/\.[^.]+$/, "").slice(0, 12)) || "我的宠物";
       if (!cfg.name || cfg.name === "小樱") cfg.name = base;
-      Config.save(cfg);
-      actor.setCustom(dataUrl);
+      cfg = Config.save(cfg);
+      actor.setCustom(configImage(cfg));
+      if (previousFilename && previousFilename !== cfg.skin.mediaFilename) {
+        fetch(`/api/media/file/pet/${encodeURIComponent(previousFilename)}`, { method: "DELETE" }).catch(() => {});
+      }
       refreshUI();
       actor.hearts(4);
       actor.say("新形象登场！", 2800);
@@ -206,15 +259,24 @@
       toast("形象已更新");
     } catch (err) {
       console.error(err);
-      toast("图片处理失败");
+      toast(err?.message || "图片处理或上传失败");
       actor.say("这张图读不了…", 2200);
     }
   });
   $("btn-restore").addEventListener("click", () => {
-    cfg.custom = null;
+    if (cfg.skin?.kind !== "custom" && !cfg._legacyDataUrl) {
+      actor.say("现在就是默认形象～", 1800);
+      return;
+    }
+    const previousFilename = cfg.skin?.kind === "custom" ? cfg.skin.mediaFilename : "";
+    try { delete cfg._legacyDataUrl; } catch (_) {}
+    cfg.skin = { ...window.SakuraPetConfig.BUILTIN_SKIN };
     if (!cfg.name || cfg.name === "我的宠物") cfg.name = "小樱";
-    Config.save(cfg);
+    cfg = Config.save(cfg);
     actor.setCustom(null);
+    if (previousFilename) {
+      fetch(`/api/media/file/pet/${encodeURIComponent(previousFilename)}`, { method: "DELETE" }).catch(() => {});
+    }
     refreshUI();
     actor.say("默认形象回来了～", 2400);
     actor.emote("wave", 2);
@@ -276,10 +338,45 @@
     actor.say(cfg.homeScale === "lg" ? "这样更醒目啦～" : cfg.homeScale === "sm" ? "变得小巧一些" : "标准尺寸正合适", 2200);
   });
 
-  $("btn-reset-position")?.addEventListener("click", () => {
-    cfg.homeX = null;
-    cfg.homeY = null;
+  $("pet-speech-frequency")?.addEventListener("change", (e) => {
+    cfg.speechFrequency = ["quiet", "normal", "lively"].includes(e.target.value) ? e.target.value : "normal";
     Config.save(cfg);
+    toast(cfg.speechFrequency === "quiet" ? "已减少伙伴对白，状态徽章仍会显示" : "对白频率已更新");
+  });
+
+  $("chk-status-badge")?.addEventListener("change", (e) => {
+    cfg.showStatusBadge = e.target.checked;
+    Config.save(cfg);
+    toast(cfg.showStatusBadge ? "首页状态徽章已开启" : "首页状态徽章已隐藏");
+  });
+
+  $("pet-anchor-map")?.addEventListener("click", (e) => {
+    const button = e.target.closest("button[data-anchor]");
+    if (!button || !ANCHORS[button.dataset.anchor]) return;
+    cfg.anchor = { ...ANCHORS[button.dataset.anchor] };
+    Config.save(cfg);
+    syncAnchorUI();
+    toast(`首页位置已切换为${button.getAttribute("aria-label")}`);
+  });
+
+  $("pet-quick-actions")?.addEventListener("change", (e) => {
+    const input = e.target.closest('input[type="checkbox"]');
+    if (!input) return;
+    const selected = [...$("pet-quick-actions").querySelectorAll('input[type="checkbox"]:checked')].map((item) => item.value);
+    if (selected.length > 4) {
+      input.checked = false;
+      toast("快捷动作最多选择 4 个");
+      return;
+    }
+    cfg.quickActions = selected;
+    Config.save(cfg);
+    syncQuickActionsUI();
+  });
+
+  $("btn-reset-position")?.addEventListener("click", () => {
+    cfg.anchor = { xRatio: 0.88, yRatio: 0.08 };
+    Config.save(cfg);
+    syncAnchorUI();
     toast("桌宠已回到首页右下角");
     actor.say("回到默认位置啦～", 2200);
   });
@@ -389,7 +486,8 @@
       });
     }
     let prev = performance.now();
-    (function draw(ts) {
+    let raf = 0;
+    function draw(ts) {
       const dt = Math.min(0.05, (ts - prev) / 1000);
       prev = ts;
       ctx.clearRect(0, 0, W, H);
@@ -403,8 +501,18 @@
         ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }
-      requestAnimationFrame(draw);
-    })(prev);
+      if (!document.hidden) raf = requestAnimationFrame(draw);
+    }
+    function syncVisibility() {
+      cancelAnimationFrame(raf);
+      raf = 0;
+      if (!document.hidden) {
+        prev = performance.now();
+        raf = requestAnimationFrame(draw);
+      }
+    }
+    document.addEventListener("visibilitychange", syncVisibility);
+    syncVisibility();
   })();
 
   refreshUI();

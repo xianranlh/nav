@@ -35,10 +35,22 @@ services:
       # AI 反代超时（毫秒）；生图默认 10 分钟（应对 4K + reasoning xhigh / multi-agent 慢推理）
       AI_PROXY_TIMEOUT_MS:       ${AI_PROXY_TIMEOUT_MS:-100000}
       AI_PROXY_IMAGE_TIMEOUT_MS: ${AI_PROXY_IMAGE_TIMEOUT_MS:-600000}
+      # Obsidian Vault 接入默认关闭；启用后按 user-<id> 子目录隔离。
+      OBSIDIAN_ENABLED:              ${OBSIDIAN_ENABLED:-false}
+      OBSIDIAN_VAULT_ROOT:           /vaults
+      OBSIDIAN_SINGLE_USER_ID:       ${OBSIDIAN_SINGLE_USER_ID:-}
+      OBSIDIAN_WRITE_ENABLED:        ${OBSIDIAN_WRITE_ENABLED:-false}
+      OBSIDIAN_INBOX_DIR:            ${OBSIDIAN_INBOX_DIR:-00-Inbox}
+      OBSIDIAN_MAX_NOTE_BYTES:       ${OBSIDIAN_MAX_NOTE_BYTES:-2097152}
+      OBSIDIAN_MAX_ATTACHMENT_BYTES: ${OBSIDIAN_MAX_ATTACHMENT_BYTES:-20971520}
+      OBSIDIAN_RESCAN_INTERVAL_MS:   ${OBSIDIAN_RESCAN_INTERVAL_MS:-300000}
 
     volumes:
       # 宿主 ./data → 容器 /data（SQLite 与上传媒体持久化）
       - ./data:/data
+      # Vault 默认只读。单用户模式直接把一个 Vault 挂到 /vaults；
+      # 多用户模式则在宿主目录下准备 user-1、user-2 ... 子目录。
+      - ${OBSIDIAN_VAULT_HOST_PATH:-./obsidian-vaults}:/vaults:ro
 
     # === 开发热更新：取消下列 volumes 注释 ===
     # volumes:

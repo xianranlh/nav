@@ -7,8 +7,12 @@
 (() => {
   "use strict";
 
-  const SAVE_KEY = "sakura_pet_v2";
-  const LEGACY_SAVE_KEY = "sakura-pet@1";
+  if (!window.SakuraPetConfig || !window.SakuraPetEvents) {
+    console.error("[pet] pet-config.js 与 pet-events.js 必须先于 pet-engine.js 加载");
+    return;
+  }
+  const { Config, SAVE_KEY, LEGACY_KEY: LEGACY_SAVE_KEY, V2_KEY } = window.SakuraPetConfig;
+  const Status = window.SakuraPetEvents.bus;
   const SHEET_URL = "assets/pet/xiaoying-sheet.png";
   const CELL_W = 52, CELL_H = 56, SHEET_W = 416, SHEET_H = 504;
 
@@ -54,111 +58,7 @@
   const pick = (arr) => arr[(Math.random() * arr.length) | 0];
   const rand = (min, max) => min + Math.random() * (max - min);
 
-  /* ---------- 轻量存档（无养成数值） ---------- */
-  const Config = {
-    defaults() {
-      return {
-        name: "小樱",
-        custom: null,       // { img: dataURL }
-        homeWidget: true,
-        homeX: null,        // 首页桌宠 left（px），null=默认右下
-        homeY: null,        // 首页桌宠 bottom（px）
-        homeScale: "md",   // sm | md | lg
-        /** 活动方式：guard 站岗（定点）| patrol 巡逻（底部来回走） */
-        activityMode: "guard",
-        last: Date.now(),
-      };
-    },
-    load() {
-      try {
-        const current = localStorage.getItem(SAVE_KEY);
-        const legacy = current == null ? localStorage.getItem(LEGACY_SAVE_KEY) : null;
-        const s = JSON.parse(current || legacy || "null");
-        if (!s) return this.defaults();
-        const mode = s.activityMode === "patrol" ? "patrol" : "guard";
-        const scale = ["sm", "md", "lg"].includes(s.homeScale) ? s.homeScale : "md";
-        const normalized = {
-          name: s.name || (s.custom && s.custom.img ? "我的宠物" : "小樱"),
-          custom: s.custom && s.custom.img ? s.custom : null,
-          homeWidget: s.homeWidget !== false,
-          homeX: typeof s.homeX === "number" ? s.homeX : null,
-          homeY: typeof s.homeY === "number" ? s.homeY : null,
-          homeScale: scale,
-          activityMode: mode,
-          last: s.last || Date.now(),
-        };
-        if (!current && legacy) this.save(normalized);
-        return normalized;
-      } catch {
-        return this.defaults();
-      }
-    },
-    save(cfg) {
-      cfg.last = Date.now();
-      const payload = {
-        name: cfg.name,
-        custom: cfg.custom,
-        homeWidget: cfg.homeWidget !== false,
-        homeX: cfg.homeX,
-        homeY: cfg.homeY,
-        homeScale: ["sm", "md", "lg"].includes(cfg.homeScale) ? cfg.homeScale : "md",
-        activityMode: cfg.activityMode === "patrol" ? "patrol" : "guard",
-        last: cfg.last,
-      };
-      try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
-      } catch (_) {}
-      try { window.dispatchEvent(new CustomEvent("sakura-pet-config", { detail: payload })); } catch (_) {}
-      try {
-        const channel = new BroadcastChannel("sakura-pet-config");
-        channel.postMessage(payload);
-        channel.close();
-      } catch (_) {}
-    },
-  };
-
-  /* ---------- 全局状态总线（Codex 风格） ---------- */
-  const Status = {
-    _status: "idle",
-    _detail: "",
-    _subs: new Set(),
-    _pulseTimer: 0,
-    get() {
-      return { status: this._status, detail: this._detail };
-    },
-    meta(status) {
-      return STATUS_META[status] || STATUS_META.idle;
-    },
-    set(status, detail = "") {
-      const s = STATUS_META[status] ? status : "idle";
-      clearTimeout(this._pulseTimer);
-      this._status = s;
-      this._detail = String(detail || "");
-      this._emit();
-    },
-    /** 短暂状态，结束后回到 idle（或 offline 若仍离线） */
-    pulse(status, detail = "", ms = 2800) {
-      this.set(status, detail);
-      clearTimeout(this._pulseTimer);
-      this._pulseTimer = setTimeout(() => {
-        if (!navigator.onLine) this.set("offline");
-        else this.set("idle");
-      }, ms);
-    },
-    on(fn) {
-      this._subs.add(fn);
-      return () => this._subs.delete(fn);
-    },
-    _emit() {
-      const payload = this.get();
-      this._subs.forEach((fn) => {
-        try { fn(payload); } catch (_) {}
-      });
-      try {
-        window.dispatchEvent(new CustomEvent("sakura-pet-status", { detail: payload }));
-      } catch (_) {}
-    },
-  };
+  Status.meta = (status) => STATUS_META[status] || STATUS_META.idle;
 
   function ensureStyles() {
     if (document.getElementById("pet-engine-css")) return;
@@ -260,7 +160,17 @@
       }
 
       this._last = performance.now();
-      this._raf = requestAnimationFrame((ts) => this._tick(ts));
+      this._raf = 0;
+      this._onVisibility = () => {
+        cancelAnimationFrame(this._raf);
+        this._raf = 0;
+        if (!document.hidden && !this.destroyed) {
+          this._last = performance.now();
+          this._raf = requestAnimationFrame((ts) => this._tick(ts));
+        }
+      };
+      document.addEventListener("visibilitychange", this._onVisibility);
+      if (!document.hidden) this._raf = requestAnimationFrame((ts) => this._tick(ts));
     }
 
     /** 切换站岗 / 巡逻 */
@@ -530,7 +440,7 @@
       }
 
       this._render();
-      this._raf = requestAnimationFrame((t2) => this._tick(t2));
+      if (!document.hidden) this._raf = requestAnimationFrame((t2) => this._tick(t2));
     }
 
     _render() {
@@ -578,6 +488,7 @@
     destroy() {
       this.destroyed = true;
       cancelAnimationFrame(this._raf);
+      document.removeEventListener("visibilitychange", this._onVisibility);
       clearTimeout(this._bubbleTimer);
       clearTimeout(this._emoteTimer);
       if (this._statusUnsub) this._statusUnsub();
@@ -596,6 +507,7 @@
     rand,
     SHEET_URL,
     SAVE_KEY,
+    V2_KEY,
     LEGACY_SAVE_KEY,
   };
 })();

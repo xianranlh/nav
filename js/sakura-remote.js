@@ -30,6 +30,13 @@
   let storageBlocked = false;
   let pending = false;
 
+  function emitPetEvent(name, detail) {
+    try {
+      if (window.SakuraPetEvents?.emit) window.SakuraPetEvents.emit(name, detail || {});
+      else window.dispatchEvent(new CustomEvent("sakura-pet-cmd", { detail }));
+    } catch (_) {}
+  }
+
   function listLegacyBusinessKeys() {
     const keys = [];
     try {
@@ -126,30 +133,21 @@
     clearTimeout(pushTimer);
     pushTimer = setTimeout(() => {
       pushTimer = null;
-      try {
-        if (window.SakuraPet?.Status) window.SakuraPet.Status.set("syncing", "同步数据");
-      } catch (_) {}
+      emitPetEvent("nav:sync:start", { detail: "同步数据" });
       putCurrentBundle().then(() => {
         if (consecutivePutFailures > 0) {
           consecutivePutFailures = 0;
           if (window.toast) window.toast("已重新连接到服务端，数据同步恢复正常");
         }
-        try {
-          if (window.SakuraPet?.Status) window.SakuraPet.Status.pulse("done", "已同步", 1600);
-        } catch (_) {}
+        emitPetEvent("nav:sync:done", { detail: "已同步", ttl: 1600 });
       }).catch((e) => {
         consecutivePutFailures += 1;
         // 第一次失败不打扰；连续 ≥3 次才提示用户
         if (consecutivePutFailures >= 3 && window.toast) {
           window.toast("数据同步连续失败，可能网络异常或服务端不可达。改动暂存内存，恢复后会自动重传。", 5000);
         }
-        try {
-          if (window.SakuraPet?.Status && consecutivePutFailures >= 2) {
-            window.SakuraPet.Status.pulse("error", "同步失败", 2800);
-          } else if (window.SakuraPet?.Status) {
-            window.SakuraPet.Status.set("idle");
-          }
-        } catch (_) {}
+        if (consecutivePutFailures >= 2) emitPetEvent("nav:sync:error", { detail: "同步失败", ttl: 2800 });
+        else window.SakuraPetEvents?.bus?.clear("sync");
         console.warn("[sakura-remote] PUT failed (retry " + consecutivePutFailures + "x):", e?.message || e);
       });
     }, 1000);

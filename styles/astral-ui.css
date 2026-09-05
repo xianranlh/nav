@@ -218,7 +218,581 @@
   object-fit: cover;
   filter: drop-shadow(0 8px 18px rgba(20, 107, 173, .34));
 }
+
+/* 星穹知识舱：Obsidian 只读搜索、最近、固定与安全纯文本阅读。 */
+.knowledge-dialog {
+  width: min(1180px, calc(100vw - 32px));
+  max-width: min(1180px, calc(100vw - 32px));
+  height: min(780px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: hidden;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 84% 12%, rgba(73, 200, 255, .12), transparent 28%),
+    linear-gradient(145deg, color-mix(in srgb, var(--glass-bg) 94%, #07172f 6%), var(--glass-bg));
+  border-color: color-mix(in srgb, var(--astral-gold) 38%, var(--glass-border));
+}
+.knowledge-dialog > .dialog-form {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+.knowledge-head {
+  flex: 0 0 auto;
+  min-height: 72px;
+  padding: 13px 16px 12px 20px;
+  background: linear-gradient(105deg, rgba(7, 23, 47, .9), rgba(16, 55, 92, .74) 60%, rgba(216, 173, 104, .2));
+  border-bottom: 1px solid rgba(216, 173, 104, .28);
+}
+.knowledge-head > div:first-child { min-width: 0; }
+.knowledge-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  color: #f4f9ff;
+  font-size: 19px;
+}
+.knowledge-head h3 .astral-icon { width: 21px; height: 21px; color: var(--astral-gold); }
+.knowledge-kicker {
+  display: block;
+  color: var(--astral-blue);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .24em;
+}
+.knowledge-head-actions { display: flex; align-items: center; gap: 10px; }
+.knowledge-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 10px;
+  border: 1px solid rgba(154, 189, 218, .28);
+  border-radius: 999px;
+  color: rgba(235, 246, 255, .8);
+  background: rgba(2, 15, 34, .38);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.knowledge-status-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 9px currentColor;
+}
+.knowledge-status-pill.is-ready { color: #71e1bd; }
+.knowledge-status-pill.is-busy { color: #66d9ff; }
+.knowledge-status-pill.is-warn { color: #ffd17a; }
+.knowledge-status-pill.is-error { color: #ff8da6; }
+.knowledge-status-pill.is-muted { color: #a8b2bf; }
+.knowledge-head .close-btn {
+  color: #eaf5ff;
+  background: rgba(2, 15, 34, .44);
+  border-color: rgba(216, 173, 104, .34);
+}
+.knowledge-body {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  overflow: hidden;
+}
+.knowledge-sidebar {
+  min-width: 0;
+  padding: 16px;
+  overflow: auto;
+  border-right: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--panel) 76%, transparent);
+}
+.knowledge-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 5px 5px 11px;
+  border: 1px solid color-mix(in srgb, var(--astral-blue) 34%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--input-bg) 84%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+.knowledge-search > .astral-icon { width: 17px; height: 17px; color: var(--astral-blue); }
+.knowledge-search input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+.knowledge-search button {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(216, 173, 104, .38);
+  border-radius: 10px;
+  color: #fff4cf;
+  background: linear-gradient(145deg, #174b80, #091d3c);
+  cursor: pointer;
+}
+.knowledge-side-section { margin-top: 17px; }
+.knowledge-section-title { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 7px; }
+.knowledge-section-title h4 { margin: 0; font-size: 12px; letter-spacing: .05em; }
+.knowledge-section-title > span { color: var(--muted); font-size: 10px; }
+.knowledge-compact-list { display: grid; gap: 6px; }
+.knowledge-compact-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 10px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+  text-align: left;
+  cursor: pointer;
+}
+.knowledge-compact-item:hover { border-color: color-mix(in srgb, var(--astral-blue) 55%, var(--border)); transform: translateY(-1px); }
+.knowledge-compact-item:disabled { cursor: not-allowed; opacity: .55; transform: none; }
+.knowledge-compact-title { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.knowledge-compact-item small { color: var(--muted); font-size: 9px; white-space: nowrap; }
+.knowledge-compact-empty { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.knowledge-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.knowledge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--astral-gold) 30%, var(--border));
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--text) 84%, var(--astral-blue));
+  background: color-mix(in srgb, var(--card-bg) 85%, transparent);
+  font-size: 10px;
+  cursor: pointer;
+}
+.knowledge-tag small { color: var(--muted); }
+.knowledge-workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.knowledge-state[hidden],
+.knowledge-results[hidden],
+.knowledge-reader[hidden] { display: none !important; }
+.knowledge-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 58px;
+  padding: 10px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.knowledge-toolbar > div { display: grid; min-width: 0; margin-right: auto; }
+.knowledge-toolbar strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.knowledge-toolbar span { margin-top: 2px; color: var(--muted); font-size: 10px; }
+.knowledge-toolbar button { min-height: 32px; padding: 5px 10px; white-space: nowrap; }
+.knowledge-state,
+.knowledge-intro {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 260px;
+  padding: 36px 22px;
+  color: var(--text);
+  text-align: center;
+}
+.knowledge-state { flex: 1 1 auto; }
+.knowledge-state h4,
+.knowledge-intro h4 { margin: 14px 0 6px; font-size: 17px; }
+.knowledge-state p,
+.knowledge-intro p { max-width: 500px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.knowledge-state .btn-primary { margin-top: 17px; }
+.knowledge-orbit {
+  position: relative;
+  display: block;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(73, 200, 255, .42);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(216, 173, 104, .82) 0 8%, rgba(73, 200, 255, .16) 10% 35%, transparent 37%);
+  box-shadow: 0 0 28px rgba(73, 200, 255, .22);
+}
+.knowledge-orbit::after {
+  content: "";
+  position: absolute;
+  inset: 7px -7px;
+  border: 1px solid rgba(216, 173, 104, .58);
+  border-radius: 50%;
+  transform: rotate(-28deg);
+}
+.knowledge-state[data-kind="loading"] .knowledge-orbit,
+.knowledge-state[data-kind="searching"] .knowledge-orbit,
+.knowledge-state[data-kind="indexing"] .knowledge-orbit { animation: knowledge-orbit 1.5s linear infinite; }
+@keyframes knowledge-orbit { to { transform: rotate(360deg); } }
+.knowledge-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  align-content: start;
+  gap: 11px;
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+}
+.knowledge-result-card {
+  position: relative;
+  min-width: 0;
+  min-height: 142px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 15px;
+  background:
+    linear-gradient(145deg, rgba(73, 200, 255, .05), transparent 45%),
+    color-mix(in srgb, var(--card-bg) 92%, transparent);
+  overflow: hidden;
+}
+.knowledge-result-card:hover { border-color: color-mix(in srgb, var(--astral-gold) 48%, var(--border)); box-shadow: 0 10px 25px rgba(3, 20, 44, .12); }
+.knowledge-result-main {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 142px;
+  padding: 14px 14px 12px;
+  border: 0;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.knowledge-result-main strong { max-width: calc(100% - 52px); overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.knowledge-result-main p { display: -webkit-box; margin: 10px 0; overflow: hidden; color: var(--muted); font-size: 11px; line-height: 1.65; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.knowledge-result-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+.knowledge-result-footer small { flex-shrink: 0; color: var(--muted); font-size: 9px; }
+.knowledge-result-tags { overflow: hidden; color: color-mix(in srgb, var(--astral-blue) 68%, var(--text)); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.knowledge-card-pin,
+.knowledge-pin-btn {
+  border: 1px solid color-mix(in srgb, var(--astral-gold) 42%, var(--border));
+  border-radius: 999px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel) 84%, transparent);
+  cursor: pointer;
+}
+.knowledge-card-pin { position: absolute; top: 10px; right: 10px; min-height: 25px; padding: 3px 8px; font-size: 9px; }
+.knowledge-card-pin[aria-pressed="true"],
+.knowledge-pin-btn[aria-pressed="true"] { color: #07172f; background: linear-gradient(135deg, var(--astral-ivory), var(--astral-gold)); }
+.knowledge-reader {
+  min-height: 0;
+  padding: 20px clamp(16px, 3vw, 34px) 32px;
+  overflow: auto;
+}
+.knowledge-reader > header { display: flex; align-items: flex-start; gap: 12px; padding-bottom: 15px; border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent); }
+.knowledge-reader > header > div { min-width: 0; margin-right: auto; }
+.knowledge-reader-path { display: block; color: var(--astral-blue); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.knowledge-reader h2 { margin: 5px 0 0; font-size: clamp(20px, 2.4vw, 28px); line-height: 1.25; overflow-wrap: anywhere; }
+.knowledge-pin-btn { flex-shrink: 0; min-height: 32px; padding: 5px 12px; font-size: 11px; }
+.knowledge-reader-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 13px 0; }
+.knowledge-reader-tag { padding: 3px 8px; border-radius: 999px; color: var(--astral-blue); background: rgba(73, 200, 255, .1); font-size: 10px; }
+.knowledge-reader-summary { margin: -2px 0 13px; padding: 10px 12px; border-left: 3px solid var(--astral-gold); border-radius: 0 9px 9px 0; color: var(--muted); background: rgba(218, 183, 113, .07); font-size: 12px; line-height: 1.65; }
+.knowledge-reader-summary[hidden] { display: none !important; }
+.knowledge-reader-content {
+  margin: 0;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 14px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.knowledge-reader-content > :first-child { margin-top: 0; }
+.knowledge-reader-content > :last-child { margin-bottom: 0; }
+.knowledge-doc-heading { margin: 1.25em 0 .45em; color: var(--text); line-height: 1.35; }
+.knowledge-reader-content h3 { font-size: 18px; }
+.knowledge-reader-content h4 { font-size: 16px; }
+.knowledge-reader-content h5,
+.knowledge-reader-content h6 { font-size: 14px; }
+.knowledge-doc-paragraph { margin: .72em 0; }
+.knowledge-doc-list { margin: .8em 0; padding-left: 1.65em; }
+.knowledge-doc-list li { margin: .32em 0; padding-left: .18em; }
+.knowledge-task-state { display: inline-grid; place-items: center; width: 1.3em; margin-left: -1.3em; color: var(--astral-blue); font-weight: 700; }
+.knowledge-doc-quote { margin: .9em 0; padding: 9px 14px; border-left: 3px solid var(--astral-gold); border-radius: 0 10px 10px 0; color: var(--muted); background: rgba(218, 183, 113, .07); }
+.knowledge-doc-code { max-width: 100%; margin: 12px 0; padding: 14px; overflow: auto; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 10px; background: rgba(4, 18, 42, .92); color: #dcecff; font: 12px/1.65 "SFMono-Regular", Consolas, "Liberation Mono", monospace; white-space: pre; }
+.knowledge-reader-content :not(pre) > code { padding: 2px 5px; border-radius: 5px; color: color-mix(in srgb, var(--astral-blue) 82%, var(--text)); background: rgba(73, 200, 255, .1); font: .92em/1.5 "SFMono-Regular", Consolas, monospace; }
+.knowledge-doc-divider { height: 1px; margin: 19px 0; border: 0; background: color-mix(in srgb, var(--border) 80%, transparent); }
+.knowledge-inline-note,
+.knowledge-external-link,
+.knowledge-inline-asset { color: color-mix(in srgb, var(--astral-blue) 76%, var(--text)); text-decoration: underline; text-decoration-color: rgba(73, 200, 255, .35); text-underline-offset: 3px; }
+.knowledge-inline-note { display: inline; padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; }
+.knowledge-inline-note:hover,
+.knowledge-external-link:hover,
+.knowledge-inline-asset:hover { color: var(--astral-gold); }
+.knowledge-inline-image { display: block; width: auto; max-width: min(100%, 760px); max-height: 520px; margin: 13px auto; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); border-radius: 12px; object-fit: contain; box-shadow: 0 10px 28px rgba(3, 20, 44, .12); }
+.knowledge-reader-relations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.knowledge-reader-relations[hidden] { display: none !important; }
+.knowledge-reader-relations section { min-width: 0; padding: 13px; border: 1px solid color-mix(in srgb, var(--border) 76%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--card-bg) 82%, transparent); }
+.knowledge-reader-relations h3 { margin: 0 0 9px; color: var(--muted); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; }
+.knowledge-relation-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.knowledge-relation-item { display: inline-flex; align-items: center; min-width: 0; min-height: 28px; padding: 5px 9px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--astral-blue) 25%, var(--border)); border-radius: 999px; color: var(--text); background: rgba(73, 200, 255, .06); font: 10px/1.35 inherit; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.knowledge-relation-item:hover { border-color: var(--astral-gold); }
+.knowledge-relation-item:disabled { opacity: .5; cursor: not-allowed; }
+.knowledge-relation-list .knowledge-compact-empty { margin: 0; }
+
+@media (max-width: 800px) {
+  .knowledge-dialog { width: calc(100vw - 16px); max-width: calc(100vw - 16px); height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); }
+  .knowledge-head { min-height: 64px; padding: 10px 10px 9px 14px; }
+  .knowledge-head h3 { font-size: 16px; }
+  .knowledge-status-pill { padding-inline: 8px; }
+  .knowledge-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(360px, 1fr); overflow: auto; }
+  .knowledge-sidebar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; max-height: none; padding: 12px; border-right: 0; border-bottom: 1px solid var(--border); overflow: visible; }
+  .knowledge-search { grid-column: 1 / -1; }
+  .knowledge-side-section:last-child { grid-column: 1 / -1; }
+  .knowledge-workspace { min-height: 390px; overflow: visible; }
+  .knowledge-results { overflow: visible; }
+  .knowledge-reader { overflow: visible; }
+  .knowledge-reader-relations { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 480px) {
+  .knowledge-kicker { display: none; }
+  .knowledge-head-actions { gap: 5px; }
+  .knowledge-status-pill { font-size: 9px; }
+  .knowledge-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .knowledge-side-section:last-child { grid-column: 1 / -1; }
+  .knowledge-tags .knowledge-tag:nth-child(n+9),
+  .knowledge-compact-list .knowledge-compact-item:nth-child(n+4) { display: none; }
+  .knowledge-toolbar { flex-wrap: wrap; min-height: 70px; }
+  .knowledge-toolbar > div { flex: 1 1 calc(100% - 96px); }
+  .knowledge-toolbar .knowledge-back { order: 3; flex: 1 1 auto; }
+  .knowledge-toolbar #knowledge-reindex { flex: 0 0 auto; }
+  .knowledge-results { grid-template-columns: 1fr; padding: 11px; }
+  .knowledge-result-card,
+  .knowledge-result-main { min-height: 126px; }
+  .knowledge-reader { padding-inline: 12px; }
+  .knowledge-reader-content { padding: 14px; }
+  .knowledge-reader-relations { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .knowledge-state .knowledge-orbit { animation: none !important; }
+  .knowledge-compact-item:hover { transform: none; }
+}
 .install-app-intro img { border: 1px solid rgba(216, 173, 104, .56); }
+
+/* 日历舱控：让月份导航、导入导出和关闭入口共享同一套星轨语言。 */
+.cal-head {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--astral-gold) 34%, var(--glass-border));
+  background:
+    linear-gradient(112deg, rgba(7, 23, 47, .12), transparent 42%, rgba(73, 200, 255, .08)),
+    var(--glass-bg);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 244, 207, .3);
+}
+.cal-head-left h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: color-mix(in srgb, var(--text) 86%, var(--astral-navy));
+}
+.cal-head-left h2 .astral-icon { width: 20px; height: 20px; color: var(--astral-gold); }
+.cal-nav { gap: 5px; }
+.cal-nav-btn,
+#cal-today {
+  height: 32px;
+  border-color: rgba(73, 200, 255, .22);
+  background: linear-gradient(145deg, rgba(11, 38, 72, .12), rgba(255, 244, 207, .18));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32);
+}
+.cal-nav-btn { width: 32px; border-radius: 10px; color: color-mix(in srgb, var(--astral-blue) 62%, var(--text)); }
+.cal-nav-btn .astral-icon { width: 15px; height: 15px; }
+.cal-nav-btn:hover {
+  color: var(--astral-blue);
+  border-color: rgba(73, 200, 255, .54);
+  background: rgba(73, 200, 255, .12);
+  box-shadow: 0 5px 14px rgba(17, 106, 164, .16);
+  transform: translateY(-1px);
+}
+#cal-today {
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--text-soft);
+  font-weight: 650;
+}
+.cal-title { color: var(--text); font-weight: 650; letter-spacing: .03em; }
+.cal-view-switch {
+  min-height: 34px;
+  padding: 3px;
+  border-radius: 11px;
+  background: rgba(7, 23, 47, .07);
+  border-color: rgba(73, 200, 255, .18);
+}
+.cal-view-switch .chip {
+  min-height: 26px;
+  padding: 4px 11px;
+  border-radius: 8px;
+  font-weight: 620;
+}
+.cal-view-switch .chip.active {
+  color: var(--astral-ivory);
+  background: linear-gradient(145deg, #174b80, #091d3c);
+  box-shadow: 0 4px 12px rgba(7, 23, 47, .2), inset 0 0 0 1px rgba(216, 173, 104, .35);
+}
+.cal-head-right > .chip,
+.cal-head-right > label.chip {
+  min-height: 34px;
+  padding: 0 11px;
+  border-radius: 10px;
+  gap: 6px;
+}
+.cal-head-right .cal-action-btn {
+  color: var(--text-soft);
+  border-color: rgba(216, 173, 104, .24);
+  background: rgba(255, 244, 207, .08);
+}
+.cal-action-btn .astral-icon,
+#cal-new-task .astral-icon { width: 15px; height: 15px; }
+.cal-head-right .cal-action-btn:hover {
+  opacity: 1;
+  color: color-mix(in srgb, var(--astral-gold) 76%, var(--text));
+  border-color: rgba(216, 173, 104, .5);
+  background: rgba(216, 173, 104, .1);
+}
+#cal-new-task {
+  min-height: 34px;
+  color: var(--astral-ivory);
+  background: linear-gradient(135deg, #174b80, #0a284f);
+  border: 1px solid rgba(216, 173, 104, .55);
+  box-shadow: 0 5px 15px rgba(7, 34, 68, .22), inset 0 1px 0 rgba(255, 244, 207, .16);
+}
+#cal-new-task:hover {
+  color: #fff;
+  border-color: rgba(73, 200, 255, .68);
+  box-shadow: 0 7px 18px rgba(17, 99, 158, .24), inset 0 1px 0 rgba(255, 244, 207, .2);
+}
+
+/* 统一各弹窗 / 日历 / 音乐 / AI 的关闭入口，替换裸字符 × 和零散红色悬停。 */
+.close-btn,
+.astral-close-btn,
+.dialog-header .icon-btn[data-close] {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 34px;
+  border: 1px solid rgba(216, 173, 104, .52);
+  border-radius: 11px;
+  color: var(--astral-ivory);
+  background: linear-gradient(145deg, rgba(20, 66, 109, .96), rgba(5, 20, 44, .98));
+  box-shadow:
+    0 5px 14px rgba(3, 17, 38, .2),
+    inset 0 1px 0 rgba(255, 244, 207, .18),
+    inset 0 -1px 0 rgba(73, 200, 255, .12);
+  font-size: 0;
+  line-height: 1;
+  opacity: 1;
+  cursor: pointer;
+  transition: transform .2s ease, color .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.close-btn .astral-icon,
+.astral-close-btn .astral-icon,
+.dialog-header .icon-btn[data-close] .astral-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.7;
+  transition: transform .22s ease, filter .22s ease;
+}
+.close-btn:hover,
+.astral-close-btn:hover,
+.dialog-header .icon-btn[data-close]:hover {
+  color: #8be7ff;
+  border-color: rgba(73, 200, 255, .78);
+  background: linear-gradient(145deg, #18568d, #092954);
+  box-shadow: 0 7px 20px rgba(23, 132, 194, .26), inset 0 0 12px rgba(73, 200, 255, .12);
+  transform: translateY(-1px);
+}
+.close-btn:hover .astral-icon,
+.astral-close-btn:hover .astral-icon,
+.dialog-header .icon-btn[data-close]:hover .astral-icon {
+  transform: rotate(90deg);
+  filter: drop-shadow(0 0 5px rgba(73, 200, 255, .58));
+}
+.close-btn:active,
+.astral-close-btn:active,
+.dialog-header .icon-btn[data-close]:active { transform: translateY(0) scale(.96); }
+.close-btn:focus-visible,
+.astral-close-btn:focus-visible,
+.dialog-header .icon-btn[data-close]:focus-visible {
+  outline: 2px solid var(--astral-blue);
+  outline-offset: 3px;
+}
+#cal-close { margin-left: 2px; }
+.music-close-btn.astral-close-btn:hover,
+.ai-close-btn.astral-close-btn:hover {
+  color: #8be7ff !important;
+  background: linear-gradient(145deg, #18568d, #092954) !important;
+  border-color: rgba(73, 200, 255, .78) !important;
+}
+.reminders-dialog .rem-close.astral-close-btn {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 11px !important;
+  border-color: rgba(216, 173, 104, .52) !important;
+  color: var(--astral-ivory) !important;
+  background: linear-gradient(145deg, rgba(20, 66, 109, .96), rgba(5, 20, 44, .98)) !important;
+}
+.reminders-dialog .rem-close.astral-close-btn:hover {
+  color: #8be7ff !important;
+  border-color: rgba(73, 200, 255, .78) !important;
+  background: linear-gradient(145deg, #18568d, #092954) !important;
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .cal-head {
+  background:
+    linear-gradient(112deg, rgba(12, 48, 86, .42), transparent 48%, rgba(216, 173, 104, .08)),
+    rgba(5, 18, 39, .72);
+  border-color: rgba(216, 173, 104, .32);
+}
+[data-theme="dark"] .cal-nav-btn,
+[data-theme="dark"] #cal-today { background: rgba(255, 255, 255, .055); }
+[data-theme="dark"] .cal-view-switch { background: rgba(0, 0, 0, .18); }
+
+@media (max-width: 720px) {
+  .cal-head { padding: 10px 50px 10px 12px; align-items: flex-start; }
+  .cal-head-left,
+  .cal-head-right { width: 100%; }
+  .cal-head-right { gap: 6px; }
+  #cal-close {
+    position: absolute;
+    top: 9px;
+    right: 10px;
+    margin: 0;
+  }
+}
+@media (max-width: 520px) {
+  .cal-head-left h2 { width: 100%; }
+  .cal-nav { width: 100%; justify-content: space-between; }
+  .cal-title { flex: 1; min-width: 72px; }
+  .cal-view-switch { flex: 1 1 auto; }
+  .cal-view-switch .chip { flex: 1; padding-inline: 8px; }
+  .cal-action-label { display: none; }
+  .cal-head-right > .cal-action-btn { width: 34px; padding: 0; }
+  #cal-new-task { padding-inline: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .close-btn:hover .astral-icon,
+  .astral-close-btn:hover .astral-icon,
+  .dialog-header .icon-btn[data-close]:hover .astral-icon { transform: none; }
+}
 
 @media (max-width: 1040px) {
   .toolbar { grid-template-columns: 1fr; }

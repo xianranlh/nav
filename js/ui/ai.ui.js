@@ -28,6 +28,10 @@
     let attachments = [];
     let abortCtrl = null;
 
+    function emitPetEvent(name, detail) {
+      try { window.SakuraPetEvents?.emit?.(name, detail || {}); } catch (_) {}
+    }
+
     // ===== AI 面板可拖动 + 可调大小 + 几何持久化 =====
     const PANEL_GEOM_KEY = "sakura_nav_ai_panel_geom_v1";
     function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
@@ -1208,12 +1212,17 @@
       sendBtn.hidden = true;
       panel.classList.add("is-sending");
       abortCtrl = new AbortController();
+      let petOutcome = { name: "nav:ai:done", detail: { detail: "AI 完成" } };
+      emitPetEvent("nav:ai:start", { mode: "chat", detail: "AI 回复中" });
 
       // ========== 🍵 茶话会分支 ==========
       if (councilOn) {
         try {
           await sendCouncil(text, currentAttachments, councilCfg);
         } catch (err) {
+          petOutcome = err?.name === "AbortError"
+            ? { name: "nav:ai:done", detail: { detail: "已取消" } }
+            : { name: "nav:ai:error", detail: { detail: "AI 出错" } };
           if (err?.name !== "AbortError") {
             tipEl.classList.add("err");
             tipEl.textContent = (err.message || "茶话会出错").replace(/\s+/g, " ").slice(0, 160);
@@ -1224,6 +1233,7 @@
           stopBtn.hidden = true;
           sendBtn.hidden = false;
           panel.classList.remove("is-sending");
+          emitPetEvent(petOutcome.name, petOutcome.detail);
           try { refreshModelStatus(); } catch (_) {}
           try { syncCouncilBtnState(); } catch (_) {}
         }
@@ -1345,6 +1355,9 @@
           throw lastErr || new Error("未知错误");
         }
       } catch (err) {
+        petOutcome = err?.name === "AbortError"
+          ? { name: "nav:ai:done", detail: { detail: "已取消" } }
+          : { name: "nav:ai:error", detail: { detail: "AI 出错" } };
         asstMsg.streaming = false;
         if (err.name === "AbortError") asstMsg.content += "\n\n_[已取消]_";
         else { asstMsg.content = formatAIError(err); asstMsg.error = true; }
@@ -1358,6 +1371,7 @@
         stopBtn.hidden = true;
         sendBtn.hidden = false;
         panel.classList.remove("is-sending");
+        emitPetEvent(petOutcome.name, petOutcome.detail);
         // 一次 send 完成（成功 / 失败 / 取消都算），刷一下模型状态徽章 — chat()/generateImage() 内部已经记好台账了
         try { refreshModelStatus(); } catch (_) {}
       }
@@ -2885,6 +2899,8 @@
       try { resultsEl?.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (_) {}
 
       genState.abort = new AbortController();
+      let petImageOutcome = { name: "nav:ai:done", detail: { detail: "生图完成" } };
+      try { window.SakuraPetEvents?.emit?.("nav:ai:start", { mode: "image", detail: "生图中" }); } catch (_) {}
       if (runBtn) runBtn.hidden = true;
       if (cancelBtn) cancelBtn.hidden = false;
       const startedAt = Date.now();
@@ -2944,6 +2960,9 @@
           await window.Archive.Gallery.addBatch(toSave).catch(() => {});
         }
       } catch (err) {
+        petImageOutcome = err?.name === "AbortError"
+          ? { name: "nav:ai:done", detail: { detail: "已取消" } }
+          : { name: "nav:ai:error", detail: { detail: "生图失败" } };
         if (err?.name === "AbortError") {
           genState.results = genState.results.map((r) => r.status === "loading" ? { ...r, status: "error", error: "已取消" } : r);
           if (statusEl) statusEl.textContent = "已取消";
@@ -2956,6 +2975,7 @@
       } finally {
         clearInterval(tick);
         genState.abort = null;
+        try { window.SakuraPetEvents?.emit?.(petImageOutcome.name, petImageOutcome.detail); } catch (_) {}
         if (runBtn) runBtn.hidden = false;
         if (cancelBtn) cancelBtn.hidden = true;
       }

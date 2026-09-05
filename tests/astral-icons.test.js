@@ -7,7 +7,7 @@ const AstralIcons = require("../js/astral-icons.js");
 const ROOT = path.resolve(__dirname, "..");
 
 test("provides the shared astral icon set used by navigation chrome", () => {
-  for (const name of ["star", "install", "calendar", "station", "folder", "grid", "list", "details", "close"]) {
+  for (const name of ["star", "install", "calendar", "station", "folder", "grid", "list", "details", "previous", "next", "upload", "close"]) {
     assert.ok(AstralIcons.paths[name], `${name} should be declared`);
     const svg = AstralIcons.markup(name);
     assert.match(svg, /<svg[^>]+viewBox="0 0 24 24"/);
@@ -20,8 +20,8 @@ test("wires the astral visual layer and local-site treatment into the app", () =
   const app = fs.readFileSync(path.join(ROOT, "js/app.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "styles/astral-ui.css"), "utf8");
 
-  assert.match(html, /styles\/astral-ui\.css\?v=v1\.24\.3/);
-  assert.match(html, /js\/astral-icons\.js\?v=v1\.24\.3/);
+  assert.match(html, /styles\/astral-ui\.css\?v=v1\.24\.4/);
+  assert.match(html, /js\/astral-icons\.js\?v=v1\.24\.4/);
   assert.match(html, /id="brand-title"/);
   assert.match(app, /function isLocalSiteGroup/);
   assert.match(app, /LOCAL_SITE_ICON_BY_NAME/);
@@ -31,6 +31,11 @@ test("wires the astral visual layer and local-site treatment into the app", () =
   assert.match(css, /\.cards\[data-view="icons"\] \.card \{ aspect-ratio: auto; min-height: 104px; \}/);
   assert.match(css, /\.app > \.group-tabs,[\s\S]*flex: 0 0 auto/);
   assert.match(css, /\.group-tabs \{[\s\S]*min-height: 46px;[\s\S]*overflow-y: hidden/);
+  assert.match(html, /id="cal-close"[^>]+aria-label="关闭日历"/);
+  assert.match(html, /data-astral-icon="previous"/);
+  assert.match(html, /data-astral-icon="next"/);
+  assert.match(css, /\.astral-close-btn/);
+  assert.match(css, /#cal-close \{ margin-left: 2px; \}/);
 });
 
 test("ships all generated local-site icons and pre-caches them", () => {

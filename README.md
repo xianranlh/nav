@@ -5,7 +5,12 @@
 - **🐳 Docker / Node 部署**（推荐）：自带 Node + SQLite 服务端，**业务数据存在服务器**，多浏览器 / 多机器访问同一地址看到的就是同一份数据
 - **🌐 纯静态打开**：仅用于查看静态资源；没有同源 `/api/data` 时应用会停止进入主界面，避免把业务数据写入浏览器
 
-> 当前版本：**v1.24.3** · 最近更新见下方"📅 更新汇总"
+> 当前版本：**v1.24.4** · 最近更新见下方"📅 更新汇总"
+
+### v1.24.4 — 星轨日历控件
+
+- 重绘日历顶栏的月份切换、视图切换、导入导出、新建任务与关闭按钮，统一为深蓝、金色与星光线性图标语言。
+- 全站弹窗、音乐和 AI 面板的关闭入口改用同一套星轨舱门式按钮，并补齐手机端固定位置、键盘焦点和减弱动画适配。
 
 ### v1.24.3 — 最近使用持久化与星轨桌宠
 
@@ -537,7 +542,7 @@ nav/
 | `GET /api/ai-settings` / `PUT /api/ai-settings` | AI 配置独立存储（不进 bundle） |
 | `GET /api/inventory` / `GET /api/storage-stats` | 数据管理面板用的存储清单与统计 |
 | `GET /api/data/key/:key` / `DELETE /api/data/key/:key` | 单个 bundle key 的下载与删除 |
-| `POST /api/media/{bg,music,lrc}` | 媒体文件上传（multer） |
+| `POST /api/media/{bg,music,lrc,pet}` | 媒体文件上传；宠物仅允许 PNG/JPEG/WebP、最大 5 MiB |
 | `GET /api/media/file/:cat/:filename` | 媒体文件直链读取 |
 | `DELETE /api/media/file/:cat/:filename` | 媒体文件删除 |
 | `GET /api/export` / `POST /api/import` | 整包 ZIP 备份导出 / 一键导入 |
@@ -546,6 +551,7 @@ nav/
 | `GET /api/music/stream/:ticket` | 同源音频代理（短时票据，给 `<audio>` 播） |
 | `POST /api/music/playlist/parse` | 解析 AIMP / M3U / PLS 播放列表 |
 | `* /api/ai-proxy/*` | **AI 反代**（v1.18+）：浏览器 → 同源 → 上游 AI |
+| `GET/POST/PATCH /api/knowledge/*` | Obsidian Vault 状态、检索、笔记、最近访问、固定项、附件代理与索引重建 |
 
 `/api/ai-proxy/*` 通过 `X-Sakura-Target-Base` / `X-Sakura-Target-Auth` 头指定上游和鉴权，
 带 Chrome UA + accept-language 转发，超时 100s（对话）/ 480s（生图），
@@ -577,6 +583,25 @@ nav/
 ### 🌐 无服务端 API 时
 
 页面无 `/api/data`、鉴权失败或 API 不可达时，应用会显示"服务端存储不可用"，不会进入主应用，也不会把导航、设置、日历、博客、AI、天气、同步配置、音乐元数据写入浏览器 `localStorage`。背景/音乐文件上传也不会写入 IndexedDB。
+
+### 📚 Obsidian Vault 接入（v1.25 开发中）
+
+服务端已提供 Obsidian 只读接入底座：按账号扫描 Vault、建立 SQLite FTS5 索引，并提供状态、搜索、标签、笔记、最近访问和手动重建 API。Vault 仍是唯一事实源，导航数据库里的索引可以随时删除并重建。
+
+单用户 Docker 示例：
+
+```env
+OBSIDIAN_ENABLED=true
+OBSIDIAN_VAULT_HOST_PATH=/srv/obsidian/MyVault
+OBSIDIAN_SINGLE_USER_ID=1
+OBSIDIAN_WRITE_ENABLED=false
+```
+
+重建容器后，宿主 Vault 会只读挂载到 `/vaults`。多用户部署不要设置 `OBSIDIAN_SINGLE_USER_ID`，而是在挂载目录内准备 `user-1`、`user-2` 等子目录。Syncthing、Git、rclone、NAS 或其他 Vault 同步方式由部署者管理；闲然导航不实现 Obsidian Sync。
+
+接口与安全规则详见 [`docs/contracts/obsidian-nav-integration.md`](docs/contracts/obsidian-nav-integration.md)。首页“知识库”已接入星穹知识舱，支持状态、搜索、最近、固定、标签、安全结构化 Markdown、Wiki 出链/反链与登录态附件代理。原始 HTML、`javascript:` 链接和危险 SVG 会被阻止；普通图片与 PDF 校验后流式返回。Obsidian 桌面深链接与可选 Inbox 写入安排在后续 Wave。
+
+桌宠现已使用 v3 服务端配置：双击角色打开最多 4 项的快捷星轨，长按或右键可切换站岗/巡逻、静音对白、临时隐藏或进入设置；单击、双击、长按和拖动互斥，窄屏会自动采用安全站岗布局。
 
 ---
 

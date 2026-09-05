@@ -4,7 +4,7 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.24.3";
+const VERSION = "v1.24.4";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
 
@@ -49,8 +49,12 @@ const CORE_FILES = [
   `./js/music-lx.js?v=${VERSION}`,
   "./js/storage-inspector.js",
   `./js/pet-engine.js?v=${VERSION}`,
+  `./js/pet-config.js?v=${VERSION}`,
+  `./js/pet-events.js?v=${VERSION}`,
   `./js/pet-widget.js?v=${VERSION}`,
   `./js/pet.js?v=${VERSION}`,
+  `./js/knowledge.js?v=${VERSION}`,
+  `./js/ui/knowledge.ui.js?v=${VERSION}`,
   `./js/ui/ai.ui.js?v=${VERSION}`,
   `./js/ui/todo.ui.js?v=${VERSION}`,
   `./js/ui/calendar.ui.js?v=${VERSION}`,

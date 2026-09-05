@@ -48,6 +48,7 @@ import {
   getSession,
   deleteSession,
   listMediaFiles,
+  getMediaFileRecord,
 } from "./database.js";
 import {
   isSafeHttpUrl,
@@ -56,6 +57,8 @@ import {
   readResponseTextLimited,
 } from "./metadata.js";
 import { registerMusicRoutes } from "./music-lx.js";
+import { KnowledgeService } from "./knowledge/indexer.js";
+import { registerKnowledgeRoutes } from "./knowledge/routes.js";
 import {
   loadOrCreateSecret,
   mintToken,
@@ -173,10 +176,30 @@ function auth(req, res, next) {
   next();
 }
 
+function petMediaAuth(req, res, next) {
+  const cookieSession = sessionFromSsoCookie(req);
+  if (cookieSession) {
+    req.user = cookieSession;
+    return next();
+  }
+  return auth(req, res, next);
+}
+
 function adminOnly(req, res, next) {
   if (!req.user?.isAdmin) return res.status(403).json({ error: "需要管理员权限" });
   next();
 }
+
+const knowledgeService = new KnowledgeService({
+  env: process.env,
+  secret: ssoSecret,
+});
+registerKnowledgeRoutes(app, {
+  auth,
+  service: knowledgeService,
+  getBundle,
+  setBundle,
+});
 
 // ===================== 登录 / 会话 =====================
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;       // 7 天
@@ -347,6 +370,24 @@ function makeUploader(cat) {
 const uploadBg = makeUploader("bg");
 const uploadMusic = makeUploader("music");
 const uploadLrc = makeUploader("lrc");
+const uploadPet = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+});
+
+function detectPetImage(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return null;
+  if (buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    return { ext: "png", mime: "image/png" };
+  }
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { ext: "jpg", mime: "image/jpeg" };
+  }
+  if (buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") {
+    return { ext: "webp", mime: "image/webp" };
+  }
+  return null;
+}
 
 app.get("/healthz", (_req, res) => {
   res.type("text/plain").send("ok\n");
@@ -430,7 +471,8 @@ app.get("/api/storage-stats", auth, (req, res) => {
     let bgFiles = 0;
     let musicFiles = 0;
     let lrcFiles = 0;
-    for (const cat of ["bg", "music", "lrc"]) {
+    let petFiles = 0;
+    for (const cat of ["bg", "music", "lrc", "pet"]) {
       const dir = mediaBase(cat);
       if (!fs.existsSync(dir)) continue;
       for (const name of fs.readdirSync(dir)) {
@@ -442,6 +484,7 @@ app.get("/api/storage-stats", auth, (req, res) => {
           if (cat === "bg") bgFiles++;
           else if (cat === "music") musicFiles++;
           else if (cat === "lrc") lrcFiles++;
+          else if (cat === "pet") petFiles++;
         } catch (_) {}
       }
     }
@@ -451,7 +494,7 @@ app.get("/api/storage-stats", auth, (req, res) => {
         appDataJsonBytes: sqlite.appDataBytes,
         mediaMetaRows: sqlite.mediaTableRows,
       },
-      disk: { bgFiles, musicFiles, lrcFiles, mediaBytes },
+      disk: { bgFiles, musicFiles, lrcFiles, petFiles, mediaBytes },
     });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
@@ -494,7 +537,12 @@ function saveBundleHandler(req, res) {
     if (!body || typeof body !== "object") {
       return res.status(400).json({ error: "请求体须为 JSON 对象" });
     }
-    setBundle(req.user.userId, body);
+    // Obsidian 最近记录与固定项由知识接口维护，避免普通页面防抖保存时
+    // 用一个较旧的前端 bundle 把刚写入的服务端知识配置覆盖掉。
+    const current = getBundle(req.user.userId);
+    const next = { ...body };
+    if (current?.obsidianKnowledge) next.obsidianKnowledge = current.obsidianKnowledge;
+    setBundle(req.user.userId, next);
     return res.json({ ok: true, savedAt: Date.now() });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
@@ -505,23 +553,21 @@ function saveBundleHandler(req, res) {
 app.get("/api/inventory", auth, (req, res) => {
   try {
     const keys = getKeyInventory(req.user.userId);
-    const media = { bg: [], music: [], lrc: [] };
-    for (const cat of ["bg", "music", "lrc"]) {
-      const dir = mediaBase(cat);
-      if (!fs.existsSync(dir)) continue;
-      for (const name of fs.readdirSync(dir)) {
-        const fp = path.join(dir, name);
-        try {
-          const st = fs.statSync(fp);
-          if (!st.isFile()) continue;
-          media[cat].push({
-            filename: name,
-            bytes: st.size,
-            url: `/api/media/file/${cat}/${encodeURIComponent(name)}`,
-            mtime: st.mtimeMs,
-          });
-        } catch (_) {}
-      }
+    const media = { bg: [], music: [], lrc: [], pet: [] };
+    for (const row of listMediaFiles(req.user.userId)) {
+      if (!media[row.category]) continue;
+      const fp = safeJoinMedia(row.category, row.filename);
+      if (!fp || !fs.existsSync(fp)) continue;
+      try {
+        const st = fs.statSync(fp);
+        if (!st.isFile()) continue;
+        media[row.category].push({
+          filename: row.filename,
+          bytes: st.size,
+          url: `/api/media/file/${row.category}/${encodeURIComponent(row.filename)}`,
+          mtime: st.mtimeMs,
+        });
+      } catch (_) {}
     }
     return res.json({ keys, media, dataDir: DATA_DIR });
   } catch (e) {
@@ -584,6 +630,40 @@ app.post("/api/media/lrc", auth, uploadLrc.single("file"), (req, res) => {
   return res.json({ ok: true, url, filename: fn, category: "lrc" });
 });
 
+app.post("/api/media/pet", auth, (req, res) => {
+  uploadPet.single("file")(req, res, (error) => {
+    if (error) {
+      const tooLarge = error?.code === "LIMIT_FILE_SIZE";
+      return res.status(tooLarge ? 413 : 400).json({ error: tooLarge ? "宠物图片不能超过 5 MiB" : "宠物图片上传失败" });
+    }
+    if (!req.file) return res.status(400).json({ error: "无文件" });
+    const detected = detectPetImage(req.file.buffer);
+    if (!detected) return res.status(415).json({ error: "仅支持 PNG、JPEG 或 WebP 图片" });
+    const filename = `${randomUUID()}.${detected.ext}`;
+    const dir = mediaBase("pet");
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, filename), req.file.buffer, { flag: "wx" });
+      recordMediaFile({
+        filename,
+        category: "pet",
+        bytes: req.file.buffer.length,
+        userId: req.user.userId,
+      });
+      return res.json({
+        ok: true,
+        url: `/api/media/file/pet/${encodeURIComponent(filename)}`,
+        filename,
+        category: "pet",
+        mime: detected.mime,
+      });
+    } catch (writeError) {
+      try { fs.unlinkSync(path.join(dir, filename)); } catch (_) {}
+      return res.status(500).json({ error: "宠物图片保存失败" });
+    }
+  });
+});
+
 function sendMedia(cat, req, res) {
   const filePath = safeJoinMedia(cat, req.params.filename);
   if (!filePath) return res.status(400).end();
@@ -601,12 +681,19 @@ app.get("/api/media/file/bg/:filename", (req, res) => sendMedia("bg", req, res))
 app.get("/api/media/file/music/:filename", (req, res) => sendMedia("music", req, res));
 app.get("/api/media/file/lrc/:filename", (req, res) => sendMedia("lrc", req, res));
 app.get("/api/media/file/icon/:filename", (req, res) => sendMedia("icon", req, res));
+app.get("/api/media/file/pet/:filename", petMediaAuth, (req, res) => {
+  const row = getMediaFileRecord(req.params.filename, req.user.userId);
+  if (!row || row.category !== "pet") return res.status(404).end();
+  return sendMedia("pet", req, res);
+});
 
 app.delete("/api/media/file/:category/:filename", auth, (req, res) => {
   const cat = req.params.category;
-  if (cat !== "bg" && cat !== "music" && cat !== "lrc") {
+  if (cat !== "bg" && cat !== "music" && cat !== "lrc" && cat !== "pet") {
     return res.status(400).json({ error: "category 无效" });
   }
+  const owned = getMediaFileRecord(req.params.filename, req.user.userId);
+  if (!owned || owned.category !== cat) return res.status(404).json({ error: "文件不存在" });
   const filePath = safeJoinMedia(cat, req.params.filename);
   if (!filePath) return res.status(400).json({ error: "路径无效" });
   try {
@@ -626,11 +713,11 @@ app.get("/api/export", auth, adminOnly, (_req, res) => {
     ensureDir();
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sakura-export-"));
     const dbSnap = path.join(tmpDir, "sakura.db");
-    snapshotDatabaseTo(dbSnap);
+    snapshotDatabaseTo(dbSnap, { stripKnowledge: true });
 
     const zip = new AdmZip();
     zip.addLocalFile(dbSnap, "", "sakura.db");
-    for (const cat of ["bg", "music", "lrc"]) {
+    for (const cat of ["bg", "music", "lrc", "pet"]) {
       const dir = mediaBase(cat);
       if (!fs.existsSync(dir)) continue;
       for (const name of fs.readdirSync(dir)) {
@@ -647,7 +734,7 @@ app.get("/api/export", auth, adminOnly, (_req, res) => {
       schema: "sakura-nav-backup@1",
       exportedAt: new Date().toISOString(),
       dataDir: DATA_DIR,
-      includes: ["sakura.db", "media/bg/*", "media/music/*", "media/lrc/*"],
+      includes: ["sakura.db", "media/bg/*", "media/music/*", "media/lrc/*", "media/pet/*"],
     };
     zip.addFile("manifest.json", Buffer.from(JSON.stringify(manifest, null, 2)));
 
@@ -712,7 +799,7 @@ app.post("/api/import", auth, adminOnly, importUpload.single("file"), (req, res)
     fs.writeFileSync(dbPath, dbEntry.getData());
 
     // 清空并重建媒体目录
-    for (const cat of ["bg", "music", "lrc"]) {
+    for (const cat of ["bg", "music", "lrc", "pet"]) {
       const dir = mediaBase(cat);
       if (fs.existsSync(dir)) {
         for (const name of fs.readdirSync(dir)) {
@@ -722,9 +809,9 @@ app.post("/api/import", auth, adminOnly, importUpload.single("file"), (req, res)
         fs.mkdirSync(dir, { recursive: true });
       }
     }
-    let restored = { bg: 0, music: 0, lrc: 0 };
+    let restored = { bg: 0, music: 0, lrc: 0, pet: 0 };
     for (const entry of entries) {
-      const m = /^media\/(bg|music|lrc)\/(.+)$/.exec(entry.entryName);
+      const m = /^media\/(bg|music|lrc|pet)\/(.+)$/.exec(entry.entryName);
       if (!m) continue;
       const cat = m[1];
       const name = path.basename(m[2]);

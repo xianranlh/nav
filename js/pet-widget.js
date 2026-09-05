@@ -2,8 +2,8 @@
    pet-widget.js —— 首页 Codex 风格状态桌宠
    · 站岗：右下角定点（可拖拽）
    · 巡逻：底部横向来回走动
-   · 右键菜单切换活动方式
-   · 单击互动 · 双击打开 pet.html
+   · 单击互动 · 双击快捷星轨
+   · 长按/右键菜单 · 拖动与点击互斥
    =============================== */
 (() => {
   "use strict";
@@ -11,6 +11,8 @@
   const { Config, PetActor, Status, LINES, STATUS_META, pick } = window.SakuraPet;
 
   let cfg = null;
+  const configImage = (value) => Config.imageUrl ? Config.imageUrl(value) : "";
+  const effectiveMode = () => cfg?.activityMode === "patrol" && window.innerWidth >= 720 ? "patrol" : "guard";
 
   function boot() {
     const shell = document.createElement("div");
@@ -25,6 +27,7 @@
         <div class="hp-name" id="hp-name"></div>
       </div>
       <div class="hp-quick" aria-label="桌宠快捷操作">
+        <button type="button" data-quick="actions" title="打开快捷星轨" aria-label="打开快捷星轨">捷</button>
         <button type="button" data-quick="mode" title="切换站岗/巡逻" aria-label="切换站岗或巡逻"><span id="hp-mode-icon">巡</span></button>
         <a href="pet.html" title="打开桌宠设置" aria-label="打开桌宠设置">设</a>
       </div>
@@ -39,9 +42,18 @@
       <button type="button" data-mode="guard">🛡 站岗<span class="hp-ctx-check" data-for="guard"></span></button>
       <button type="button" data-mode="patrol">🚶 巡逻<span class="hp-ctx-check" data-for="patrol"></span></button>
       <div class="hp-ctx-sep"></div>
+      <button type="button" data-act="mute">🔈 静音对白<span class="hp-ctx-check" data-for="mute"></span></button>
+      <button type="button" data-act="hide">◌ 本次页面隐藏</button>
       <button type="button" data-act="settings">⚙ 桌宠设置</button>
     `;
     document.body.appendChild(ctx);
+
+    const wheel = document.createElement("div");
+    wheel.id = "home-pet-wheel";
+    wheel.hidden = true;
+    wheel.setAttribute("role", "menu");
+    wheel.setAttribute("aria-label", "桌宠快捷星轨");
+    document.body.appendChild(wheel);
 
     if (!document.getElementById("home-pet-widget-css")) {
       const st = document.createElement("style");
@@ -156,6 +168,25 @@
 #home-pet-ctx button.is-active{color:#e5638a;font-weight:600}
 #home-pet-ctx .hp-ctx-check{font-size:12px;min-width:1em;color:#e5638a}
 #home-pet-ctx .hp-ctx-sep{height:1px;margin:4px 6px;background:rgba(0,0,0,.08)}
+#home-pet-wheel{
+  position:fixed;z-index:10049;width:184px;height:184px;
+  border:1px solid rgba(216,173,105,.5);border-radius:50%;
+  background:radial-gradient(circle,rgba(16,55,93,.98) 0 25%,rgba(7,27,58,.94) 26% 60%,rgba(7,27,58,.42) 61% 70%,transparent 71%);
+  box-shadow:0 16px 48px rgba(0,16,38,.3),inset 0 0 28px rgba(88,207,255,.1);
+  backdrop-filter:blur(12px);font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+  transform-origin:center;animation:hp-wheel-in .18s ease-out;
+}
+#home-pet-wheel[hidden]{display:none !important}
+#home-pet-wheel::after{content:"星轨";position:absolute;inset:0;display:grid;place-items:center;color:#f6ddb0;font-size:11px;font-weight:700;letter-spacing:.12em;pointer-events:none}
+#home-pet-wheel button{
+  position:absolute;display:grid;place-items:center;gap:1px;width:52px;height:52px;padding:4px;
+  transform:translate(-50%,-50%);border:1px solid rgba(88,207,255,.42);border-radius:16px;
+  background:linear-gradient(145deg,rgba(21,77,123,.98),rgba(7,30,63,.98));color:#eef8ff;
+  box-shadow:0 7px 17px rgba(0,10,28,.28);font:700 10px/1.1 inherit;cursor:pointer;
+}
+#home-pet-wheel button span{font-size:17px;color:#f6d58e}
+#home-pet-wheel button:hover,#home-pet-wheel button:focus-visible{border-color:#f6d58e;color:#fff;outline:none;transform:translate(-50%,-50%) scale(1.06)}
+@keyframes hp-wheel-in{from{opacity:0;transform:scale(.78) rotate(-9deg)}to{opacity:1;transform:none}}
 @media (max-width:560px){
   #home-pet-shell:not(.is-patrol){right:max(8px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom))}
   #home-pet-shell .hp-quick{opacity:.92;transform:none;pointer-events:auto}
@@ -173,7 +204,7 @@
     const modeIcon = shell.querySelector("#hp-mode-icon");
     nameEl.textContent = cfg.name;
 
-    const mode = cfg.activityMode === "patrol" ? "patrol" : "guard";
+    const mode = effectiveMode();
     const scaleBySize = { sm: 1.65, md: 1.95, lg: 2.25 };
     shell.dataset.size = cfg.homeScale || "md";
 
@@ -187,19 +218,12 @@
       chatty: false,
       statusDriven: true,
       activityMode: mode,
-      custom: cfg.custom ? cfg.custom.img : null,
-      onPetClick(a) {
-        const st = Status.get().status;
-        const lines = LINES[st] || LINES.idle;
-        a.say(pick(lines), 2200);
-        a.hearts(2);
-        a.emote(st === "error" ? "shy" : "wave", 1.6);
-        showBadge(true);
-      },
+      custom: configImage(cfg) || null,
+      onPetClick: null,
     });
 
     function applyShellLayout() {
-      const m = cfg.activityMode === "patrol" ? "patrol" : "guard";
+      const m = effectiveMode();
       const size = ["sm", "md", "lg"].includes(cfg.homeScale) ? cfg.homeScale : "md";
       shell.dataset.size = size;
       actor.setScale(scaleBySize[size]);
@@ -223,17 +247,14 @@
         shell.style.right = "";
         shell.style.left = "";
         shell.style.bottom = "";
-        if (typeof cfg.homeX === "number" && typeof cfg.homeY === "number") {
-          const maxX = Math.max(8, window.innerWidth - shell.offsetWidth - 8);
-          const maxY = Math.max(8, window.innerHeight - shell.offsetHeight - 8);
-          shell.style.left = Math.max(8, Math.min(maxX, cfg.homeX)) + "px";
-          shell.style.bottom = Math.max(8, Math.min(maxY, cfg.homeY)) + "px";
-          shell.style.right = "auto";
-        } else {
-          shell.style.right = "18px";
-          shell.style.bottom = "18px";
-          shell.style.left = "auto";
-        }
+        const maxX = Math.max(8, window.innerWidth - shell.offsetWidth - 8);
+        const safeBottom = 72;
+        const maxY = Math.max(safeBottom, window.innerHeight - shell.offsetHeight - 8);
+        const xRatio = Math.max(0, Math.min(1, Number(cfg.anchor?.xRatio ?? 0.88)));
+        const yRatio = Math.max(0, Math.min(1, Number(cfg.anchor?.yRatio ?? 0.08)));
+        shell.style.left = (8 + (maxX - 8) * xRatio) + "px";
+        shell.style.bottom = (safeBottom + (maxY - safeBottom) * yRatio) + "px";
+        shell.style.right = "auto";
         requestAnimationFrame(() => {
           actor.s.x = Math.max(8, (stage.clientWidth || 120) / 2 - actor.w / 2);
           actor.s.targetX = null;
@@ -249,10 +270,11 @@
     function refreshTitle() {
       const { status, detail } = Status.get();
       const meta = STATUS_META[status] || STATUS_META.idle;
-      const act = cfg.activityMode === "patrol" ? "巡逻" : "站岗";
+      const actual = effectiveMode();
+      const act = cfg.activityMode === "patrol" && actual === "guard" ? "巡逻（窄屏自动站岗）" : actual === "patrol" ? "巡逻" : "站岗";
       actor.el.title =
         `${cfg.name} · ${meta.label}${detail ? " · " + detail : ""}\n` +
-        `活动：${act}\n单击互动 · 右键切换站岗/巡逻 · 双击打开设置`;
+        `活动：${act}\n单击互动 · 双击快捷星轨 · 长按更多操作`;
       actor.el.setAttribute("aria-label", `${cfg.name}，${meta.label}，${act}`);
     }
 
@@ -261,6 +283,10 @@
 
     function setBadgeVisible(vis) {
       if (!badge) return;
+      if (cfg.showStatusBadge === false) {
+        badge.hidden = true;
+        return;
+      }
       if (speaking) {
         badge.hidden = true;
         return;
@@ -301,10 +327,11 @@
       showBadge(Status.get().status !== "idle");
       const status = Status.get().status;
       if (status === "done") actor.hearts(2);
-      if (status === "error") actor.say(pick(LINES.error), 2200);
-      if (status === "done" && Math.random() < 0.6) actor.say(pick(LINES.done), 2000);
+      const speechChance = cfg.speechFrequency === "quiet" ? 0 : cfg.speechFrequency === "lively" ? 0.9 : 0.5;
+      if (status === "error" && Math.random() < speechChance) actor.say(pick(LINES.error), 2200);
+      if (status === "done" && Math.random() < speechChance) actor.say(pick(LINES.done), 2000);
       if (status === "thinking" || status === "working") {
-        if (Math.random() < 0.35) actor.say(pick(LINES[status] || LINES.thinking), 1600);
+        if (Math.random() < speechChance * 0.55) actor.say(pick(LINES[status] || LINES.thinking), 1600);
       }
     }
     Status.on(onStatus);
@@ -314,15 +341,102 @@
     // 巡逻时 meta 跟随角色
     let metaRaf = 0;
     function trackMeta() {
-      if (cfg.activityMode === "patrol" && !actor.destroyed) {
+      if (effectiveMode() === "patrol" && !actor.destroyed) {
         const cx = actor.s.x + actor.w / 2;
         metaEl.style.left = cx + "px";
       }
-      metaRaf = requestAnimationFrame(trackMeta);
+      if (!document.hidden) metaRaf = requestAnimationFrame(trackMeta);
     }
-    metaRaf = requestAnimationFrame(trackMeta);
+    function syncMetaVisibility() {
+      cancelAnimationFrame(metaRaf);
+      metaRaf = 0;
+      if (!document.hidden && !actor.destroyed) metaRaf = requestAnimationFrame(trackMeta);
+    }
+    document.addEventListener("visibilitychange", syncMetaVisibility);
+    syncMetaVisibility();
 
-    /* ---------- 右键菜单 ---------- */
+    /* ---------- 快捷星轨与长按/右键菜单 ---------- */
+    const quickMeta = {
+      todo: { icon: "✓", label: "待办" },
+      calendar: { icon: "◫", label: "日历" },
+      ai: { icon: "✦", label: "AI" },
+      knowledge: { icon: "⌁", label: "知识" },
+      "recent-note": { icon: "↺", label: "最近笔记" },
+      settings: { icon: "⚙", label: "设置" },
+    };
+
+    function notifyUnavailable(label) {
+      const message = `${label}当前不可用`;
+      if (window.toast) window.toast(message, 2600);
+      else actor.say(message, 2200);
+    }
+
+    function runQuickAction(action) {
+      hideWheel();
+      const targetByAction = {
+        todo: "#btn-todo",
+        calendar: "#btn-calendar",
+        ai: "#ai-fab",
+        settings: "#btn-settings",
+      };
+      if (action === "knowledge" && window.SakuraKnowledgeUI?.open) {
+        window.SakuraKnowledgeUI.open();
+        return;
+      }
+      if (action === "recent-note" && window.SakuraKnowledgeUI?.openRecent) {
+        window.SakuraKnowledgeUI.openRecent();
+        return;
+      }
+      const target = document.querySelector(targetByAction[action] || "[data-never-match]");
+      if (target) target.click();
+      else notifyUnavailable(quickMeta[action]?.label || "该功能");
+    }
+
+    function hideWheel() {
+      wheel.hidden = true;
+      wheel.replaceChildren();
+    }
+
+    function showWheel(x, y) {
+      hideCtx();
+      wheel.replaceChildren();
+      const actions = (cfg.quickActions || []).slice(0, 4);
+      if (!actions.length) {
+        notifyUnavailable("快捷星轨");
+        return;
+      }
+      const positions = actions.length === 1
+        ? [[50, 18]]
+        : actions.length === 2 ? [[27, 27], [73, 73]]
+          : actions.length === 3 ? [[50, 16], [20, 72], [80, 72]]
+            : [[50, 15], [85, 50], [50, 85], [15, 50]];
+      actions.forEach((action, index) => {
+        const meta = quickMeta[action] || { icon: "·", label: action };
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.action = action;
+        button.setAttribute("role", "menuitem");
+        button.setAttribute("aria-label", meta.label);
+        button.style.left = `${positions[index][0]}%`;
+        button.style.top = `${positions[index][1]}%`;
+        button.append(nodeForWheel("span", meta.icon), nodeForWheel("small", meta.label));
+        button.addEventListener("click", () => runQuickAction(action));
+        wheel.append(button);
+      });
+      const size = 184;
+      const pad = 8;
+      wheel.style.left = `${Math.max(pad, Math.min(window.innerWidth - size - pad, x - size / 2))}px`;
+      wheel.style.top = `${Math.max(pad, Math.min(window.innerHeight - size - pad, y - size / 2))}px`;
+      wheel.hidden = false;
+      wheel.querySelector("button")?.focus({ preventScroll: true });
+    }
+
+    function nodeForWheel(tag, text) {
+      const element = document.createElement(tag);
+      element.textContent = text;
+      return element;
+    }
+
     function hideCtx() {
       ctx.hidden = true;
     }
@@ -333,12 +447,14 @@
         const ck = b.querySelector(".hp-ctx-check");
         if (ck) ck.textContent = b.dataset.mode === m ? "✓" : "";
       });
+      const muteCheck = ctx.querySelector('[data-for="mute"]');
+      if (muteCheck) muteCheck.textContent = cfg.speechFrequency === "quiet" ? "✓" : "";
     }
     function showCtx(x, y) {
       syncCtxChecks();
       ctx.hidden = false;
       const pad = 8;
-      const rect = { w: 160, h: 130 };
+      const rect = { w: 178, h: 224 };
       let left = x;
       let top = y;
       if (left + rect.w > window.innerWidth - pad) left = window.innerWidth - rect.w - pad;
@@ -367,12 +483,13 @@
     // 防止拖拽时的 pointer 把菜单冲掉后仍可选
     document.addEventListener("pointerdown", (e) => {
       if (!ctx.hidden && !ctx.contains(e.target) && e.target !== actor.el) hideCtx();
+      if (!wheel.hidden && !wheel.contains(e.target) && e.target !== actor.el) hideWheel();
     });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") hideCtx();
+      if (e.key === "Escape") { hideCtx(); hideWheel(); }
     });
-    window.addEventListener("scroll", hideCtx, true);
-    window.addEventListener("blur", hideCtx);
+    window.addEventListener("scroll", () => { hideCtx(); hideWheel(); }, true);
+    window.addEventListener("blur", () => { hideCtx(); hideWheel(); });
 
     ctx.addEventListener("click", (e) => {
       const btn = e.target.closest("button");
@@ -385,6 +502,21 @@
       if (btn.dataset.act === "settings") {
         hideCtx();
         location.href = "pet.html";
+      } else if (btn.dataset.act === "mute") {
+        cfg = Config.load();
+        cfg.speechFrequency = cfg.speechFrequency === "quiet" ? "normal" : "quiet";
+        Config.save(cfg);
+        syncCtxChecks();
+        actor.say(cfg.speechFrequency === "quiet" ? "对白已静音，我会安静陪着你。" : "对白恢复啦！", 2100);
+      } else if (btn.dataset.act === "hide") {
+        hideCtx();
+        hideWheel();
+        cancelAnimationFrame(metaRaf);
+        document.removeEventListener("visibilitychange", syncMetaVisibility);
+        actor.destroy();
+        shell.remove();
+        ctx.remove();
+        wheel.remove();
       }
     });
 
@@ -392,41 +524,79 @@
       changeMode(cfg.activityMode === "patrol" ? "guard" : "patrol");
     });
 
-    // 双击 → 宠物页（避免与拖拽冲突：仅未拖动时）
-    let lastTap = 0;
+    shell.querySelector('[data-quick="actions"]')?.addEventListener("click", (event) => {
+      const rect = actor.el.getBoundingClientRect();
+      showWheel(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      event.stopPropagation();
+    });
+
+    // 单击延迟确认，双击只打开快捷星轨；拖动/长按会抑制点击。
+    let clickTimer = 0;
     let suppressClick = false;
-    actor.el.addEventListener("click", () => {
+    function interact() {
+      const st = Status.get().status;
+      const lines = LINES[st] || LINES.idle;
+      actor.say(pick(lines), 2200);
+      actor.hearts(2);
+      actor.emote(st === "error" ? "shy" : "wave", 1.6);
+      showBadge(true);
+    }
+    actor.el.addEventListener("click", (event) => {
       if (suppressClick) {
         suppressClick = false;
         return;
       }
-      const now = Date.now();
-      if (now - lastTap < 320) location.href = "pet.html";
-      lastTap = now;
+      clearTimeout(clickTimer);
+      clickTimer = setTimeout(interact, 280);
+      event.stopPropagation();
     });
     actor.el.addEventListener("dblclick", (e) => {
       e.preventDefault();
-      location.href = "pet.html";
+      clearTimeout(clickTimer);
+      suppressClick = false;
+      showWheel(e.clientX, e.clientY);
     });
 
     /* ---------- 拖拽（仅站岗） ---------- */
     let drag = null;
+    let pressTimer = 0;
+    let pressOrigin = null;
+    let longPressed = false;
+    function cancelLongPress() {
+      clearTimeout(pressTimer);
+      pressTimer = 0;
+    }
     actor.el.addEventListener("pointerdown", (e) => {
       if (e.button != null && e.button !== 0) return;
-      if (cfg.activityMode === "patrol") return; // 巡逻不拖壳
+      hideWheel();
+      longPressed = false;
+      pressOrigin = { x: e.clientX, y: e.clientY };
+      cancelLongPress();
+      pressTimer = setTimeout(() => {
+        longPressed = true;
+        suppressClick = true;
+        drag = null;
+        shell.classList.remove("dragging");
+        showCtx(pressOrigin?.x || e.clientX, pressOrigin?.y || e.clientY);
+      }, 560);
+      actor.el.setPointerCapture?.(e.pointerId);
+      if (effectiveMode() === "patrol") return;
       const rect = shell.getBoundingClientRect();
       drag = {
         dx: e.clientX - rect.left,
         dy: e.clientY - rect.top,
+        startX: e.clientX,
+        startY: e.clientY,
         moved: false,
       };
-      actor.el.setPointerCapture?.(e.pointerId);
-      shell.classList.add("dragging");
       e.preventDefault();
     });
     const onMove = (e) => {
+      if (pressOrigin && Math.hypot(e.clientX - pressOrigin.x, e.clientY - pressOrigin.y) > 8) cancelLongPress();
       if (!drag) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 7) return;
       drag.moved = true;
+      shell.classList.add("dragging");
       const x = Math.max(0, Math.min(window.innerWidth - shell.offsetWidth, e.clientX - drag.dx));
       const yFromTop = Math.max(0, Math.min(window.innerHeight - shell.offsetHeight, e.clientY - drag.dy));
       const bottom = window.innerHeight - yFromTop - shell.offsetHeight;
@@ -435,61 +605,42 @@
       shell.style.right = "auto";
     };
     const onUp = () => {
-      if (!drag) return;
+      cancelLongPress();
+      pressOrigin = null;
       shell.classList.remove("dragging");
-      if (drag.moved) {
+      if (drag?.moved) {
         suppressClick = true;
         const left = parseFloat(shell.style.left) || 0;
         const bottom = parseFloat(shell.style.bottom) || 18;
         cfg = Config.load();
-        cfg.homeX = left;
-        cfg.homeY = bottom;
+        const maxX = Math.max(1, window.innerWidth - shell.offsetWidth - 8);
+        const safeBottom = 72;
+        const maxY = Math.max(safeBottom + 1, window.innerHeight - shell.offsetHeight - 8);
+        cfg.anchor = {
+          xRatio: Math.max(0, Math.min(1, (left - 8) / Math.max(1, maxX - 8))),
+          yRatio: Math.max(0, Math.min(1, (bottom - safeBottom) / Math.max(1, maxY - safeBottom))),
+        };
         Config.save(cfg);
       }
       drag = null;
+      if (longPressed) suppressClick = true;
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     window.addEventListener("resize", () => {
-      if (cfg.activityMode !== "patrol") applyShellLayout();
+      if (!actor.destroyed) applyShellLayout();
     });
 
     /* ---------- 状态源 ---------- */
     function wireStatusSources() {
       const syncNet = () => {
-        if (!navigator.onLine) Status.set("offline");
-        else if (Status.get().status === "offline") Status.set("idle");
+        if (!navigator.onLine) window.SakuraPetEvents.emit("nav:network:offline");
+        else window.SakuraPetEvents.bus.clear("network");
       };
-      window.addEventListener("offline", () => Status.set("offline"));
-      window.addEventListener("online", () => Status.pulse("done", "已恢复联网", 2000));
+      window.addEventListener("offline", () => window.SakuraPetEvents.emit("nav:network:offline"));
+      window.addEventListener("online", () => window.SakuraPetEvents.emit("nav:network:online"));
       syncNet();
-
-      const panel = document.getElementById("ai-panel");
-      if (panel) {
-        let wasSending = panel.classList.contains("is-sending");
-        const readImgMode = () =>
-          panel.classList.contains("img-mode") ||
-          !!panel.querySelector(
-            ".ai-img-mode.active, [data-img-mode].active, #ai-img-toggle.active, #btn-img-mode.active"
-          );
-        const mo = new MutationObserver(() => {
-          if (!navigator.onLine) return;
-          const sending = panel.classList.contains("is-sending");
-          if (sending) {
-            Status.set(readImgMode() ? "working" : "thinking", readImgMode() ? "生图中" : "AI 回复中");
-          } else if (wasSending) {
-            const tip = panel.querySelector(".ai-tip.err, #ai-tip.err, .tip.err");
-            if (tip && String(tip.textContent || "").trim()) {
-              Status.pulse("error", "AI 出错", 3200);
-            } else {
-              Status.pulse("done", "AI 完成", 2600);
-            }
-          }
-          wasSending = sending;
-        });
-        mo.observe(panel, { attributes: true, attributeFilter: ["class"] });
-      }
 
       window.addEventListener("sakura-pet-cmd", (e) => {
         const d = e.detail || {};
@@ -503,18 +654,21 @@
       cfg = Config.load();
       if (!cfg.homeWidget) {
         cancelAnimationFrame(metaRaf);
+        document.removeEventListener("visibilitychange", syncMetaVisibility);
         actor.destroy();
         shell.remove();
         ctx.remove();
+        wheel.remove();
         return;
       }
-      const img = cfg.custom ? cfg.custom.img : null;
+      const img = configImage(cfg) || null;
       if (img !== actor.custom) actor.setCustom(img);
       nameEl.textContent = cfg.name;
       applyShellLayout();
+      showBadge(true);
     }
     addEventListener("storage", (e) => {
-      if (e.key === window.SakuraPet.SAVE_KEY) reloadConfig();
+      if (e.key === window.SakuraPet.SAVE_KEY || e.key === window.SakuraPet.V2_KEY) reloadConfig();
     });
     addEventListener("sakura-pet-config", reloadConfig);
     try {
@@ -528,6 +682,9 @@
       try { await window.SakuraRemote.ready; } catch (_) {}
     }
     cfg = Config.load();
+    try { cfg = await Config.ensureMigrated(cfg); } catch (error) {
+      console.warn("[pet] v2 自定义图片迁移暂未完成：", error?.message || error);
+    }
     if (!cfg.homeWidget) return;
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot, { once: true });

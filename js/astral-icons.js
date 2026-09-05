@@ -30,6 +30,9 @@
     palette: '<path d="M12 3a9 9 0 0 0 0 18h1.3a2.1 2.1 0 0 0 1.5-3.6 1.9 1.9 0 0 1 1.4-3.2H18A3 3 0 0 0 21 11a8 8 0 0 0-9-8Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="6.8" r="1"/><circle cx="14.5" cy="7" r="1"/>',
     up: '<path d="m6 14 6-6 6 6"/><path d="M12 8v11"/>',
     down: '<path d="m6 10 6 6 6-6"/><path d="M12 5v11"/>',
+    previous: '<path d="m14.5 5-7 7 7 7"/><path d="M18.5 4.5v15" opacity=".35"/>',
+    next: '<path d="m9.5 5 7 7-7 7"/><path d="M5.5 4.5v15" opacity=".35"/>',
+    upload: '<path d="M12 21V10m0 0-4 4m4-4 4 4"/><path d="M5 6.5v-2h14v2"/><path d="m18.5 16 .5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5Z"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/><circle cx="12" cy="12" r="9" opacity=".35"/>',
     add: '<path d="M12 5v14M5 12h14"/><path d="m18.5 3 .5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5Z"/>',
     music: '<path d="M9 18V6l11-2v11"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="15" r="3"/><path d="m4 5 .6 1.7 1.7.6-1.7.6L4 9.6l-.6-1.7-1.7-.6 1.7-.6Z"/>',
@@ -53,6 +56,10 @@
     const root = scope || (typeof document !== "undefined" ? document : null);
     if (!root?.querySelectorAll) return;
     root.querySelectorAll("[data-astral-icon]").forEach((el) => mount(el));
+    root.querySelectorAll(".close-btn[data-close], .dialog-header .icon-btn[data-close], #cal-close, .music-close-btn, .ai-close-btn").forEach((button) => {
+      button.classList.add("astral-close-btn");
+      if (!button.querySelector(".astral-icon")) button.innerHTML = markup("close", "astral-close-icon");
+    });
   }
 
   if (typeof document !== "undefined") mountAll(document);
