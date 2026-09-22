@@ -1,0 +1,62 @@
+/* Workspace follows nav theme tokens; creation results remain the main content. */
+#ai-panel { background:var(--ui-surface) !important; backdrop-filter:none !important; }
+
+#ai-panel .ai-workspace-title { font-size:14px; font-weight:600; }
+#ai-panel[data-ai-mode=image] .ai-head-primary, #ai-panel[data-ai-mode=video] .ai-head-primary { grid-template-columns:30px minmax(0,1fr) 32px; }
+#ai-panel:not([data-ai-mode=image]):not([data-ai-mode=video]) .ai-workspace-title { display:none; }
+#ai-panel .ai-mode-tabs { display:flex; gap:4px; padding:8px 12px; border-bottom:1px solid var(--border, #8883); flex-shrink:0; }
+#ai-panel .ai-mode-tabs button { padding:8px 18px; border:0; border-radius:8px; background:transparent; color:inherit; cursor:pointer; }
+#ai-panel .ai-mode-tabs [aria-selected=true] { background:var(--accent, #e898b0); color:#211620; font-weight:650; }
+#ai-panel .ai-mode-tabs .ai-expand { margin-left:auto; }
+#ai-panel .ai-chat-view { display:flex; flex-direction:column; min-height:0; flex:1; overflow:hidden; }
+#ai-panel [hidden] { display:none !important; }
+#ai-panel .ai-chat-more { margin:0 12px 8px; }
+#ai-panel summary { cursor:pointer; font-size:12px; padding:6px 0; }
+#ai-panel[data-ai-mode=image] #ai-persona-select, #ai-panel[data-ai-mode=video] #ai-persona-select,
+#ai-panel[data-ai-mode=image] #ai-model-select, #ai-panel[data-ai-mode=video] #ai-model-select { display:none; }
+#ai-panel .ai-generation-view { flex:1; min-height:0; overflow:auto; padding:16px; overscroll-behavior:contain; }
+#ai-panel .ai-generation-intro h2 { margin:0 0 6px; font-size:18px; }
+#ai-panel .ai-generation-intro p, #ai-panel .ai-generation-params p { font-size:12px; opacity:.75; margin:0 0 16px; }
+#ai-panel .ai-prompt-label { display:block; margin-bottom:6px; font-size:12px; }
+#ai-panel .ai-generation-view textarea { width:100%; min-height:100px; resize:vertical; box-sizing:border-box; }
+#ai-panel .ai-generation-view input, #ai-panel .ai-generation-view select, #ai-panel .ai-generation-view textarea { color:inherit; background:var(--ui-soft); border:1px solid var(--border, #8884); border-radius:8px; padding:9px; font:inherit; min-width:0; }
+#ai-panel .ai-generation-view select option { background:var(--ui-surface); color:var(--text, #26232a); }
+#ai-panel .ai-generation-models, #ai-panel .ai-param-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0; }
+#ai-panel .ai-generation-models label, #ai-panel .ai-param-grid label { display:flex; flex-direction:column; gap:5px; font-size:12px; }
+#ai-panel .ai-generation-tools, #ai-panel .ai-generate-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:12px; margin:12px 0; }
+#ai-panel .ai-ref-upload { position:relative; overflow:hidden; cursor:pointer; }
+[data-theme="dark"] #ai-panel .ai-ref-upload { color:var(--ui-text); background:var(--ui-soft); }
+#ai-panel .ai-ref-upload input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; }
+#ai-panel .ai-reference-strip { display:flex; gap:8px; flex-wrap:wrap; }
+#ai-panel .ai-reference-strip figure { position:relative; margin:8px 0 0; width:70px; height:70px; }
+#ai-panel .ai-reference-strip img { width:100%; height:100%; object-fit:contain; border-radius:6px; }
+#ai-panel .ai-reference-strip button { position:absolute; top:-5px; right:-5px; border-radius:50%; width:24px; height:24px; }
+#ai-panel .ai-generation-params { border-bottom:1px solid var(--border, #8883); padding-bottom:4px; }
+#ai-panel .ai-task-history { margin-top:24px; }
+#ai-panel .ai-task-heading { display:flex; align-items:center; justify-content:space-between; }
+#ai-panel .ai-task-heading h3 { font-size:14px; margin:0; }
+#ai-panel .ai-task { padding:16px 0; border-bottom:1px solid var(--border, #8883); }
+#ai-panel .ai-task-meta { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+#ai-panel .ai-task-meta time { opacity:.65; }
+#ai-panel .ai-task-prompt { white-space:pre-wrap; overflow-wrap:anywhere; margin:10px 0 5px; font-size:13px; }
+#ai-panel .ai-task small { opacity:.65; }
+#ai-panel .ai-task-media { display:grid; gap:12px; margin-top:10px; }
+#ai-panel .ai-task-media figure { margin:0; }
+#ai-panel .ai-task-media img, #ai-panel .ai-task-media video, #ai-panel .ai-task-preview { display:block; width:100%; max-height:460px; object-fit:contain; border-radius:8px; background:#8881; }
+#ai-panel .ai-task-media figcaption, #ai-panel .ai-task-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px; font-size:12px; }
+#ai-panel .ai-task-history button, #ai-panel .ai-task-media a { color:inherit; border:1px solid var(--border, #8884); background:transparent; padding:5px 9px; border-radius:6px; cursor:pointer; }
+#ai-panel .ai-task-notice, #ai-panel .ai-task-error { font-size:12px; overflow-wrap:anywhere; }
+#ai-panel .ai-task-empty { font-size:13px; opacity:.7; padding:18px 0; }
+#ai-panel button:disabled { opacity:.5; cursor:wait; }
+#ai-panel :focus-visible { outline:2px solid var(--accent, #bb6688); outline-offset:3px; }
+#ai-panel .ai-ref-upload:focus-within { outline:2px solid var(--accent, #bb6688); outline-offset:3px; }
+.ai-media-preview { max-width:94vw; max-height:94dvh; padding:16px; background:var(--ui-surface); color:var(--text, #26232a); }
+.ai-media-preview img { display:block; max-width:88vw; max-height:80dvh; object-fit:contain; margin-top:10px; }
+.ai-media-preview::backdrop { background:#0009; }
+#ai-panel.is-expanded { position:fixed !important; inset:4vh 5vw !important; width:90vw !important; height:92vh !important; max-width:none !important; max-height:none !important; }
+@media(min-width:900px) { #ai-panel.is-expanded .ai-generation-view { padding:24px max(24px,calc((100% - 860px)/2)); } }
+@media(max-width:600px) {
+  #ai-panel, #ai-panel.is-expanded { position:fixed !important; inset:0 !important; width:100% !important; height:100dvh !important; max-width:none !important; max-height:none !important; border-radius:0 !important; }
+  #ai-panel .ai-generation-view { padding:14px; }
+  #ai-panel .ai-mode-tabs button { min-height:40px; }
+}

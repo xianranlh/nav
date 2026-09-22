@@ -1,6 +1,6 @@
-/* 背景粒子：樱花 / 星光 / 梧桐叶 / 糖果星星 / 空模式
+/* 背景粒子：樱花 / 星光 / 梧桐叶 / 糖果星星 / 玄鸟黑羽 / 空模式
  * - Canvas，devicePixelRatio 自适应
- * - particleMode: sakura | starlight | sycamore | candy-stars | none
+ * - particleMode: sakura | starlight | sycamore | candy-stars | black-feathers | none
  */
 (function () {
   const canvas = document.getElementById("sakura-canvas");
@@ -34,10 +34,7 @@
     this.swing = Math.random() * Math.PI * 2;
     this.swingSpeed = 0.01 + Math.random() * 0.02;
     this.opacity = 0.6 + Math.random() * 0.4;
-    const palette = [
-      [255, 205, 219], [255, 182, 203], [255, 170, 200],
-      [255, 225, 235], [250, 192, 220],
-    ];
+    const palette = [[163, 189, 221], [141, 164, 192], [197, 212, 232], [113, 147, 189]];
     const c = palette[Math.floor(Math.random() * palette.length)];
     this.color = c;
   };
@@ -86,10 +83,7 @@
     this.vx = (-0.2 + Math.random() * 0.4);
     this.phase = Math.random() * Math.PI * 2;
     this.twinkle = 0.02 + Math.random() * 0.04;
-    const palette = [
-      [220, 235, 255], [200, 220, 255], [255, 255, 255],
-      [180, 210, 255], [160, 195, 255],
-    ];
+    const palette = [[163, 189, 221], [141, 164, 192], [197, 212, 232], [113, 147, 189]];
     this.color = palette[Math.floor(Math.random() * palette.length)];
   };
   Star.prototype.update = function (dt, t) {
@@ -139,10 +133,7 @@
     this.swing = Math.random() * Math.PI * 2;
     this.swingSpeed = 0.008 + Math.random() * 0.018;
     this.opacity = 0.55 + Math.random() * 0.4;
-    const palette = [
-      [180, 140, 70], [120, 95, 55], [85, 120, 65], [200, 165, 90],
-      [95, 130, 75], [165, 130, 60],
-    ];
+    const palette = [[163, 189, 221], [141, 164, 192], [197, 212, 232], [113, 147, 189]];
     this.color = palette[Math.floor(Math.random() * palette.length)];
   };
   Leaf.prototype.update = function (dt) {
@@ -190,10 +181,7 @@
     this.vx = -0.1 + Math.random() * 0.2;
     this.phase = Math.random() * Math.PI * 2;
     this.twinkle = 0.015 + Math.random() * 0.025;
-    const palette = [
-      [196, 168, 232], [255, 196, 214], [168, 200, 255],
-      [255, 244, 168], [255, 230, 245],
-    ];
+    const palette = [[163, 189, 221], [141, 164, 192], [197, 212, 232], [113, 147, 189]];
     this.color = palette[Math.floor(Math.random() * palette.length)];
   };
   CandyStar.prototype.update = function (dt, t) {
@@ -229,6 +217,104 @@
     c2.restore();
   };
 
+  // 缓存羽枝细节；每帧只做位移、翻转和贴图，避免反复绘制细线。
+  let featherSprite;
+  function getFeatherSprite() {
+    if (featherSprite) return featherSprite;
+    const sprite = document.createElement("canvas");
+    sprite.width = 96;
+    sprite.height = 240;
+    const c = sprite.getContext("2d");
+    c.translate(48, 112);
+    c.scale(40, 80);
+    const ink = c.createLinearGradient(-.6, 0, .5, 0);
+    ink.addColorStop(0, "#080c0d");
+    ink.addColorStop(.42, "#192528");
+    ink.addColorStop(.55, "#354341");
+    ink.addColorStop(.64, "#101718");
+    ink.addColorStop(1, "#050708");
+    c.fillStyle = ink;
+    c.beginPath();
+    c.moveTo(.12, -1.27);
+    c.bezierCurveTo(-.48, -.95, -.68, -.05, -.16, .88);
+    c.quadraticCurveTo(-.02, 1.04, .015, 1.12);
+    c.bezierCurveTo(.52, .45, .6, -.6, .12, -1.27);
+    c.closePath();
+    c.fill();
+    c.strokeStyle = "rgba(160, 181, 174, .38)";
+    c.lineWidth = .014;
+    c.stroke();
+    c.save();
+    c.clip();
+    for (let i = 0; i < 34; i++) {
+      const y = -1.1 + i * .066;
+      const bend = .07 * y * y;
+      // 羽枝向羽尖斜扫；不齐的细隙使外缘呈现真实羽片感。
+      c.strokeStyle = i % 4 === 0 ? "rgba(150, 176, 177, .32)" : "rgba(90, 116, 118, .23)";
+      c.lineWidth = .009;
+      c.beginPath();
+      c.moveTo(bend, y);
+      c.quadraticCurveTo(-.22, y - .1, -.65, y - .39);
+      c.moveTo(bend, y);
+      c.quadraticCurveTo(.23, y - .12, .61, y - .35);
+      c.stroke();
+      if (i % 7 === 3) {
+        c.globalCompositeOperation = "destination-out";
+        c.lineWidth = .024;
+        c.beginPath();
+        c.moveTo(i % 2 ? -.27 : .27, y - .15);
+        c.lineTo(i % 2 ? -.65 : .61, y - .36);
+        c.stroke();
+        c.globalCompositeOperation = "source-over";
+      }
+    }
+    c.restore();
+    c.strokeStyle = "rgba(175, 183, 164, .7)";
+    c.lineWidth = .021;
+    c.beginPath();
+    c.moveTo(.12, -1.22);
+    c.bezierCurveTo(-.015, -.35, -.055, .57, .065, 1.37);
+    c.stroke();
+    featherSprite = sprite;
+    return sprite;
+  }
+
+  function Feather(initial) {
+    this.reset(initial);
+  }
+  Feather.prototype.reset = function (initial) {
+    this.x = Math.random() * width;
+    this.y = initial ? Math.random() * height : -80 - Math.random() * height * .2;
+    this.size = config.sizeMin + Math.random() * (config.sizeMax - config.sizeMin);
+    this.depth = .65 + Math.random() * .35;
+    this.vy = (.32 + Math.random() * .48) * this.depth;
+    this.vx = (Math.random() - .5) * .45;
+    this.phase = Math.random() * Math.PI * 2;
+    this.roll = Math.random() * Math.PI * 2;
+    this.rot = (Math.random() - .5) * 1.8;
+    this.spin = (Math.random() - .5) * .004;
+    this.opacity = .65 + Math.random() * .3;
+  };
+  Feather.prototype.update = function (dt) {
+    const step = config.speed * dt;
+    this.phase += .012 * step;
+    this.roll += .009 * step;
+    this.x += (this.vx + Math.sin(this.phase) * .85 + config.wind * .48) * step * this.depth;
+    this.y += this.vy * (.78 + .22 * Math.cos(this.phase)) * step;
+    this.rot += this.spin * step;
+    if (this.y > height + 80 || this.x < -80 || this.x > width + 80) this.reset(false);
+  };
+  Feather.prototype.draw = function (c2) {
+    c2.save();
+    c2.translate(this.x, this.y);
+    c2.rotate(this.rot + Math.sin(this.phase) * .55);
+    c2.scale(Math.cos(this.roll) * .72 + .28, 1);
+    c2.globalAlpha = this.opacity * this.depth;
+    const s = this.size * (1 + this.depth * .3);
+    c2.drawImage(getFeatherSprite(), -s * .6, -s * 1.4, s * 1.2, s * 3);
+    c2.restore();
+  };
+
   function Meteor() {
     this.reset();
   }
@@ -253,7 +339,7 @@
     c2.globalAlpha = Math.max(0, this.life);
     const grad = c2.createLinearGradient(this.x, this.y, this.x + this.vx * 12, this.y + this.vy * 12);
     grad.addColorStop(0, "rgba(255,255,255,0.95)");
-    grad.addColorStop(1, "rgba(196,168,232,0)");
+    grad.addColorStop(1, "rgba(163,189,221,0)");
     c2.strokeStyle = grad;
     c2.lineWidth = 1.6;
     c2.beginPath();
@@ -297,6 +383,7 @@
     if (m === "starlight") return new Star(initial);
     if (m === "sycamore") return new Leaf(initial);
     if (m === "candy-stars") return new CandyStar(initial);
+    if (m === "black-feathers") return new Feather(initial);
     return new Petal(initial);
   }
 
@@ -312,6 +399,7 @@
   }
 
   function ensureParticles() {
+    if (canvas.dataset) canvas.dataset.particleMode = config.particleMode;
     if (config.particleMode === "none") {
       particles.length = 0;
       if (canvas) canvas.style.display = "none";
@@ -336,7 +424,7 @@
   function loop(t) {
     if (!running) return;
     if (config.particleMode === "none") {
-      rafId = requestAnimationFrame(loop);
+      stop();
       return;
     }
     const dt = Math.min((t - last) / 16.67, 3);
@@ -368,6 +456,11 @@
   }
 
   function start() {
+    if (document.hidden || reduced?.matches || config.particleMode === "none" || document.querySelector("dialog[open]")) {
+      stop();
+      ctx.clearRect(0, 0, width, height);
+      return;
+    }
     if (rafId) return;
     running = true;
     last = performance.now();
@@ -386,13 +479,15 @@
   window.addEventListener("resize", () => { resize(); });
 
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  reduced?.addEventListener?.("change", () => { start(); });
+  document.addEventListener("dialog:opened", stop);
+  document.addEventListener("close", () => { start(); }, true);
 
   window.Sakura = {
     init(opts = {}) {
       Object.assign(config, opts);
       resize();
       particles = [];
-      if (reduced && reduced.matches) return;
       rebuildParticles();
       start();
     },
@@ -401,6 +496,7 @@
       Object.assign(config, opts);
       if (opts.particleMode != null && opts.particleMode !== prevMode) rebuildParticles();
       else ensureParticles();
+      start();
     },
     getConfig() { return { ...config }; },
     start,

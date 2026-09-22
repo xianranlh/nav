@@ -4,7 +4,7 @@
  *   - favicon 图标（跨域）：cache-first，命中即返回，失败回网络
  *   - 其它（API、壁纸图等）：network-first，失败回缓存
  */
-const VERSION = "v1.24.4";
+const VERSION = "20260921-unified2";
 const CORE_CACHE = `sakura-nav-core-${VERSION}`;
 const RUNTIME_CACHE = `sakura-nav-runtime-${VERSION}`;
 
@@ -20,24 +20,42 @@ const CORE_FILES = [
   "./",
   "./index.html",
   "./pet.html",
+  "./styles/pet-studio.css?v=20260909f",
+  "./js/pet-companion.js?v=20260909f",
   "./styles.css",
+  "./styles/theme-tokens.css?v=20260921-unified2",
+  "./styles/knowledge.css?v=20260907",
+  "./styles/unified.css?v=20260921-unified2",
+  "./styles/pet-widget.css?v=20260909f",
   `./styles/pet.css?v=${VERSION}`,
   "./themes/sakura.css",
   "./themes/q-anime.css",
   "./themes/dark-minimal.css",
   "./themes/paper.css",
+  "./themes/xuanbird.css?v=20260916",
+  "./themes/liquid-glass.css?v=20260916",
   `./styles/astral-ui.css?v=${VERSION}`,
   `./js/astral-icons.js?v=${VERSION}`,
-  "./js/homepage-theme.js",
+  "./js/homepage-theme.js?v=20260916-glass",
   `./js/dialog.js?v=${VERSION}`,
   `./styles/dialogs.css?v=${VERSION}`,
   `./styles/ai-chat.css?v=${VERSION}`,
   `./js/homepage-layout.js?v=${VERSION}`,
-  "./js/sakura.js",
+  "./js/sakura.js?v=20260916",
   "./js/bookmarks.js",
   "./js/auth.js",
   `./js/install.js?v=${VERSION}`,
-  "./js/ai.js",
+  "./js/ai.js?v=20260914",
+  "./js/ai-image-api.js?v=20260914",
+  "./js/ai-tasks.js?v=20260914",
+  "./js/ui/ai-generation.ui.js?v=20260917",
+  "./js/ui/ai-chat.ui.js?v=20260917",
+  "./js/ui/ai-archive.ui.js?v=20260917",
+  "./js/ui/ai-settings.ui.js?v=20260914",
+  "./styles/ai-workspace.css?v=20260921-unified2",
+  "./styles/ai-conversation.css?v=20260921-unified2",
+  "./js/ui/ai-conversation.ui.js?v=20260917",
+
   "./js/calendar.js",
   "./js/holidays.js",
   "./js/todo.js",
@@ -55,7 +73,7 @@ const CORE_FILES = [
   `./js/pet.js?v=${VERSION}`,
   `./js/knowledge.js?v=${VERSION}`,
   `./js/ui/knowledge.ui.js?v=${VERSION}`,
-  `./js/ui/ai.ui.js?v=${VERSION}`,
+  "./js/ui/ai.ui.js?v=20260917",
   `./js/ui/todo.ui.js?v=${VERSION}`,
   `./js/ui/calendar.ui.js?v=${VERSION}`,
   `./js/ui/weather.ui.js?v=${VERSION}`,
@@ -121,6 +139,10 @@ self.addEventListener("fetch", (event) => {
   if (url.protocol !== "http:" && url.protocol !== "https:") return;
   // 带鉴权头的请求（AI API / 同步）直接走网络
   if (req.headers.get("authorization")) return;
+  // API responses may be private even when authenticated by cookie or query token.
+  if (url.origin === location.origin && url.pathname.startsWith("/api/")) return;
+  if (url.searchParams.has("token")) return;
+  if (req.headers.has("range")) return;
   // 媒体资源：不要缓存（避免 Range/大文件触发 cache.put 异常 → 被误判成 504）
   if (isMediaRequest(req, url)) return;
   // 动态 API：天气 / IP 定位 / 同步 / Gist，直接走网络
@@ -152,7 +174,7 @@ async function cacheFirst(req, cacheName) {
   try {
     const res = await fetch(req);
     if (res && res.ok) {
-      try { cache.put(req, res.clone()); } catch (_) {}
+      try { await cache.put(req, res.clone()); } catch (_) {}
     }
     return res;
   } catch (_) {
@@ -165,7 +187,7 @@ async function networkFirst(req, cacheName) {
   try {
     const res = await fetch(req);
     if (res && res.ok) {
-      try { cache.put(req, res.clone()); } catch (_) {}
+      try { await cache.put(req, res.clone()); } catch (_) {}
     }
     return res;
   } catch (_) {

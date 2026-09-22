@@ -5,14 +5,16 @@ const {
   VISUAL_THEMES,
   DEFAULT_VISUAL_THEME_ID,
   getVisualTheme,
+  getPrimaryVisualThemes,
+  particleCountForViewport,
   particleModeFromVisualTheme,
   shouldSyncAccent,
 } = require("../js/homepage-theme.js");
 
-test("registers the four maintained homepage visual themes", () => {
+test("registers the maintained homepage visual themes", () => {
   assert.deepEqual(
-    Object.keys(VISUAL_THEMES).slice(0, 4),
-    ["sakura", "q-anime", "dark-minimal", "paper"],
+    getPrimaryVisualThemes().map(theme => theme.id),
+    ["sakura", "q-anime", "dark-minimal", "paper", "xuanbird", "liquid-glass"],
   );
   assert.equal(DEFAULT_VISUAL_THEME_ID, "sakura");
   assert.equal(getVisualTheme("q-anime").accent, "#c4a8e8");
@@ -24,9 +26,22 @@ test("maps visual themes to particle modes", () => {
   assert.equal(particleModeFromVisualTheme("q-anime"), "candy-stars");
   assert.equal(particleModeFromVisualTheme("dark-minimal"), "none");
   assert.equal(particleModeFromVisualTheme("paper"), "sycamore");
+  assert.equal(particleModeFromVisualTheme("xuanbird"), "black-feathers");
+  assert.equal(particleModeFromVisualTheme("liquid-glass"), "none");
   assert.equal(particleModeFromVisualTheme("starlight"), "starlight");
   assert.equal(particleModeFromVisualTheme("sycamore"), "sycamore");
   assert.equal(particleModeFromVisualTheme("unknown"), "sakura");
+});
+
+test("explicit effects override a theme and zero density stays disabled on any viewport", () => {
+  assert.equal(particleModeFromVisualTheme("paper", "black-feathers"), "black-feathers");
+  assert.equal(particleModeFromVisualTheme("xuanbird", "none"), "none");
+  assert.equal(particleModeFromVisualTheme("xuanbird", "auto"), "black-feathers");
+  assert.equal(particleModeFromVisualTheme("xuanbird", "invalid"), "black-feathers");
+  for (const mobile of [true, false]) {
+    assert.equal(particleCountForViewport(0, () => ({ matches: mobile })), 0);
+    assert.equal(particleCountForViewport(70, () => ({ matches: mobile })), mobile ? 35 : 70);
+  }
 });
 
 test("only follows theme accent when the previous default is still in use", () => {

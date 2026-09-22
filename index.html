@@ -15,14 +15,22 @@
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0b1f42" />
-  <link rel="stylesheet" href="styles.css?v=v1.24.4" />
-  <link rel="stylesheet" href="styles/dialogs.css?v=v1.24.4" />
-  <link rel="stylesheet" href="styles/ai-chat.css?v=v1.24.4" />
+  <link rel="stylesheet" href="styles/theme-tokens.css?v=20260921-unified2" />
+  <link rel="stylesheet" href="styles.css?v=20260920-tunefree" />
+  <link rel="stylesheet" href="styles/dialogs.css?v=20260921-unified2" />
+  <link rel="stylesheet" href="styles/ai-chat.css?v=20260907d" />
   <link rel="stylesheet" href="themes/sakura.css" />
   <link rel="stylesheet" href="themes/q-anime.css" />
   <link rel="stylesheet" href="themes/dark-minimal.css" />
   <link rel="stylesheet" href="themes/paper.css" />
-  <link rel="stylesheet" href="styles/astral-ui.css?v=v1.24.4" />
+  <link rel="stylesheet" href="styles/astral-ui.css?v=20260921-unified2" />
+  <link rel="stylesheet" href="styles/knowledge.css?v=20260907" />
+  <link rel="stylesheet" href="styles/pet-widget.css?v=20260909f" />
+  <link rel="stylesheet" href="styles/unified.css?v=20260921-unified2" />
+  <link rel="stylesheet" href="styles/ai-workspace.css?v=20260921-unified2" />
+  <link rel="stylesheet" href="styles/ai-conversation.css?v=20260921-unified2" />
+  <link rel="stylesheet" href="themes/xuanbird.css?v=20260916" />
+  <link rel="stylesheet" href="themes/liquid-glass.css?v=20260916" />
 </head>
 <body class="pre-auth">
   <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -47,18 +55,18 @@
       <p class="login-sub">请登录后继续</p>
       <label>
         <span>用户名</span>
-        <input type="text" id="login-user" autocomplete="username" required spellcheck="false" />
+        <input type="text" id="login-user" name="username" autocapitalize="none" aria-describedby="login-msg" autocomplete="username" required spellcheck="false" />
       </label>
       <label>
         <span>密码</span>
-        <input type="password" id="login-pass" autocomplete="current-password" required />
+        <input type="password" id="login-pass" name="password" aria-describedby="login-msg" autocomplete="current-password" required />
       </label>
       <label class="row remember">
         <input type="checkbox" id="login-remember" checked />
         <span>保持登录（7 天免登录）</span>
       </label>
       <div class="login-msg" id="login-msg" role="status" aria-live="polite"></div>
-      <button type="submit" class="btn-primary login-btn">登&nbsp;&nbsp;录</button>
+      <button type="submit" class="btn-primary login-btn">登录</button>
     </form>
   </div>
 
@@ -422,6 +430,8 @@
               <option value="q-anime">Q 版二次元</option>
               <option value="dark-minimal">暗夜极简</option>
               <option value="paper">复古纸质</option>
+              <option value="xuanbird">玄鸟 · 墨羽</option>
+              <option value="liquid-glass">液态玻璃</option>
             </select>
           </label>
           <label class="row">品牌主色
@@ -559,11 +569,22 @@
         <!-- 背景粒子 -->
         <details class="sec">
           <summary><span data-astral-icon="star" aria-hidden="true"></span> 背景特效</summary>
+          <label class="row">特效样式
+            <select id="set-particle-effect" autocomplete="off">
+              <option value="auto">跟随视觉风格</option>
+              <option value="black-feathers">玄鸟黑羽</option>
+              <option value="sakura">花瓣飘落</option>
+              <option value="starlight">星光</option>
+              <option value="sycamore">梧桐叶</option>
+              <option value="candy-stars">糖果星星</option>
+              <option value="none">关闭</option>
+            </select>
+          </label>
           <label class="row">粒子数量
             <input type="range" id="set-sakura-count" min="0" max="200" step="5" />
             <span id="set-sakura-count-val"></span>
           </label>
-          <label class="row">下落速度
+          <label class="row">飘动速度
             <input type="range" id="set-sakura-speed" min="0.2" max="2.5" step="0.1" />
             <span id="set-sakura-speed-val"></span>
           </label>
@@ -848,7 +869,7 @@
         </div>
       </div>
       <div class="mlx-banner" id="mlx-banner" hidden>
-        <p>还没接入音源，搜得到但播不了。</p>
+        <p>内置音源已停用。去音源页重新启用 GD 音乐台，或导入洛雪脚本。</p>
         <button type="button" class="btn-secondary" id="mlx-go-sources">去接入</button>
       </div>
       <div class="mlx-body" id="mlx-results" role="region" aria-live="polite" aria-label="搜索结果"></div>
@@ -870,7 +891,7 @@
         </button>
       </header>
       <div class="dialog-body mlx-src-body">
-        <p class="hint">播放器不自带破解源。先导入你自己的洛雪 <code>.js</code> 或 HTTP API，再去搜歌。</p>
+        <p class="hint">已内置 TuneFree 同款 <b>GD 音乐台</b> 与网易 / QQ / 酷我解析。也可再导入洛雪 <code>.js</code> 或 HTTP API。</p>
 
         <section class="mlx-sec-block">
           <h4 class="mlx-sec">已接入</h4>
@@ -1229,71 +1250,6 @@
         <button type="button" class="gallery-tab" data-gtab="generate" role="tab" aria-selected="false">🎨 生图</button>
       </div>
       <div class="dialog-body">
-
-        <!-- ===== 生图标签页 ===== -->
-        <section class="gallery-tabpanel gen-panel" data-gpanel="generate" hidden>
-          <div class="gen-modebar" role="group" aria-label="生图模式">
-            <button type="button" class="gen-mode-btn is-active" data-mode="t2i">✍ 文生图</button>
-            <button type="button" class="gen-mode-btn" data-mode="i2i">🖼 图生图 / 参考图</button>
-          </div>
-
-          <div class="gen-refs" id="gen-refs" hidden>
-            <div class="gen-refs-head">
-              <span>参考图 <small>图生图：上传 1+ 张作为编辑 / 参考输入</small></span>
-              <label class="mini-btn" for="gen-ref-input">+ 添加参考图</label>
-              <input type="file" id="gen-ref-input" accept="image/*" multiple hidden />
-            </div>
-            <div class="gen-ref-thumbs" id="gen-ref-thumbs"></div>
-            <p class="gen-ref-hint" id="gen-ref-empty">把图片拖到这里，或点「+ 添加参考图」。也可在「图库」标签页点某张图的 🎨 送进来。</p>
-          </div>
-
-          <textarea id="gen-prompt" class="gen-prompt" rows="3" placeholder="描述要生成的图片…（Ctrl/⌘ + Enter 生成）" autocomplete="off"></textarea>
-
-          <div class="gen-config">
-            <label class="gen-field"><span>供应商</span><select id="gen-provider" autocomplete="off"></select></label>
-            <label class="gen-field gen-field-model"><span>模型</span>
-              <input type="text" id="gen-model" list="gen-model-list" placeholder="如 gpt-image-1 / dall-e-3" autocomplete="off" />
-              <datalist id="gen-model-list"></datalist>
-            </label>
-            <label class="gen-field gen-field-api"><span>API 模式</span>
-              <select id="gen-api-mode" autocomplete="off">
-                <option value="images">Images · 标准（兼容）</option>
-                <option value="responses">Responses · SSE 保活（防 524）</option>
-              </select>
-            </label>
-            <label class="gen-field gen-field-driver" id="gen-driver-field" hidden><span>文本驱动</span>
-              <input type="text" id="gen-driver" placeholder="gpt-4o / 留空" list="gen-driver-list" autocomplete="off" />
-              <datalist id="gen-driver-list">
-                <option value="gpt-4o"></option><option value="gpt-4o-mini"></option>
-                <option value="gpt-5"></option><option value="gpt-5-mini"></option>
-                <option value="claude-3-5-sonnet"></option><option value="claude-sonnet-4-5"></option>
-              </datalist>
-            </label>
-            <label class="gen-field"><span>尺寸</span><select id="gen-size" autocomplete="off"></select></label>
-            <label class="gen-field gen-field-custom" id="gen-custom-field" hidden><span>自定义</span>
-              <span class="gen-custom-row">
-                <input id="gen-custom-w" type="number" min="64" step="8" placeholder="宽" autocomplete="off" inputmode="numeric">
-                <em>×</em>
-                <input id="gen-custom-h" type="number" min="64" step="8" placeholder="高" autocomplete="off" inputmode="numeric">
-              </span>
-            </label>
-            <label class="gen-field"><span>质量</span><select id="gen-quality" autocomplete="off"></select></label>
-            <label class="gen-field"><span>张数</span>
-              <select id="gen-count" autocomplete="off">
-                <option>1</option><option>2</option><option>3</option><option>4</option>
-                <option>5</option><option>6</option><option>7</option><option>8</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="gen-actions">
-            <button type="button" class="btn-primary" id="gen-run">🎨 生成</button>
-            <button type="button" class="mini-btn danger" id="gen-cancel" hidden>■ 取消</button>
-            <span class="gen-status" id="gen-status"></span>
-          </div>
-
-          <div class="gen-results" id="gen-results"></div>
-        </section>
 
         <!-- ===== 图库标签页 ===== -->
         <section class="gallery-tabpanel" data-gpanel="library">
@@ -1681,7 +1637,7 @@
           </div>
           <div class="rem-search">
             <span class="rem-search-icon">🔍</span>
-            <input type="search" id="rem-search" placeholder="搜索" autocomplete="off" inputmode="search">
+            <input type="search" id="rem-search" aria-label="搜索提醒事项" placeholder="搜索" autocomplete="off" inputmode="search">
           </div>
 
           <div class="rem-smart-grid" id="rem-smart-grid"></div>
@@ -1719,7 +1675,7 @@
 
           <div class="rem-add-row">
             <span class="rem-add-plus">+</span>
-            <input type="text" id="rem-add-input" placeholder="添加提醒事项…" maxlength="200" autocomplete="off">
+            <input type="text" id="rem-add-input" aria-label="添加提醒事项" placeholder="添加提醒事项…" maxlength="200" autocomplete="off">
           </div>
 
           <div class="rem-items" id="rem-items"></div>
@@ -1813,12 +1769,12 @@
     </form>
   </dialog>
 
-  <dialog aria-modal="true" id="dialog-knowledge" class="glass-dialog knowledge-dialog" data-backdrop-close>
+  <dialog aria-modal="true" aria-labelledby="knowledge-dialog-title" id="dialog-knowledge" class="glass-dialog knowledge-dialog">
     <div class="dialog-form">
       <header class="dialog-header knowledge-head">
         <div>
           <span class="knowledge-kicker">OBSIDIAN VAULT</span>
-          <h3><span data-astral-icon="library" aria-hidden="true"></span> 星穹知识舱</h3>
+          <h3 id="knowledge-dialog-title"><span data-astral-icon="library" aria-hidden="true"></span> 知识库</h3>
         </div>
         <div class="knowledge-head-actions">
           <span class="knowledge-status-pill" id="knowledge-status-pill" role="status">正在连接</span>
@@ -1829,9 +1785,10 @@
         <aside class="knowledge-sidebar" aria-label="知识导航">
           <form class="knowledge-search" id="knowledge-search-form" role="search">
             <span data-astral-icon="search" aria-hidden="true"></span>
-            <input id="knowledge-search-input" type="search" maxlength="120" placeholder="搜索标题、正文或标签…" autocomplete="off" spellcheck="false" />
+            <input id="knowledge-search-input" aria-label="搜索文档" type="search" maxlength="120" placeholder="搜索文档…" autocomplete="off" spellcheck="false" />
             <button type="submit" aria-label="搜索知识库">搜索</button>
           </form>
+          <button type="button" id="knowledge-all" class="knowledge-all" aria-current="page">全部文档 <span id="knowledge-all-count">0</span></button>
           <section class="knowledge-side-section">
             <div class="knowledge-section-title"><h4>最近打开</h4><span id="knowledge-recent-count"></span></div>
             <div class="knowledge-compact-list" id="knowledge-recent-list"></div>
@@ -1845,16 +1802,17 @@
             <div class="knowledge-tags" id="knowledge-tags"></div>
           </section>
         </aside>
-        <section class="knowledge-workspace" aria-live="polite">
+        <section class="knowledge-workspace">
           <div class="knowledge-toolbar">
             <div>
-              <strong id="knowledge-view-title">知识概览</strong>
+              <strong id="knowledge-view-title">全部文档</strong>
               <span id="knowledge-index-meta">等待读取索引状态</span>
             </div>
             <button type="button" class="btn-secondary knowledge-back" id="knowledge-back" hidden>返回列表</button>
+            <select id="knowledge-sort" aria-label="文档排序"><option value="updated">最近更新</option><option value="title">标题排序</option></select>
             <button type="button" class="btn-secondary" id="knowledge-reindex">重新索引</button>
           </div>
-          <div class="knowledge-state" id="knowledge-state">
+          <div class="knowledge-state" id="knowledge-state" role="status">
             <span class="knowledge-orbit" aria-hidden="true"></span>
             <h4>正在连接知识服务</h4>
             <p>准备读取你的 Obsidian Vault。</p>
@@ -1925,44 +1883,52 @@
     </div>
   </dialog>
 
-  <script src="js/astral-icons.js?v=v1.24.4"></script>
-  <script src="js/homepage-theme.js"></script>
+  <script src="js/astral-icons.js?v=20260907d"></script>
+  <script src="js/homepage-theme.js?v=20260916-glass"></script>
   <script src="js/dialog.js?v=v1.24.4"></script>
   <script src="js/install.js?v=v1.24.4"></script>
   <script src="js/homepage-layout.js?v=v1.24.4"></script>
-  <script src="js/sakura.js"></script>
+  <script src="js/sakura.js?v=20260916"></script>
   <script src="js/progress.js"></script>
   <script src="js/bookmarks.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/ai.js?v=v1.24.4"></script>
+  <script src="js/ai-image-api.js?v=20260914"></script>
+  <script src="js/ai.js?v=20260914"></script>
   <script src="js/holidays.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/todo.js"></script>
   <script src="js/sync.js?v=v1.24.4"></script>
-  <script src="js/sakura-remote.js"></script>
+  <script src="js/sakura-remote.js?v=20260909f"></script>
   <script src="js/sakura-media.js"></script>
   <script src="js/weather.js"></script>
   <script src="js/suggest.js"></script>
   <script src="js/idb.js"></script>
   <script src="js/archive.js"></script>
   <script src="js/image-editor.js"></script>
-  <script src="js/music.js?v=v1.24.4"></script>
-  <script src="js/music-lx.js?v=v1.24.4"></script>
+  <script src="js/music.js?v=20260921-unified2"></script>
+  <script src="js/music-lx.js?v=20260920-tunefree"></script>
   <script src="js/storage-inspector.js"></script>
   <!-- 首页漫游小宠物（开关见 pet.html） -->
-  <script src="js/pet-config.js?v=v1.24.4"></script>
+  <script src="js/pet-config.js?v=20260909f"></script>
   <script src="js/pet-events.js?v=v1.24.4"></script>
-  <script src="js/pet-engine.js?v=v1.24.4"></script>
-  <script src="js/pet-widget.js?v=v1.24.4"></script>
+  <script src="js/pet-engine.js?v=20260909f"></script>
+  <script src="js/pet-companion.js?v=20260909f"></script>
+  <script src="js/pet-widget.js?v=20260909f"></script>
   <script src="js/knowledge.js?v=v1.24.4"></script>
   <script src="js/ui/knowledge.ui.js?v=v1.24.4"></script>
   <!-- 自 app.js 拆分出的 UI 工厂（须先于 app.js 加载，由 app.js 实例化） -->
-  <script src="js/ui/ai.ui.js?v=v1.24.4"></script>
+  <script src="js/ai-tasks.js?v=20260914"></script>
+  <script src="js/ui/ai-generation.ui.js?v=20260917"></script>
+  <script src="js/ui/ai-chat.ui.js?v=20260917"></script>
+  <script src="js/ui/ai-archive.ui.js?v=20260917"></script>
+  <script src="js/ui/ai-conversation.ui.js?v=20260917"></script>
+  <script src="js/ui/ai-settings.ui.js?v=20260914"></script>
+  <script src="js/ui/ai.ui.js?v=20260917"></script>
   <script src="js/ui/todo.ui.js?v=v1.24.4"></script>
   <script src="js/ui/calendar.ui.js?v=v1.24.4"></script>
   <script src="js/ui/weather.ui.js?v=v1.24.4"></script>
   <script src="js/ui/sync.ui.js?v=v1.24.4"></script>
   <script src="js/ui/misc.ui.js?v=v1.24.4"></script>
-  <script src="js/app.js?v=v1.24.4"></script>
+  <script src="js/app.js?v=20260921-unified2"></script>
 </body>
 </html>

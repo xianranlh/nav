@@ -62,6 +62,12 @@ function publicKnowledgeConfig(config) {
 }
 
 export function registerKnowledgeRoutes(app, { auth, service, getBundle, setBundle }) {
+  app.get("/api/knowledge/notes", auth, asyncRoute(async (req, res) => {
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
+    const offset = Math.min(200000, Math.max(0, Number.parseInt(req.query.offset, 10) || 0));
+    const sort = req.query.sort === "title" ? "title" : "updated";
+    res.json(await service.list(req.user.userId, { limit, offset, sort }));
+  }));
   app.get("/api/knowledge/status", auth, asyncRoute(async (req, res) => {
     res.json(await service.status(req.user.userId));
   }));

@@ -1,0 +1,41 @@
+/* Companion settings: live preview next to the controls it explains. */
+html body .pet-app { max-width: 1100px; padding: 24px 20px 48px; gap: 20px; }
+html body .pet-header { padding: 14px 18px; border-radius: 14px; }
+html body .pet-dashboard { grid-template-columns: minmax(300px, .9fr) minmax(0, 1.2fr); gap: 20px; align-items: start; }
+html body .pet-character-panel { grid-row: 1 / 3; position: sticky; top: 20px; }
+html body .pet-shortcuts-panel { grid-column: 2; }
+html body .pet-panel { padding: 22px; border-radius: 16px; }
+html body .pet-panel-head { align-items: flex-start; margin-bottom: 20px; }
+html body .pet-panel-head span:first-child { font-size: 12px; letter-spacing: 0; font-weight: 400; }
+html body .pet-panel-head h2 { margin-top: 6px; font-size: 22px; }
+html body .pet-character-summary { display: block; }
+html body .pet-name-row h2 { font-size: 18px; }
+html body .pet-name-row { justify-content: flex-start; }
+html body .pet-desc { margin: 12px 0; color: var(--ui-muted); opacity: 1; }
+html body .pet-preview-details { margin: 12px 0; }
+html body .pet-preview-details summary { cursor: pointer; padding: 8px 0; font-size: 12px; color: var(--ui-muted); }
+html body .pet-preview-details .status-demo { margin: 8px 0; justify-content: flex-start; }
+html body .pet-skin-grid { grid-template-columns: 1fr; }
+html body .pet-skin-block { margin-top: 20px; }
+html body .pet-character-panel .playground { height: 220px; margin: 18px 0 12px; }
+html body .pet-setting-row { padding: 14px; gap: 20px; border-radius: 10px; }
+html body .pet-setting-row small { margin-top: 5px; line-height: 1.5; }
+html body .pet-setting-list { gap: 12px; }
+html body .pet-anchor-block { padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--ui-border); }
+html body .pet-anchor-copy { align-items: flex-start; flex-direction: column; gap: 6px; }
+html body .pet-anchor-copy strong { font-size: 14px; }
+html body .pet-anchor-map { margin-top: 12px; }
+html body .pet-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+html body .pet-quick-grid label > span { min-height: 70px; padding: 14px 12px 12px 30px; }
+html body .pet-quick-grid label > span > b { top: 15px; left: 12px; }
+html body .pet-panel-note { line-height: 1.6; margin-bottom: 16px; }
+html body .pet-header .pet-title-mark { box-shadow: none; }
+html body .pet-character-panel .pet-panel-head .pet-btn { font-size: 12px; padding: 8px; white-space: nowrap; }
+@media (max-width: 760px) {
+  html body .pet-app { padding: 12px 12px 36px; }
+  html body .pet-dashboard { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  html body .pet-character-panel { grid-row: auto; position: static; }
+  html body .pet-shortcuts-panel { grid-column: auto; }
+  html body .pet-panel { padding: 18px; }
+  html body .pet-panel-head h2 { font-size: 20px; }
+}

@@ -1,9 +1,9 @@
 /* 星轨导航视觉层：原创宇宙科幻图标、品牌标题与响应式布局修正。 */
 :root {
   --astral-navy: #07172f;
-  --astral-blue: #49c8ff;
-  --astral-gold: #d8ad68;
-  --astral-ivory: #fff4cf;
+  --astral-blue: var(--ui-accent, #8da4c0);
+  --astral-gold: var(--ui-accent, #8da4c0);
+  --astral-ivory: #e7edf6;
 }
 
 .astral-icon { width: 1em; height: 1em; display: block; overflow: visible; }
@@ -33,7 +33,7 @@
   min-height: 88px;
   padding: 14px clamp(16px, 2vw, 24px);
   background:
-    linear-gradient(105deg, rgba(7, 23, 47, .74), rgba(16, 55, 92, .34) 55%, rgba(216, 173, 104, .12)),
+    linear-gradient(105deg, rgba(7, 23, 47, .74), rgba(16, 55, 92, .34) 55%, rgba(141, 164, 192, .12)),
     var(--glass-bg);
   border-color: color-mix(in srgb, var(--astral-gold) 42%, transparent);
   overflow: hidden;
@@ -52,7 +52,7 @@
   height: 56px;
   flex: 0 0 56px;
   border-radius: 15px;
-  box-shadow: 0 0 24px rgba(73, 200, 255, .22), 0 8px 22px rgba(0, 0, 0, .2);
+  box-shadow: 0 0 24px rgba(141, 164, 192, .22), 0 8px 22px rgba(0, 0, 0, .2);
 }
 .brand-copy { min-width: 0; }
 .brand-title {
@@ -82,7 +82,7 @@
   border-radius: 12px;
   background: linear-gradient(145deg, #174b80, #091d3c);
   color: var(--astral-ivory);
-  border: 1px solid rgba(216, 173, 104, .5);
+  border: 1px solid rgba(141, 164, 192, .5);
 }
 .search-form button .astral-icon { width: 21px; height: 21px; }
 .toolbar { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; }
@@ -121,7 +121,7 @@
   color: var(--group-color, var(--astral-gold));
   background: linear-gradient(145deg, rgba(10, 35, 67, .9), rgba(6, 18, 38, .95));
   border: 1px solid color-mix(in srgb, var(--group-color, var(--astral-gold)) 55%, transparent);
-  box-shadow: inset 0 0 12px rgba(73, 200, 255, .08);
+  box-shadow: inset 0 0 12px rgba(141, 164, 192, .08);
 }
 .group-emblem .astral-icon { width: 18px; height: 18px; }
 .group-emblem.local-group-emblem { padding: 2px; overflow: hidden; }
@@ -154,16 +154,16 @@
 
 /* 本机站点：轨道终端框架，保留 favicon 识别度。 */
 .group-local-sites {
-  border-color: rgba(216, 173, 104, .34);
+  border-color: rgba(141, 164, 192, .34);
   background:
     linear-gradient(120deg, rgba(8, 28, 58, .18), transparent 42%),
     var(--glass-bg);
 }
-.group-local-sites .group-emblem { color: var(--astral-ivory); border-color: rgba(216, 173, 104, .68); }
+.group-local-sites .group-emblem { color: var(--astral-ivory); border-color: rgba(141, 164, 192, .68); }
 .card.local-site .icon-slot {
   border-radius: 11px;
   padding: 3px;
-  background: linear-gradient(145deg, rgba(216, 173, 104, .76), rgba(73, 200, 255, .42));
+  background: linear-gradient(145deg, rgba(141, 164, 192, .76), rgba(141, 164, 192, .42));
   box-shadow: 0 5px 16px rgba(12, 60, 111, .2);
 }
 .card.local-site .icon-slot > img,
@@ -172,52 +172,6 @@
 .fallback.astral-local { position: relative; overflow: hidden; background: linear-gradient(150deg, #123f72, #06162f) !important; color: var(--astral-ivory); }
 .fallback.astral-local .astral-icon { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); opacity: .33; }
 .fallback.astral-local .local-letter { position: relative; z-index: 1; text-shadow: 0 1px 8px #000; }
-
-/* 登录和安装包展示使用同一主品牌资产。 */
-.login-overlay {
-  color: #edf7ff;
-  background:
-    radial-gradient(circle at 18% 16%, rgba(73, 200, 255, .18), transparent 28%),
-    radial-gradient(circle at 82% 72%, rgba(216, 173, 104, .16), transparent 30%),
-    linear-gradient(145deg, rgba(4, 14, 33, .91), rgba(8, 34, 67, .84));
-  backdrop-filter: blur(15px) saturate(1.18);
-}
-.login-card {
-  background:
-    linear-gradient(145deg, rgba(17, 50, 87, .82), rgba(5, 18, 39, .91)),
-    var(--glass-bg);
-  border-color: rgba(216, 173, 104, .55);
-  box-shadow: 0 24px 70px rgba(0, 7, 22, .52), inset 0 1px 0 rgba(255, 244, 207, .12);
-}
-.login-card h2 { color: var(--astral-ivory); letter-spacing: .08em; }
-.login-card .login-sub,
-.login-card label > span { color: rgba(231, 243, 255, .76); }
-.login-card input[type="text"],
-.login-card input[type="password"] {
-  color: #f7fbff;
-  background: rgba(2, 13, 32, .46);
-  border-color: rgba(117, 192, 231, .3);
-}
-.login-card input[type="text"]:focus,
-.login-card input[type="password"]:focus {
-  background: rgba(4, 21, 47, .76);
-  border-color: var(--astral-blue);
-  box-shadow: 0 0 0 3px rgba(73, 200, 255, .16);
-}
-.login-card .login-btn {
-  color: #061329;
-  background: linear-gradient(135deg, var(--astral-ivory), var(--astral-gold));
-  box-shadow: 0 8px 24px rgba(216, 173, 104, .22);
-}
-.login-logo {
-  display: block;
-  width: 78px;
-  height: 78px;
-  margin: 0 auto;
-  border-radius: 22px;
-  object-fit: cover;
-  filter: drop-shadow(0 8px 18px rgba(20, 107, 173, .34));
-}
 
 /* 星穹知识舱：Obsidian 只读搜索、最近、固定与安全纯文本阅读。 */
 .knowledge-dialog {
@@ -229,7 +183,7 @@
   overflow: hidden;
   color: var(--text);
   background:
-    radial-gradient(circle at 84% 12%, rgba(73, 200, 255, .12), transparent 28%),
+    radial-gradient(circle at 84% 12%, rgba(141, 164, 192, .12), transparent 28%),
     linear-gradient(145deg, color-mix(in srgb, var(--glass-bg) 94%, #07172f 6%), var(--glass-bg));
   border-color: color-mix(in srgb, var(--astral-gold) 38%, var(--glass-border));
 }
@@ -244,8 +198,8 @@
   flex: 0 0 auto;
   min-height: 72px;
   padding: 13px 16px 12px 20px;
-  background: linear-gradient(105deg, rgba(7, 23, 47, .9), rgba(16, 55, 92, .74) 60%, rgba(216, 173, 104, .2));
-  border-bottom: 1px solid rgba(216, 173, 104, .28);
+  background: linear-gradient(105deg, rgba(7, 23, 47, .9), rgba(16, 55, 92, .74) 60%, rgba(141, 164, 192, .2));
+  border-bottom: 1px solid rgba(141, 164, 192, .28);
 }
 .knowledge-head > div:first-child { min-width: 0; }
 .knowledge-head h3 {
@@ -294,7 +248,7 @@
 .knowledge-head .close-btn {
   color: #eaf5ff;
   background: rgba(2, 15, 34, .44);
-  border-color: rgba(216, 173, 104, .34);
+  border-color: rgba(141, 164, 192, .34);
 }
 .knowledge-body {
   display: grid;
@@ -338,9 +292,9 @@
 .knowledge-search button {
   min-height: 32px;
   padding: 0 11px;
-  border: 1px solid rgba(216, 173, 104, .38);
+  border: 1px solid rgba(141, 164, 192, .38);
   border-radius: 10px;
-  color: #fff4cf;
+  color: #e7edf6;
   background: linear-gradient(145deg, #174b80, #091d3c);
   cursor: pointer;
 }
@@ -421,16 +375,16 @@
   display: block;
   width: 46px;
   height: 46px;
-  border: 1px solid rgba(73, 200, 255, .42);
+  border: 1px solid rgba(141, 164, 192, .42);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(216, 173, 104, .82) 0 8%, rgba(73, 200, 255, .16) 10% 35%, transparent 37%);
-  box-shadow: 0 0 28px rgba(73, 200, 255, .22);
+  background: radial-gradient(circle, rgba(141, 164, 192, .82) 0 8%, rgba(141, 164, 192, .16) 10% 35%, transparent 37%);
+  box-shadow: 0 0 28px rgba(141, 164, 192, .22);
 }
 .knowledge-orbit::after {
   content: "";
   position: absolute;
   inset: 7px -7px;
-  border: 1px solid rgba(216, 173, 104, .58);
+  border: 1px solid rgba(141, 164, 192, .58);
   border-radius: 50%;
   transform: rotate(-28deg);
 }
@@ -454,7 +408,7 @@
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: 15px;
   background:
-    linear-gradient(145deg, rgba(73, 200, 255, .05), transparent 45%),
+    linear-gradient(145deg, rgba(141, 164, 192, .05), transparent 45%),
     color-mix(in srgb, var(--card-bg) 92%, transparent);
   overflow: hidden;
 }
@@ -498,8 +452,8 @@
 .knowledge-reader h2 { margin: 5px 0 0; font-size: clamp(20px, 2.4vw, 28px); line-height: 1.25; overflow-wrap: anywhere; }
 .knowledge-pin-btn { flex-shrink: 0; min-height: 32px; padding: 5px 12px; font-size: 11px; }
 .knowledge-reader-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 13px 0; }
-.knowledge-reader-tag { padding: 3px 8px; border-radius: 999px; color: var(--astral-blue); background: rgba(73, 200, 255, .1); font-size: 10px; }
-.knowledge-reader-summary { margin: -2px 0 13px; padding: 10px 12px; border-left: 3px solid var(--astral-gold); border-radius: 0 9px 9px 0; color: var(--muted); background: rgba(218, 183, 113, .07); font-size: 12px; line-height: 1.65; }
+.knowledge-reader-tag { padding: 3px 8px; border-radius: 999px; color: var(--astral-blue); background: rgba(141, 164, 192, .1); font-size: 10px; }
+.knowledge-reader-summary { margin: -2px 0 13px; padding: 10px 12px; border-left: 3px solid var(--astral-gold); border-radius: 0 9px 9px 0; color: var(--muted); background: rgba(141, 164, 192, .07); font-size: 12px; line-height: 1.65; }
 .knowledge-reader-summary[hidden] { display: none !important; }
 .knowledge-reader-content {
   margin: 0;
@@ -523,13 +477,13 @@
 .knowledge-doc-list { margin: .8em 0; padding-left: 1.65em; }
 .knowledge-doc-list li { margin: .32em 0; padding-left: .18em; }
 .knowledge-task-state { display: inline-grid; place-items: center; width: 1.3em; margin-left: -1.3em; color: var(--astral-blue); font-weight: 700; }
-.knowledge-doc-quote { margin: .9em 0; padding: 9px 14px; border-left: 3px solid var(--astral-gold); border-radius: 0 10px 10px 0; color: var(--muted); background: rgba(218, 183, 113, .07); }
+.knowledge-doc-quote { margin: .9em 0; padding: 9px 14px; border-left: 3px solid var(--astral-gold); border-radius: 0 10px 10px 0; color: var(--muted); background: rgba(141, 164, 192, .07); }
 .knowledge-doc-code { max-width: 100%; margin: 12px 0; padding: 14px; overflow: auto; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 10px; background: rgba(4, 18, 42, .92); color: #dcecff; font: 12px/1.65 "SFMono-Regular", Consolas, "Liberation Mono", monospace; white-space: pre; }
-.knowledge-reader-content :not(pre) > code { padding: 2px 5px; border-radius: 5px; color: color-mix(in srgb, var(--astral-blue) 82%, var(--text)); background: rgba(73, 200, 255, .1); font: .92em/1.5 "SFMono-Regular", Consolas, monospace; }
+.knowledge-reader-content :not(pre) > code { padding: 2px 5px; border-radius: 5px; color: color-mix(in srgb, var(--astral-blue) 82%, var(--text)); background: rgba(141, 164, 192, .1); font: .92em/1.5 "SFMono-Regular", Consolas, monospace; }
 .knowledge-doc-divider { height: 1px; margin: 19px 0; border: 0; background: color-mix(in srgb, var(--border) 80%, transparent); }
 .knowledge-inline-note,
 .knowledge-external-link,
-.knowledge-inline-asset { color: color-mix(in srgb, var(--astral-blue) 76%, var(--text)); text-decoration: underline; text-decoration-color: rgba(73, 200, 255, .35); text-underline-offset: 3px; }
+.knowledge-inline-asset { color: color-mix(in srgb, var(--astral-blue) 76%, var(--text)); text-decoration: underline; text-decoration-color: rgba(141, 164, 192, .35); text-underline-offset: 3px; }
 .knowledge-inline-note { display: inline; padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; }
 .knowledge-inline-note:hover,
 .knowledge-external-link:hover,
@@ -540,7 +494,7 @@
 .knowledge-reader-relations section { min-width: 0; padding: 13px; border: 1px solid color-mix(in srgb, var(--border) 76%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--card-bg) 82%, transparent); }
 .knowledge-reader-relations h3 { margin: 0 0 9px; color: var(--muted); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; }
 .knowledge-relation-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.knowledge-relation-item { display: inline-flex; align-items: center; min-width: 0; min-height: 28px; padding: 5px 9px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--astral-blue) 25%, var(--border)); border-radius: 999px; color: var(--text); background: rgba(73, 200, 255, .06); font: 10px/1.35 inherit; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.knowledge-relation-item { display: inline-flex; align-items: center; min-width: 0; min-height: 28px; padding: 5px 9px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--astral-blue) 25%, var(--border)); border-radius: 999px; color: var(--text); background: rgba(141, 164, 192, .06); font: 10px/1.35 inherit; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .knowledge-relation-item:hover { border-color: var(--astral-gold); }
 .knowledge-relation-item:disabled { opacity: .5; cursor: not-allowed; }
 .knowledge-relation-list .knowledge-compact-empty { margin: 0; }
@@ -584,16 +538,16 @@
   .knowledge-state .knowledge-orbit { animation: none !important; }
   .knowledge-compact-item:hover { transform: none; }
 }
-.install-app-intro img { border: 1px solid rgba(216, 173, 104, .56); }
+.install-app-intro img { border: 1px solid rgba(141, 164, 192, .56); }
 
 /* 日历舱控：让月份导航、导入导出和关闭入口共享同一套星轨语言。 */
 .cal-head {
   position: relative;
   border: 1px solid color-mix(in srgb, var(--astral-gold) 34%, var(--glass-border));
   background:
-    linear-gradient(112deg, rgba(7, 23, 47, .12), transparent 42%, rgba(73, 200, 255, .08)),
+    linear-gradient(112deg, rgba(7, 23, 47, .12), transparent 42%, rgba(141, 164, 192, .08)),
     var(--glass-bg);
-  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 244, 207, .3);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(220, 231, 245, .3);
 }
 .cal-head-left h2 {
   display: inline-flex;
@@ -606,16 +560,16 @@
 .cal-nav-btn,
 #cal-today {
   height: 32px;
-  border-color: rgba(73, 200, 255, .22);
-  background: linear-gradient(145deg, rgba(11, 38, 72, .12), rgba(255, 244, 207, .18));
+  border-color: rgba(141, 164, 192, .22);
+  background: linear-gradient(145deg, rgba(11, 38, 72, .12), rgba(220, 231, 245, .18));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32);
 }
 .cal-nav-btn { width: 32px; border-radius: 10px; color: color-mix(in srgb, var(--astral-blue) 62%, var(--text)); }
 .cal-nav-btn .astral-icon { width: 15px; height: 15px; }
 .cal-nav-btn:hover {
   color: var(--astral-blue);
-  border-color: rgba(73, 200, 255, .54);
-  background: rgba(73, 200, 255, .12);
+  border-color: rgba(141, 164, 192, .54);
+  background: rgba(141, 164, 192, .12);
   box-shadow: 0 5px 14px rgba(17, 106, 164, .16);
   transform: translateY(-1px);
 }
@@ -631,7 +585,7 @@
   padding: 3px;
   border-radius: 11px;
   background: rgba(7, 23, 47, .07);
-  border-color: rgba(73, 200, 255, .18);
+  border-color: rgba(141, 164, 192, .18);
 }
 .cal-view-switch .chip {
   min-height: 26px;
@@ -642,7 +596,7 @@
 .cal-view-switch .chip.active {
   color: var(--astral-ivory);
   background: linear-gradient(145deg, #174b80, #091d3c);
-  box-shadow: 0 4px 12px rgba(7, 23, 47, .2), inset 0 0 0 1px rgba(216, 173, 104, .35);
+  box-shadow: 0 4px 12px rgba(7, 23, 47, .2), inset 0 0 0 1px rgba(141, 164, 192, .35);
 }
 .cal-head-right > .chip,
 .cal-head-right > label.chip {
@@ -653,28 +607,28 @@
 }
 .cal-head-right .cal-action-btn {
   color: var(--text-soft);
-  border-color: rgba(216, 173, 104, .24);
-  background: rgba(255, 244, 207, .08);
+  border-color: rgba(141, 164, 192, .24);
+  background: rgba(220, 231, 245, .08);
 }
 .cal-action-btn .astral-icon,
 #cal-new-task .astral-icon { width: 15px; height: 15px; }
 .cal-head-right .cal-action-btn:hover {
   opacity: 1;
   color: color-mix(in srgb, var(--astral-gold) 76%, var(--text));
-  border-color: rgba(216, 173, 104, .5);
-  background: rgba(216, 173, 104, .1);
+  border-color: rgba(141, 164, 192, .5);
+  background: rgba(141, 164, 192, .1);
 }
 #cal-new-task {
   min-height: 34px;
   color: var(--astral-ivory);
   background: linear-gradient(135deg, #174b80, #0a284f);
-  border: 1px solid rgba(216, 173, 104, .55);
-  box-shadow: 0 5px 15px rgba(7, 34, 68, .22), inset 0 1px 0 rgba(255, 244, 207, .16);
+  border: 1px solid rgba(141, 164, 192, .55);
+  box-shadow: 0 5px 15px rgba(7, 34, 68, .22), inset 0 1px 0 rgba(220, 231, 245, .16);
 }
 #cal-new-task:hover {
   color: #fff;
-  border-color: rgba(73, 200, 255, .68);
-  box-shadow: 0 7px 18px rgba(17, 99, 158, .24), inset 0 1px 0 rgba(255, 244, 207, .2);
+  border-color: rgba(141, 164, 192, .68);
+  box-shadow: 0 7px 18px rgba(17, 99, 158, .24), inset 0 1px 0 rgba(220, 231, 245, .2);
 }
 
 /* 统一各弹窗 / 日历 / 音乐 / AI 的关闭入口，替换裸字符 × 和零散红色悬停。 */
@@ -688,14 +642,11 @@
   display: inline-grid;
   place-items: center;
   flex: 0 0 34px;
-  border: 1px solid rgba(216, 173, 104, .52);
-  border-radius: 11px;
-  color: var(--astral-ivory);
-  background: linear-gradient(145deg, rgba(20, 66, 109, .96), rgba(5, 20, 44, .98));
-  box-shadow:
-    0 5px 14px rgba(3, 17, 38, .2),
-    inset 0 1px 0 rgba(255, 244, 207, .18),
-    inset 0 -1px 0 rgba(73, 200, 255, .12);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  color: var(--ui-muted);
+  background: var(--ui-soft);
+  box-shadow: none;
   font-size: 0;
   line-height: 1;
   opacity: 1;
@@ -713,17 +664,17 @@
 .close-btn:hover,
 .astral-close-btn:hover,
 .dialog-header .icon-btn[data-close]:hover {
-  color: #8be7ff;
-  border-color: rgba(73, 200, 255, .78);
-  background: linear-gradient(145deg, #18568d, #092954);
-  box-shadow: 0 7px 20px rgba(23, 132, 194, .26), inset 0 0 12px rgba(73, 200, 255, .12);
-  transform: translateY(-1px);
+  color: var(--ui-accent, #8da4c0);
+  border-color: var(--ui-accent);
+  background: var(--ui-tint);
+  box-shadow: none;
+  transform: none;
 }
 .close-btn:hover .astral-icon,
 .astral-close-btn:hover .astral-icon,
 .dialog-header .icon-btn[data-close]:hover .astral-icon {
-  transform: rotate(90deg);
-  filter: drop-shadow(0 0 5px rgba(73, 200, 255, .58));
+  transform: none;
+  filter: none;
 }
 .close-btn:active,
 .astral-close-btn:active,
@@ -737,30 +688,30 @@
 #cal-close { margin-left: 2px; }
 .music-close-btn.astral-close-btn:hover,
 .ai-close-btn.astral-close-btn:hover {
-  color: #8be7ff !important;
-  background: linear-gradient(145deg, #18568d, #092954) !important;
-  border-color: rgba(73, 200, 255, .78) !important;
+  color: var(--ui-accent, #8da4c0) !important;
+  background: var(--ui-tint) !important;
+  border-color: var(--ui-accent) !important;
 }
 .reminders-dialog .rem-close.astral-close-btn {
   width: 34px !important;
   height: 34px !important;
-  border-radius: 11px !important;
-  border-color: rgba(216, 173, 104, .52) !important;
-  color: var(--astral-ivory) !important;
-  background: linear-gradient(145deg, rgba(20, 66, 109, .96), rgba(5, 20, 44, .98)) !important;
+  border-radius: 8px !important;
+  border-color: var(--ui-border) !important;
+  color: var(--ui-muted) !important;
+  background: var(--ui-soft) !important;
 }
 .reminders-dialog .rem-close.astral-close-btn:hover {
-  color: #8be7ff !important;
-  border-color: rgba(73, 200, 255, .78) !important;
-  background: linear-gradient(145deg, #18568d, #092954) !important;
-  transform: translateY(-1px);
+  color: var(--ui-accent, #8da4c0) !important;
+  border-color: var(--ui-accent) !important;
+  background: var(--ui-tint) !important;
+  transform: none;
 }
 
 [data-theme="dark"] .cal-head {
   background:
-    linear-gradient(112deg, rgba(12, 48, 86, .42), transparent 48%, rgba(216, 173, 104, .08)),
+    linear-gradient(112deg, rgba(12, 48, 86, .42), transparent 48%, rgba(141, 164, 192, .08)),
     rgba(5, 18, 39, .72);
-  border-color: rgba(216, 173, 104, .32);
+  border-color: rgba(141, 164, 192, .32);
 }
 [data-theme="dark"] .cal-nav-btn,
 [data-theme="dark"] #cal-today { background: rgba(255, 255, 255, .055); }

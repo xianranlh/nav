@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import multer from "multer";
 import AdmZip from "adm-zip";
 import {
+  aiRepository,
   openDatabase,
   closeDatabase,
   getBundle,
@@ -55,7 +56,9 @@ import {
   extractTitleFromHtml,
   createTtlCache,
   readResponseTextLimited,
+  fetchSafeMetadata,
 } from "./metadata.js";
+import { registerAIRoutes } from "./ai/routes.js";
 import { registerMusicRoutes } from "./music-lx.js";
 import { KnowledgeService } from "./knowledge/indexer.js";
 import { registerKnowledgeRoutes } from "./knowledge/routes.js";
@@ -201,6 +204,20 @@ registerKnowledgeRoutes(app, {
   setBundle,
 });
 
+const aiService = registerAIRoutes(app, {
+  auth, repo: aiRepository, getSettings: getAiSettings, dataDir: DATA_DIR,
+  async publishImage(asset, task) {
+    const dir = path.join(DATA_DIR, "media", "gallery");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(path.join(DATA_DIR, "media", "ai", asset.filename), path.join(dir, asset.filename));
+    recordGalleryFile({ id: asset.id, filename: asset.filename, source: "generated", mime: asset.mime,
+      bytes: asset.bytes, prompt: task.prompt, model: task.model, size: task.params.size,
+      quality: task.params.quality, client_id: asset.id, created_at: asset.createdAt, user_id: task.userId });
+  },
+});
+process.once("SIGTERM", () => { aiService.close(); process.exit(0); });
+process.once("SIGINT", () => { aiService.close(); process.exit(0); });
+
 // ===================== 登录 / 会话 =====================
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;       // 7 天
 const SESSION_TTL_LONG_MS = 30 * 24 * 60 * 60 * 1000; // 「保持登录」30 天
@@ -334,6 +351,7 @@ app.delete("/api/users/:id", auth, adminOnly, (req, res) => {
   const id = Number(req.params.id);
   if (id === req.user.userId) return res.status(400).json({ error: "不能删除自己" });
   if (id === 1) return res.status(400).json({ error: "不能删除初始管理员" });
+  for (const task of aiRepository.active().filter(t => t.userId === id)) aiService.cancel(task.id, id);
   const r = deleteUser(id);
   if (!r) return res.status(404).json({ error: "用户不存在" });
   // 清理该用户的媒体与图库磁盘文件
@@ -345,6 +363,10 @@ app.delete("/api/users/:id", auth, adminOnly, (req, res) => {
   for (const g of r.gallery) {
     const fp = path.join(DATA_DIR, "media", "gallery", path.basename(g.filename || ""));
     if (g.filename && fs.existsSync(fp)) { try { fs.unlinkSync(fp); removed++; } catch (_) {} }
+  }
+  for (const asset of r.aiAssets) {
+    const fp = path.join(DATA_DIR, "media", "ai", path.basename(asset.filename));
+    try { fs.unlinkSync(fp); removed++; } catch (_) {}
   }
   res.json({ ok: true, removedFiles: removed });
 });
@@ -415,9 +437,8 @@ app.get("/api/metadata", auth, async (req, res) => {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), META_TIMEOUT_MS);
   try {
-    const r = await fetch(url, {
+    const r = await fetchSafeMetadata(url, {
       method: "GET",
-      redirect: "follow",
       signal: ctrl.signal,
       headers: {
         "User-Agent":
@@ -472,7 +493,7 @@ app.get("/api/storage-stats", auth, (req, res) => {
     let musicFiles = 0;
     let lrcFiles = 0;
     let petFiles = 0;
-    for (const cat of ["bg", "music", "lrc", "pet"]) {
+    for (const cat of ["bg", "music", "lrc", "pet", "gallery", "ai"]) {
       const dir = mediaBase(cat);
       if (!fs.existsSync(dir)) continue;
       for (const name of fs.readdirSync(dir)) {
@@ -717,7 +738,7 @@ app.get("/api/export", auth, adminOnly, (_req, res) => {
 
     const zip = new AdmZip();
     zip.addLocalFile(dbSnap, "", "sakura.db");
-    for (const cat of ["bg", "music", "lrc", "pet"]) {
+    for (const cat of ["bg", "music", "lrc", "pet", "gallery", "ai"]) {
       const dir = mediaBase(cat);
       if (!fs.existsSync(dir)) continue;
       for (const name of fs.readdirSync(dir)) {
@@ -734,7 +755,7 @@ app.get("/api/export", auth, adminOnly, (_req, res) => {
       schema: "sakura-nav-backup@1",
       exportedAt: new Date().toISOString(),
       dataDir: DATA_DIR,
-      includes: ["sakura.db", "media/bg/*", "media/music/*", "media/lrc/*", "media/pet/*"],
+      includes: ["sakura.db", "media/bg/*", "media/music/*", "media/lrc/*", "media/pet/*", "media/gallery/*", "media/ai/*"],
     };
     zip.addFile("manifest.json", Buffer.from(JSON.stringify(manifest, null, 2)));
 
@@ -773,6 +794,7 @@ app.post("/api/import", auth, adminOnly, importUpload.single("file"), (req, res)
 
   try {
     ensureDir();
+    if (aiService.running.size || aiService.queue.size) return res.status(409).json({ error: "请先停止生成任务再导入备份" });
     closeDatabase();
 
     const dbPath = getDbPath();
@@ -799,7 +821,7 @@ app.post("/api/import", auth, adminOnly, importUpload.single("file"), (req, res)
     fs.writeFileSync(dbPath, dbEntry.getData());
 
     // 清空并重建媒体目录
-    for (const cat of ["bg", "music", "lrc", "pet"]) {
+    for (const cat of ["bg", "music", "lrc", "pet", "gallery", "ai"]) {
       const dir = mediaBase(cat);
       if (fs.existsSync(dir)) {
         for (const name of fs.readdirSync(dir)) {
@@ -809,9 +831,9 @@ app.post("/api/import", auth, adminOnly, importUpload.single("file"), (req, res)
         fs.mkdirSync(dir, { recursive: true });
       }
     }
-    let restored = { bg: 0, music: 0, lrc: 0, pet: 0 };
+    let restored = { bg: 0, music: 0, lrc: 0, pet: 0, gallery: 0, ai: 0 };
     for (const entry of entries) {
-      const m = /^media\/(bg|music|lrc|pet)\/(.+)$/.exec(entry.entryName);
+      const m = /^media\/(bg|music|lrc|pet|gallery|ai)\/(.+)$/.exec(entry.entryName);
       if (!m) continue;
       const cat = m[1];
       const name = path.basename(m[2]);
@@ -823,6 +845,7 @@ app.post("/api/import", auth, adminOnly, importUpload.single("file"), (req, res)
 
     // 重新打开 DB
     openDatabase(dataDir);
+    aiService.recover();
 
     try { fs.rmSync(rollbackDir, { recursive: true, force: true }); } catch (_) {}
 
@@ -863,6 +886,7 @@ async function _fetchWithTimeout(url, ms) {
 }
 
 registerMusicRoutes(app, { auth, dataDir: DATA_DIR, isSafeHttpUrl });
+
 
 app.get("/api/weather/forecast", async (req, res) => {
   const lat = parseFloat(req.query.lat);
@@ -1245,7 +1269,13 @@ if (SERVE_STATIC) {
   if (!fs.existsSync(root)) {
     console.warn(`[sakura-data] SERVE_STATIC: 静态目录不存在: ${root}`);
   } else {
-    app.use(express.static(root));
+    // Only ship public frontend files; the repository also contains databases and server code.
+    const publicFiles = new Set(["/", "/index.html", "/pet.html", "/styles.css", "/manifest.json", "/sw.js"]);
+    app.use((req, res, next) => {
+      if (publicFiles.has(req.path) || /^\/(?:js|styles|themes|assets)\//.test(req.path)) return next();
+      return res.sendStatus(404);
+    });
+    app.use(express.static(root, { dotfiles: "deny" }));
     app.get("*", (req, res, next) => {
       if (req.path.startsWith("/api")) return next();
       if (req.method !== "GET" && req.method !== "HEAD") return next();

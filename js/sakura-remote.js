@@ -354,6 +354,16 @@
     reason: () => initReason,
     pushNow,
     pullNow,
+    // Another tab already saved this preference; update this tab's cache without a second PUT.
+    acceptPetConfig(config) {
+      if (storageMode !== "remote" || config?.schemaVersion !== 3) return false;
+      const key = "sakura_pet_v3";
+      let previous = null;
+      try { previous = JSON.parse(mem.get(key) || "null"); } catch (_) {}
+      if (Number(previous?.updatedAt || 0) > Number(config.updatedAt || 0)) return false;
+      mem.set(key, JSON.stringify(config));
+      return true;
+    },
     _getBrowserLocalItem: (key) => realGetItem.call(window.localStorage, key),
     _removeBrowserLocalItem: (key) => realRemoveItem.call(window.localStorage, key),
     _purgeLegacyBusinessStorage: purgeLegacyBusinessStorage,

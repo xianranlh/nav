@@ -43,6 +43,7 @@
 | 方法与路径 | 成功响应 |
 |---|---|
 | `GET /api/knowledge/status` | `{ enabled, configured, writable, indexing, noteCount, lastIndexedAt, errorCode, taskId, issueCount }` |
+| `GET /api/knowledge/notes?limit=&offset=&sort=` | 文档摘要列表 `{ items, total, limit, offset }`；默认 50 条、上限 100；排序为 `updated` 或 `title`，不返回路径或正文 |
 | `GET /api/knowledge/search?q=&limit=` | `{ items, query, limit }`，`limit` 最大 20 |
 | `GET /api/knowledge/tags?limit=` | `{ items:[{tag,count}] }` |
 | `GET /api/knowledge/config` | 当前用户知识舱显示偏好与固定笔记摘要 |

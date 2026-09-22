@@ -1,12 +1,13 @@
 /**
  * 闲然导航 · 洛雪音源运行时 + 曲库搜索 + 播放列表导入
  *
- * 模型与官方洛雪一致：播放器本身不内置平台直链破解，
- * 只提供：
- *   1) 用户自行导入的 LX 音源脚本（在隔离 VM 里跑）
- *   2) 用户自行配置的 HTTP 音源 API（洛雪 API Server / query 风格）
- *   3) 公开曲库搜索（只拿歌名/歌手/id，不解析播放直链）
- *   4) AIMP / M3U / PLS 播放列表解析
+ * 播放地址来源（对齐 TuneFree）：
+ *   1) 内置 GD 音乐台（music.gdstudio.xyz）
+ *   2) 内置解析（网易 EAPI / QQ vkey / 酷我 convert_url）
+ *   3) 用户导入的 LX 音源脚本（隔离 VM）
+ *   4) 用户配置的 HTTP 音源 API
+ *   5) 公开曲库搜索 + 跨源同曲兜底
+ *   6) AIMP / M3U / PLS 播放列表解析
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -15,6 +16,12 @@ import crypto from "node:crypto";
 import zlib from "node:zlib";
 import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
+import {
+  GD_SOURCE_ID, gdCan, gdLyric, gdMusicUrl, gdSearch, gdSourceRecord, publicGdSource,
+} from "./music-gd.js";
+import {
+  NATIVE_SOURCE_ID, nativeCan, nativeMusicUrl, nativeSourceRecord, publicNativeSource,
+} from "./music-native.js";
 
 export const PLATFORMS = [
   { id: "kw", name: "酷我" },
@@ -22,6 +29,7 @@ export const PLATFORMS = [
   { id: "wy", name: "网易" },
   { id: "tx", name: "QQ" },
   { id: "mg", name: "咪咕" },
+  { id: "joox", name: "JOOX" },
   { id: "mix", name: "聚合" },
 ];
 
@@ -55,6 +63,13 @@ const UA =
 const tickets = new Map(); // ticket -> { url, referer, expiresAt }
 const runtimeCache = new Map(); // `${userId}:${sourceId}` -> LxRuntime
 const urlCache = new Map(); // key -> { exp, val }
+
+// Optional update notices are informational; explicit expiry blocks a provider.
+export function sourceExpiryReason(alert) {
+  const message = String(alert?.log || "");
+  return /版本过低|已过期|已经过期|停止服务|已停用|version.*(?:expired|too old)/i.test(message)
+    ? message.slice(0, 240) : "";
+}
 
 function sourcesDir(dataDir, userId) {
   return path.join(dataDir, "music-sources", String(userId || "0"));
@@ -385,6 +400,8 @@ class LxRuntime {
           resolveInit(self.inited);
         } else if (event === "updateAlert" || event === lx.EVENT_NAMES.updateAlert) {
           self.updateAlert = data || null;
+          const expired = sourceExpiryReason(data);
+          if (expired && !self.inited) rejectInit(new Error(expired));
           const waiters = self._alertWaiters.splice(0);
           for (const w of waiters) {
             try { w(self.updateAlert); } catch (_) {}
@@ -478,19 +495,63 @@ class LxRuntime {
   }
 }
 
-export function listSources(dataDir, userId) {
+export function isBuiltinId(id) {
+  return id === GD_SOURCE_ID || id === NATIVE_SOURCE_ID;
+}
+
+function builtinsPath(dataDir, userId) {
+  return path.join(sourcesDir(dataDir, userId), "_builtins.json");
+}
+
+export function readBuiltinFlags(dataDir, userId) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(builtinsPath(dataDir, userId), "utf8"));
+    return raw && typeof raw === "object" ? raw : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function writeBuiltinFlags(dataDir, userId, flags) {
+  const dir = sourcesDir(dataDir, userId);
+  ensureDir(dir);
+  fs.writeFileSync(builtinsPath(dataDir, userId), JSON.stringify(flags, null, 2), "utf8");
+}
+
+function builtinEnabled(flags, id) {
+  return flags?.[id] !== false;
+}
+
+function listUserSourceRecords(dataDir, userId) {
   const dir = sourcesDir(dataDir, userId);
   if (!fs.existsSync(dir)) return [];
   const out = [];
   for (const name of fs.readdirSync(dir)) {
-    if (!name.endsWith(".json")) continue;
+    if (!name.endsWith(".json") || name.startsWith("_")) continue;
     try {
       const raw = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8"));
-      out.push(raw);
+      if (raw && raw.id) out.push(raw);
     } catch (_) {}
   }
   out.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-  return out.map((s) => publicSource(s, userId));
+  return out;
+}
+
+function builtinRecords(dataDir, userId) {
+  const flags = readBuiltinFlags(dataDir, userId);
+  return [
+    gdSourceRecord(builtinEnabled(flags, GD_SOURCE_ID)),
+    nativeSourceRecord(builtinEnabled(flags, NATIVE_SOURCE_ID)),
+  ];
+}
+
+export function listSources(dataDir, userId) {
+  const flags = readBuiltinFlags(dataDir, userId);
+  return [
+    publicGdSource(builtinEnabled(flags, GD_SOURCE_ID)),
+    publicNativeSource(builtinEnabled(flags, NATIVE_SOURCE_ID)),
+    ...listUserSourceRecords(dataDir, userId).map((s) => publicSource(s, userId)),
+  ];
 }
 
 function readSource(dataDir, userId, id) {
@@ -585,13 +646,16 @@ async function getRuntime(dataDir, userId, rec, isSafeHttpUrl) {
 }
 
 function enabledSources(dataDir, userId) {
-  return listSources(dataDir, userId)
-    .map((s) => readSource(dataDir, userId, s.id))
-    .filter((s) => s && s.enabled !== false);
+  return [
+    ...builtinRecords(dataDir, userId).filter((s) => s.enabled !== false),
+    ...listUserSourceRecords(dataDir, userId).filter((s) => s && s.enabled !== false),
+  ];
 }
 
 function sourceSupports(rec, platform, action) {
   if (!rec) return false;
+  if (rec.type === "builtin-gd") return gdCan(platform, action);
+  if (rec.type === "builtin-native") return nativeCan(platform, action);
   if (rec.type === "http-api") {
     if (action === "musicUrl") return !!rec.urlPath;
     if (action === "lyric") return !!rec.lyricPath;
@@ -637,6 +701,7 @@ function platformReferer(platform) {
     wy: "https://music.163.com/",
     tx: "https://y.qq.com/",
     mg: "https://music.migu.cn/",
+    joox: "https://www.joox.com/",
   })[platform] || "";
 }
 
@@ -655,6 +720,78 @@ function pickNum(...vals) {
     if (Number.isFinite(n) && n > 0) return n;
   }
   return null;
+}
+
+const ZH_FOLD = {
+  倫: "伦", 傑: "杰", 雲: "云", 龍: "龙", 後: "后", 發: "发", 點: "点",
+  東: "东", 門: "门", 國: "国", 樂: "乐", 時: "时", 長: "长", 愛: "爱",
+  無: "无", 與: "与", 對: "对", 們: "们", 臺: "台", 灣: "湾", 語: "语",
+  專: "专", 輯: "辑", 後: "后", 華: "华", 歲: "岁", 號: "号",
+};
+
+function normalizeComparableText(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[（(].*?[)）]/g, "")
+    .replace(/[\s·・.。\-_—–,，、/\\|:：]+/g, "")
+    .replace(/[倫傑雲龍後發點東門國樂時長愛無與對們臺灣語專輯華歲號]/g, (c) => ZH_FOLD[c] || c)
+    .trim();
+}
+
+function isUnknownText(value) {
+  const text = String(value || "").trim().toLowerCase();
+  return !text || text === "unknown song" || text === "unknown artist" || text === "未知艺人";
+}
+
+function splitArtistTokens(artist) {
+  return String(artist || "")
+    .split(/[,&，、/\\|]+|\s+(?:and|feat\.?|ft\.?)\s+/i)
+    .map(normalizeComparableText)
+    .filter((token) => token.length > 1);
+}
+
+export function buildFallbackQuery(name, artists) {
+  if (isUnknownText(name)) return "";
+  const parts = [String(name || "").trim()];
+  if (!isUnknownText(artists)) parts.push(String(artists || "").trim());
+  return parts.join(" ").trim();
+}
+
+export function buildFallbackQueries(name, artists) {
+  const full = buildFallbackQuery(name, artists);
+  if (!full) return [];
+  const title = String(name || "").replace(/[（(].*?[)）]/g, "").trim();
+  return [...new Set([full, title].filter(Boolean))];
+}
+
+function recordingVariant(name) {
+  const text = String(name || "");
+  return [
+    /\blive\b|演唱会|现场/i.test(text),
+    /伴奏|instrumental|karaoke/i.test(text),
+    /remix|混音/i.test(text),
+    /英文版|英语版|english version/i.test(text) ? "en"
+      : /中文版|中文版本|chinese version/i.test(text) ? "zh"
+      : /日文版|日语版|japanese version/i.test(text) ? "ja" : "",
+  ].join(":");
+}
+
+/** TuneFree 同款：歌名包含关系 + 歌手 token 交集，避免跨源兜底到翻唱。 */
+export function isLikelySameSong(candidate, meta) {
+  if (!meta || isUnknownText(meta.name)) return true;
+  if (recordingVariant(candidate?.name) !== recordingVariant(meta.name)) return false;
+  const targetName = normalizeComparableText(meta.name);
+  const candidateName = normalizeComparableText(candidate?.name);
+  if (!targetName || !candidateName) return false;
+  const nameMatches = candidateName === targetName
+    || candidateName.includes(targetName)
+    || targetName.includes(candidateName);
+  if (!nameMatches) return false;
+  const targetArtists = splitArtistTokens(meta.artists || meta.artist);
+  if (!targetArtists.length) return true;
+  const candidateArtist = normalizeComparableText(candidate.artists || candidate.artist);
+  if (!candidateArtist) return true;
+  return targetArtists.some((artist) => candidateArtist.includes(artist) || artist.includes(candidateArtist));
 }
 
 export function normalizeTrack(raw, platform) {
@@ -842,6 +979,34 @@ async function fetchNeteaseLyric(id) {
   return normalizeLyricBody(body);
 }
 
+export function isMatchingLyricTrack(candidate, meta) {
+  if (recordingVariant(candidate.name) !== recordingVariant(meta.name)) return false;
+  const title = normalizeComparableText(meta.name);
+  if (!title || normalizeComparableText(candidate.name) !== title) return false;
+  const artists = splitArtistTokens(meta.artists);
+  const found = splitArtistTokens(candidate.artists);
+  return !artists.length || artists.some(artist => found.includes(artist));
+}
+
+async function searchCatalogLyric(platform, name, artists) {
+  // Short titles avoid provider search failures on translated subtitles and
+  // multi-artist separators. Matching still uses the complete track metadata.
+  const query = buildFallbackQueries(name, artists).at(-1);
+  if (!query) return "";
+  const found = await catalogSearch(platform, query, 1, 5);
+  const track = found.items?.find(item => isMatchingLyricTrack(item, { name, artists }));
+  if (!track) return "";
+  return platform === "wy" ? fetchNeteaseLyric(track.id) : fetchKuwoLyric(track.id);
+}
+
+async function searchGdLyric(name, artists) {
+  const query = buildFallbackQueries(name, artists).at(-1);
+  if (!query) return "";
+  const found = await gdSearch("wy", query, 1, 5);
+  const track = found.items?.find(item => isMatchingLyricTrack(item, { name, artists }));
+  return track ? normalizeLyricBody(await gdLyric("wy", track.id, track.extra || {})) : "";
+}
+
 async function fetchLrclibLyric(name, artists, album) {
   const qs = new URLSearchParams();
   if (name) qs.set("track_name", name);
@@ -853,6 +1018,7 @@ async function fetchLrclibLyric(name, artists, album) {
   let best = "";
   let bestN = 0;
   for (const row of rows) {
+    if (!isMatchingLyricTrack({ name: row.trackName, artists: row.artistName }, { name, artists })) continue;
     const lrc = pickLyric(row?.syncedLyrics, row?.plainLyrics);
     const n = lyricScore(lrc);
     if (n > bestN) {
@@ -864,11 +1030,17 @@ async function fetchLrclibLyric(name, artists, album) {
 }
 
 /** Public-catalog lyric fallback (does not depend on LX source lyric action). */
-export async function catalogLyric({ platform, id, name, artists, album } = {}) {
+export async function catalogLyric({ platform, id, name, artists, album, gdEnabled = false } = {}) {
   const tasks = [];
   if (platform === "wy" && id) tasks.push(() => fetchNeteaseLyric(id));
   if (platform === "kw" && id) tasks.push(() => fetchKuwoLyric(id));
-  if (name) tasks.push(() => fetchLrclibLyric(name, artists, album));
+  if (name) {
+    tasks.push(() => fetchLrclibLyric(name, artists, album));
+    if (gdEnabled) tasks.push(() => searchGdLyric(name, artists));
+    for (const target of ["wy", "kw"]) {
+      if (target !== platform || !id) tasks.push(() => searchCatalogLyric(target, name, artists));
+    }
+  }
   if (!tasks.length) return "";
   const settled = await Promise.allSettled(tasks.map((fn) => fn()));
   let best = "";
@@ -1004,7 +1176,7 @@ export async function catalogSearch(platform, q, page = 1, pageSize = 25) {
   const enc = encodeURIComponent(keyword);
 
   if (platform === "mix") {
-    const plats = ["kw", "wy", "kg", "tx"];
+    const plats = ["kw", "wy", "kg", "tx", "mg"];
     const parts = await Promise.allSettled(plats.map((p) => catalogSearch(p, keyword, pn, Math.min(12, rn))));
     const seen = new Set();
     const items = [];
@@ -1377,7 +1549,17 @@ export function registerMusicRoutes(app, { auth, dataDir, isSafeHttpUrl }) {
   });
 
   app.patch("/api/music/sources/:id", auth, (req, res) => {
-    const rec = readSource(dataDir, req.user.userId, req.params.id);
+    const id = String(req.params.id || "");
+    if (isBuiltinId(id)) {
+      const flags = readBuiltinFlags(dataDir, req.user.userId);
+      if (typeof req.body?.enabled === "boolean") flags[id] = req.body.enabled;
+      writeBuiltinFlags(dataDir, req.user.userId, flags);
+      const rec = id === GD_SOURCE_ID
+        ? publicGdSource(builtinEnabled(flags, id))
+        : publicNativeSource(builtinEnabled(flags, id));
+      return res.json({ ok: true, source: rec });
+    }
+    const rec = readSource(dataDir, req.user.userId, id);
     if (!rec) return res.status(404).json({ ok: false, error: "音源不存在" });
     if (typeof req.body?.enabled === "boolean") rec.enabled = req.body.enabled;
     if (req.body?.name) rec.name = String(req.body.name).slice(0, 80);
@@ -1386,6 +1568,9 @@ export function registerMusicRoutes(app, { auth, dataDir, isSafeHttpUrl }) {
   });
 
   app.delete("/api/music/sources/:id", auth, (req, res) => {
+    if (isBuiltinId(req.params.id)) {
+      return res.status(400).json({ ok: false, error: "内置音源不能删除，可以停用" });
+    }
     const ok = deleteSourceFile(dataDir, req.user.userId, req.params.id);
     if (!ok) return res.status(404).json({ ok: false, error: "音源不存在" });
     return res.json({ ok: true });
@@ -1410,7 +1595,28 @@ export function registerMusicRoutes(app, { auth, dataDir, isSafeHttpUrl }) {
       }
     }
 
+    if (platform === "joox") {
+      try {
+        const gd = await gdSearch("joox", q, page, pageSize);
+        return res.json({ ok: true, ...gd, via: "gd" });
+      } catch (e) {
+        return res.json({ ok: true, items: [], page, pageSize, total: 0, isEnd: true, error: String(e.message || e), via: "gd" });
+      }
+    }
+
     let result = await catalogSearch(platform, q, page, pageSize);
+    if (platform === "mix") {
+      try {
+        const gd = await gdSearch("joox", q, 1, Math.min(12, pageSize));
+        const seen = new Set((result.items || []).map((it) => `${it.platform}:${it.name}:${it.artists}`.toLowerCase()));
+        for (const it of gd.items || []) {
+          const key = `${it.platform}:${it.name}:${it.artists}`.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          result.items.push(it);
+        }
+      } catch (_) { /* JOOX 可选 */ }
+    }
     if ((!result.items || !result.items.length) && platform !== "mix") {
       const mix = await catalogSearch("mix", q, page, pageSize);
       if (mix.items && mix.items.length) {
@@ -1424,13 +1630,15 @@ export function registerMusicRoutes(app, { auth, dataDir, isSafeHttpUrl }) {
     const platform = String(req.query.platform || "");
     const id = String(req.query.id || "");
     const quality = String(req.query.quality || "320k");
+    const excluded = new Set(String(req.query.excludeSourceId || "").split(",").filter(safeId).slice(0, MAX_SOURCES));
     if (!platform || !id) return res.status(400).json({ ok: false, error: "missing platform/id" });
 
     const cacheKey = `${req.user.userId}:${platform}:${id}:${quality}`;
     const skipCache = req.query.fresh === "1" || req.query.fresh === "true";
+    const allowFallback = req.query.nofallback !== "1" && req.query.nofallback !== "true";
     const cached = skipCache ? null : urlCacheGet(cacheKey);
-    if (cached && cached.url) {
-      const ticket = createTicket(cached.url, platformReferer(platform));
+    if (cached && cached.url && !excluded.has(cached.sourceId)) {
+      const ticket = createTicket(cached.url, platformReferer(cached.fallbackPlatform || platform));
       return res.json({
         ok: true,
         url: cached.url,
@@ -1438,11 +1646,13 @@ export function registerMusicRoutes(app, { auth, dataDir, isSafeHttpUrl }) {
         quality: cached.quality || quality,
         sourceId: cached.sourceId,
         sourceName: cached.sourceName,
+        fallbackFrom: cached.fallbackFrom || "",
         cached: true,
       });
     }
 
-    const srcs = enabledSources(dataDir, req.user.userId);
+    const enabled = enabledSources(dataDir, req.user.userId);
+    const srcs = enabled.filter(src => !excluded.has(src.id) && !sourceExpiryReason(runtimeAlertFor(src, req.user.userId)));
     const preferredId = String(req.query.sourceId || "");
     const ordered = [
       ...(preferredId ? srcs.filter((s) => s.id === preferredId) : []),
@@ -1451,74 +1661,155 @@ export function registerMusicRoutes(app, { auth, dataDir, isSafeHttpUrl }) {
     if (!ordered.length) {
       return res.status(409).json({
         ok: false,
-        code: "no_source",
-        error: "还没有可用音源。请先导入洛雪音源脚本或填写 HTTP 音源 API。",
+        code: enabled.length ? "sources_unavailable" : "no_source",
+        error: enabled.length
+          ? "已尝试其他音源，暂无可播放地址"
+          : "暂无启用的音源，可在音源管理中启用备用源",
       });
     }
 
-    const qualities = [quality, "320k", "128k"].filter((v, i, a) => a.indexOf(v) === i);
+    const QUALITY_LADDER = ["flac24bit", "flac", "320k", "192k", "128k"];
+    const qIdx = QUALITY_LADDER.indexOf(quality);
+    const qualities = QUALITY_LADDER.slice(qIdx >= 0 ? qIdx : QUALITY_LADDER.indexOf("320k"));
     const errors = [];
 
-    const sourceCan = (src, q) => {
+    const sourceCan = (src, plat, q) => {
+      if (sourceExpiryReason(runtimeAlertFor(src, req.user.userId))) return false;
+      if (src.type === "builtin-gd") return gdCan(plat, "musicUrl");
+      if (src.type === "builtin-native") return nativeCan(plat, "musicUrl");
       if (src.type === "http-api") return !!src.urlPath;
-      if (src.platforms && Object.keys(src.platforms).length && !src.platforms[platform]) return false;
-      const qs = src.platforms?.[platform]?.qualitys;
+      if (src.platforms && Object.keys(src.platforms).length && !src.platforms[plat]) return false;
+      const qs = src.platforms?.[plat]?.qualitys;
       if (Array.isArray(qs) && qs.length && !qs.includes(q)) return false;
-      return true;
+      return sourceSupports(src, plat, "musicUrl") || !src.platforms || !Object.keys(src.platforms).length;
     };
 
-    const resolveFromSource = async (src, q) => {
+    const resolveFromSource = async (src, plat, songId, q, extra = {}) => {
       let url = "";
-      if (src.type === "http-api") {
-        const body = await httpApiCall(src, "url", {
-          platform, id, quality: q, hash: req.query.hash || id,
-        }, isSafeHttpUrl);
-        url = normalizeUrlBody(body);
-      } else {
-        const rt = await getRuntime(dataDir, req.user.userId, src, isSafeHttpUrl);
-        const info = {
-          type: q,
-          musicInfo: buildMusicInfo({ ...req.query, platform, id, quality: q }),
-        };
-        const out = await rt.requestAction({
-          source: platform, action: "musicUrl", info, timeoutMs: URL_TIMEOUT_MS,
-        });
-        url = normalizeUrlBody(out) || (typeof out === "string" ? out : "");
+      try {
+        if (src.type === "builtin-gd") {
+          url = await gdMusicUrl(plat, songId, q, extra);
+        } else if (src.type === "builtin-native") {
+          url = await nativeMusicUrl(plat, songId, q);
+        } else if (src.type === "http-api") {
+          const body = await httpApiCall(src, "url", {
+            platform: plat, id: songId, quality: q, hash: extra.hash || songId,
+          }, isSafeHttpUrl);
+          url = normalizeUrlBody(body);
+        } else {
+          const rt = await getRuntime(dataDir, req.user.userId, src, isSafeHttpUrl);
+          const info = {
+            type: q,
+            musicInfo: buildMusicInfo({ ...req.query, ...extra, platform: plat, id: songId, quality: q }),
+          };
+          const out = await rt.requestAction({
+            source: plat, action: "musicUrl", info, timeoutMs: URL_TIMEOUT_MS,
+          });
+          url = normalizeUrlBody(out) || (typeof out === "string" ? out : "");
+        }
+      } catch (e) {
+        return { error: src.name + "@" + plat + "/" + q + ": " + (e.message || e) };
       }
       if (!/^https?:\/\//i.test(url)) return { error: src.name + "@" + q + ": 空直链" };
       if (!(await isSafeHttpUrl(url))) return { error: src.name + ": 直链被安全策略拦截" };
       return { url, quality: q, sourceId: src.id, sourceName: src.name };
     };
 
-    for (const q of qualities) {
-      const jobs = ordered.filter((src) => sourceCan(src, q)).map((src) => () => resolveFromSource(src, q));
-      if (!jobs.length) continue;
-      const raced = await raceFirstOk(jobs);
-      if (raced.ok && raced.url) {
-        urlCacheSet(cacheKey, {
-          url: raced.url, quality: raced.quality, sourceId: raced.sourceId, sourceName: raced.sourceName,
-        });
-        const ticket = createTicket(raced.url, platformReferer(platform));
-        return res.json({
-          ok: true,
-          url: raced.url,
-          proxy: `/api/music/stream/${ticket}`,
-          quality: raced.quality,
-          sourceId: raced.sourceId,
-          sourceName: raced.sourceName,
-        });
+    const isBuiltinSrc = (src) => src.type === "builtin-gd" || src.type === "builtin-native";
+    const builtins = ordered.filter(isBuiltinSrc);
+    const custom = ordered.filter((src) => !isBuiltinSrc(src));
+
+    const raceGroup = async (group, plat, songId, extra) => {
+      const localErrors = [];
+      for (const q of qualities) {
+        const jobs = group.filter((src) => sourceCan(src, plat, q)).map((src) => () => resolveFromSource(src, plat, songId, q, extra));
+        if (!jobs.length) continue;
+        const raced = await raceFirstOk(jobs);
+        if (raced.ok && raced.url) return raced;
+        if (Array.isArray(raced.errors)) localErrors.push(...raced.errors);
       }
-      if (Array.isArray(raced.errors)) errors.push(...raced.errors);
+      return { ok: false, errors: localErrors };
+    };
+
+    const resolveDirect = async (plat, songId, extra = {}, { builtinOnly = false } = {}) => {
+      const first = await raceGroup(builtins, plat, songId, extra);
+      if (first.ok && first.url) return first;
+      if (builtinOnly) return first;
+      const second = await raceGroup(custom, plat, songId, extra);
+      if (second.ok && second.url) return second;
+      return { ok: false, errors: [...(first.errors || []), ...(second.errors || [])] };
+    };
+
+    const extra0 = {
+      hash: req.query.hash, albumId: req.query.albumId,
+      strMediaMid: req.query.strMediaMid, copyrightId: req.query.copyrightId,
+      urlId: req.query.urlId, lyricId: req.query.lyricId,
+    };
+
+    const tryFallback = async () => {
+      // Respect disabled and already-failed providers during cross-platform fallback.
+      if (!builtins.some(src => src.id === GD_SOURCE_ID)) return { ok: false, errors: [] };
+      const queries = buildFallbackQueries(req.query.name, req.query.artists || req.query.artist);
+      const meta = { name: req.query.name, artists: req.query.artists || req.query.artist };
+      const tried = new Set();
+      for (const query of queries) {
+        try {
+          const found = await gdSearch("wy", query, 1, 5);
+          const hits = (found.items || []).filter(it => isLikelySameSong(it, meta) && !tried.has(it.id)).slice(0, 2);
+          for (const hit of hits) {
+            tried.add(hit.id);
+            for (const q of quality === "128k" ? ["128k"] : ["320k", "128k"]) {
+              try {
+                const url = await gdMusicUrl("wy", hit.id, q, hit.extra || {});
+                if (/^https?:\/\//i.test(url) && await isSafeHttpUrl(url)) {
+                  return { ok: true, url, quality: q, sourceId: GD_SOURCE_ID, sourceName: "GD音乐台", fallbackFrom: platform, fallbackPlatform: "wy" };
+                }
+              } catch (e) { errors.push("GD@" + hit.id + ": " + (e.message || e)); }
+            }
+          }
+        } catch (e) { errors.push("fallback wy: " + (e.message || e)); }
+      }
+      return { ok: false, errors: [] };
+    };
+
+    // TuneFree 顺序：内置 GD/解析 → 跨源兜底 → 用户脚本（避免洛雪脚本拖死 JOOX 等无直链平台）
+    let raced = await resolveDirect(platform, id, extra0, { builtinOnly: true });
+    if ((!raced.ok || !raced.url) && allowFallback) {
+      const fb = await tryFallback();
+      if (fb.ok && fb.url) raced = fb;
     }
+    if (!raced.ok || !raced.url) {
+      const customHit = await raceGroup(custom, platform, id, extra0);
+      if (customHit.ok && customHit.url) raced = customHit;
+      else if (Array.isArray(customHit.errors)) errors.push(...customHit.errors);
+    }
+
+    if (raced.ok && raced.url) {
+      urlCacheSet(cacheKey, {
+        url: raced.url, quality: raced.quality, sourceId: raced.sourceId, sourceName: raced.sourceName,
+        fallbackFrom: raced.fallbackFrom || "", fallbackPlatform: raced.fallbackPlatform || "",
+      });
+      const ticket = createTicket(raced.url, platformReferer(raced.fallbackPlatform || platform));
+      return res.json({
+        ok: true,
+        url: raced.url,
+        proxy: `/api/music/stream/${ticket}`,
+        quality: raced.quality,
+        sourceId: raced.sourceId,
+        sourceName: raced.sourceName,
+        fallbackFrom: raced.fallbackFrom || "",
+      });
+    }
+    if (Array.isArray(raced.errors)) errors.push(...raced.errors);
 
     const alert = ordered
       .map((s) => runtimeCache.get(`${req.user.userId}:${s.id}`)?.updateAlert || s.updateAlert)
       .find((a) => a && a.log);
-    const alertLog = alert?.log ? String(alert.log) : "";
+    const useful = errors.map((e) => String(e || "")).filter((e) => e && !/版本过低|请下载最新/.test(e));
     return res.status(502).json({
       ok: false,
       code: "resolve_failed",
-      error: alertLog || "音源未能解析出可播放地址",
+      error: useful[0] || "内置音源未能解析出可播放地址。该曲可能是 VIP，或当前平台没有直链。",
       detail: errors.slice(0, 6),
       updateAlert: alert || null,
     });
@@ -1530,12 +1821,20 @@ export function registerMusicRoutes(app, { auth, dataDir, isSafeHttpUrl }) {
     const name = String(req.query.name || "");
     const artists = String(req.query.artists || req.query.artist || "");
     const album = String(req.query.album || "");
-    if (!platform || !id) return res.status(400).json({ ok: false, error: "missing platform/id" });
+    if ((!platform || !id) && !name.trim()) return res.status(400).json({ ok: false, error: "missing track name or platform/id" });
 
     const srcs = enabledSources(dataDir, req.user.userId);
     const sourceJobs = [];
     for (const src of srcs) {
-      if (src.type === "http-api" && src.lyricPath) {
+      if (!platform || !id || sourceExpiryReason(runtimeAlertFor(src, req.user.userId))) continue;
+      if (src.type === "builtin-gd" && gdCan(platform, "lyric")) {
+        sourceJobs.push(async () => {
+          const body = await gdLyric(platform, id, {
+            lyricId: req.query.lyricId, songmid: id,
+          });
+          return normalizeLyricBody(body);
+        });
+      } else if (src.type === "http-api" && src.lyricPath) {
         sourceJobs.push(async () => {
           const body = await httpApiCall(src, "lyric", { platform, id }, isSafeHttpUrl);
           return normalizeLyricBody(body);
@@ -1554,7 +1853,7 @@ export function registerMusicRoutes(app, { auth, dataDir, isSafeHttpUrl }) {
       }
     }
 
-    const catalogJob = () => catalogLyric({ platform, id, name, artists, album });
+    const catalogJob = () => catalogLyric({ platform, id, name, artists, album, gdEnabled: srcs.some(src => src.id === GD_SOURCE_ID) });
     const settled = await Promise.allSettled([...sourceJobs, catalogJob].map((fn) => fn()));
     let best = "";
     let bestN = 0;
@@ -1594,13 +1893,19 @@ export function registerMusicRoutes(app, { auth, dataDir, isSafeHttpUrl }) {
       res.setHeader("x-accel-buffering", "no");
       if (!up.body) return res.end();
       const reader = up.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const ok = res.write(Buffer.from(value));
-        if (!ok) await new Promise((r) => res.once("drain", r));
+      const abort = () => { try { reader.cancel(); } catch (_) {} };
+      req.on("close", abort);
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const ok = res.write(Buffer.from(value));
+          if (!ok) await new Promise((r) => res.once("drain", r));
+        }
+        res.end();
+      } finally {
+        req.off("close", abort);
       }
-      res.end();
     } catch (e) {
       if (!res.headersSent) res.status(502).json({ error: String(e.message || e) });
       else res.end();

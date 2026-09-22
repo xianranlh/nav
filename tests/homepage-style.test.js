@@ -244,7 +244,7 @@ test("AI and music panels use shared SVG icon class and polished shells", () => 
   assert.match(music, /ICO_PLAY/);
   assert.match(music, /ICO_PAUSE/);
   assert.match(music, /innerHTML\s*=\s*playing \? ICO_PAUSE : ICO_PLAY/);
-  assert.match(music, /_fetchLxLyrics/);
+  assert.match(music, /fetchLyrics/);
   assert.match(css, /\.music-fab\s*\{[^}]*position:\s*fixed/);
   assert.match(css, /--fab-inset:\s*22px/);
   assert.match(css, /\.music-fab\s*\{[^}]*left:\s*max\(var\(--fab-inset\)/);

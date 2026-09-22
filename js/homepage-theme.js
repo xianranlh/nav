@@ -53,6 +53,26 @@
       calendarLogo: "calendar",
       particleMode: "sycamore",
     },
+    xuanbird: {
+      id: "xuanbird",
+      label: "玄鸟 · 墨羽",
+      accent: "#a68b58",
+      fab: "star",
+      aiLogo: "star",
+      musicLogo: "music",
+      calendarLogo: "calendar",
+      particleMode: "black-feathers",
+    },
+    "liquid-glass": {
+      id: "liquid-glass",
+      label: "液态玻璃",
+      accent: "#286b9e",
+      fab: "star",
+      aiLogo: "star",
+      musicLogo: "music",
+      calendarLogo: "calendar",
+      particleMode: "none",
+    },
     starlight: {
       id: "starlight",
       label: "星光（旧）",
@@ -86,10 +106,11 @@
   }
 
   function getPrimaryVisualThemes() {
-    return ["sakura", "q-anime", "dark-minimal", "paper"].map(getVisualTheme);
+    return ["sakura", "q-anime", "dark-minimal", "paper", "xuanbird", "liquid-glass"].map(getVisualTheme);
   }
 
-  function particleModeFromVisualTheme(id) {
+  function particleModeFromVisualTheme(id, effect = "auto") {
+    if (["sakura", "starlight", "sycamore", "candy-stars", "black-feathers", "none"].includes(effect)) return effect;
     return getVisualTheme(id).particleMode || "sakura";
   }
 
@@ -121,7 +142,8 @@
   }
 
   function particleCountForViewport(baseCount, matchMediaFn) {
-    const count = Number(baseCount) || 70;
+    const value = Number(baseCount);
+    const count = baseCount == null || !Number.isFinite(value) ? 70 : Math.max(0, Math.min(200, Math.round(value)));
     const isMobile = typeof matchMediaFn === "function" && matchMediaFn("(max-width: 768px)").matches;
     return isMobile ? Math.round(count / 2) : count;
   }

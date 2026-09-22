@@ -222,6 +222,10 @@
           this.data.volumeBeforeMute = this.data.volume > 0 ? this.data.volume : 0.75;
         }
         if (typeof this.data.muted !== "boolean") this.data.muted = this.data.volume === 0;
+        // Retire transcription configuration while retaining saved lyrics.
+        for (const key of Object.keys(this.data)) {
+          if (key.startsWith("caption")) delete this.data[key];
+        }
         delete this.data.customSources;
       } catch (_) {}
     },
@@ -499,35 +503,44 @@
       MusicUI.render();
     },
 
-    _lxQuery(t) {
-      return new URLSearchParams({
+    _lxQuery(t, extra = {}) {
+      const qs = new URLSearchParams({
         platform: t.platform || "",
         id: t.songId || "",
-        quality: t.quality || this.data.quality || "320k",
+        quality: extra.quality || t.quality || this.data.quality || "320k",
         name: t.name || "",
         artists: t.artists || "",
         album: t.album || "",
-        hash: (t.extra && t.extra.hash) || "",
+        hash: (t.extra && t.extra.hash) || extra.hash || "",
         albumId: (t.extra && t.extra.albumId) || "",
         strMediaMid: (t.extra && t.extra.strMediaMid) || "",
         copyrightId: (t.extra && t.extra.copyrightId) || "",
       });
+      if (extra.urlId || (t.extra && t.extra.urlId)) qs.set("urlId", extra.urlId || t.extra.urlId);
+      if (extra.lyricId || (t.extra && t.extra.lyricId)) qs.set("lyricId", extra.lyricId || t.extra.lyricId);
+      if (extra.fresh) qs.set("fresh", "1");
+      if (extra.excludeSourceId) qs.set("excludeSourceId", extra.excludeSourceId);
+      if (extra.nofallback) qs.set("nofallback", "1");
+      return qs;
     },
 
     isCurrent(t) {
       return !!(t && this.currentTrack() && this.currentTrack().id === t.id);
     },
 
-    async _fetchLxLyrics(t) {
-      if (!t || t.lrc) return;
+    async fetchLyrics(t, { force = false } = {}) {
+      if (!t || (t.lrc && !force) || (this._lyricLoading && this.isCurrent(t))) return;
       const gen = ++this._lyricGen;
+      const initialLyrics = t.lrc || "";
       this._lyricTried = false;
+      this._lyricLoading = true;
+      MusicUI.renderLyrics();
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 12000);
+      const timer = setTimeout(() => ctrl.abort(), 35000);
       try {
         const lr = await fetch("/api/music/lyric?" + this._lxQuery(t).toString(), { signal: ctrl.signal });
         const ld = await lr.json().catch(() => ({}));
-        if (gen !== this._lyricGen) return;
+        if (gen !== this._lyricGen || (t.lrc || "") !== initialLyrics) return;
         if (ld && ld.lrc && this.isCurrent(t)) {
           await this.setLyrics(t.id, ld.lrc);
         } else if (this.isCurrent(t) && !t.lrc) {
@@ -541,6 +554,10 @@
         }
       } finally {
         clearTimeout(timer);
+        if (gen === this._lyricGen && this.isCurrent(t)) {
+          this._lyricLoading = false;
+          MusicUI.renderLyrics();
+        }
       }
     },
 
@@ -552,52 +569,45 @@
       this.data.current = idx;
       this._lrcLines = parseLrc(t.lrc || "");
       this._lastLrcIdx = -1;
+      this._lyricGen = (this._lyricGen || 0) + 1;
+      this._lyricLoading = false;
       this._lyricTried = !!t.lrc;
       this._resolving = t.kind === "lx";
       this.save();
       MusicUI.render();
       MusicUI.renderLyrics();
 
+      if (!t.lrc) this.fetchLyrics(t);
+
       if (t.kind === "lx") {
-        if (!t.lrc) this._fetchLxLyrics(t);
         toast("正在向音源要播放地址…");
-        const qs = this._lxQuery(t).toString();
-        const pull = async (fresh) => {
-          const r = await fetch("/api/music/url?" + qs + (fresh ? "&fresh=1" : ""));
+        const pull = async (opts) => {
+          const r = await fetch("/api/music/url?" + this._lxQuery(t, opts).toString());
           return r.json().catch(() => ({}));
         };
         try {
-          let data = await pull(false);
-          if (!this.isCurrent(t)) return;
-          if (!data.ok) {
-            this._resolving = false;
-            const extra = Array.isArray(data.detail) && data.detail[0] ? " · " + data.detail[0] : "";
-            toast((data.error || "音源解析失败") + extra, 5200);
-            MusicUI.render();
-            if ((data.code === "no_source" || data.updateAlert) && window.MusicLx) {
-              window.MusicLx.openSources();
+          const rejected = new Set();
+          let playbackStarted = false;
+          for (let attempt = 0; attempt < 22; attempt++) {
+            const data = await pull({ fresh: attempt > 0, excludeSourceId: [...rejected].join(",") });
+            if (!this.isCurrent(t)) return;
+            if (!data?.ok) throw new Error(data?.error || "已尝试其他音源，暂无可播放地址");
+            t.lastUrl = data.url;
+            t.sourceName = (data.sourceName || "音源") + (data.fallbackFrom ? " · 跨源" : "");
+            this.save();
+            try {
+              await this._startPlayback(audio, [data.proxy, data.url]);
+              playbackStarted = true;
+              break;
+            } catch (error) {
+              if (!this.isCurrent(t)) return;
+              if (!data.sourceId || rejected.has(data.sourceId)) throw error;
+              rejected.add(data.sourceId);
+              toast("当前音源不可用，正在切换备用音源…");
             }
-            return;
           }
-          t.lastUrl = data.url;
-          t.sourceName = data.sourceName;
-          this.save();
+          if (!playbackStarted) throw new Error("已尝试所有音源，暂无可播放地址");
           this._resolving = false;
-          try {
-            await this._startPlayback(audio, [data.proxy, data.url]);
-          } catch (playErr) {
-            if (!this.isCurrent(t)) return;
-            const again = await pull(true);
-            if (!this.isCurrent(t)) return;
-            if (again && again.ok) {
-              t.lastUrl = again.url;
-              t.sourceName = again.sourceName;
-              this.save();
-              await this._startPlayback(audio, [again.proxy, again.url]);
-            } else {
-              throw playErr;
-            }
-          }
         } catch (e) {
           if (!this.isCurrent(t)) return;
           this._resolving = false;
@@ -804,6 +814,7 @@
       const t = this.data.tracks.find((x) => x.id === id);
       if (!t) return;
       t.lrc = lrc || "";
+      delete t.lrcSource;
       if (this.currentTrack() && this.currentTrack().id === id) {
         this._lrcLines = parseLrc(lrc || "");
         this._lastLrcIdx = -1;
@@ -1036,6 +1047,13 @@
         if (files.length) { await Music.addFiles(files); toast("已添加 🎵"); }
       });
 
+      $("#music-lyrics")?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-act=fetch-lyrics]");
+        if (!btn) return;
+        const t = Music.currentTrack();
+        if (t) Music.fetchLyrics(t, { force: true });
+      });
+
       this.render();
       // 若已有曲目，预加载当前（不自动播放）
       if (Music.data.tracks.length && Music.data.current >= 0) {
@@ -1077,7 +1095,7 @@
         playBtn.setAttribute("data-tip", playing ? "暂停" : "播放");
       }
       $("#music-title").textContent = t ? t.name : "— 没有歌曲 —";
-      const platLabel = { kw: "酷我", kg: "酷狗", wy: "网易", tx: "QQ", mg: "咪咕" };
+      const platLabel = { kw: "酷我", kg: "酷狗", wy: "网易", tx: "QQ", mg: "咪咕", joox: "JOOX" };
       $("#music-meta").textContent = t
         ? (t.kind === "lx"
           ? `${[t.artists, platLabel[t.platform] || t.platform, t.sourceName].filter(Boolean).join(" · ")}`
@@ -1103,7 +1121,7 @@
 
       if (!allTracks.length) {
         list.innerHTML = `<li class="music-empty">
-          点 <b>搜索</b> 用洛雪音源搜歌，或导入 AIMP / M3U 播放列表；<br>
+          点 <b>搜索</b> 用 GD 音乐台 / 洛雪音源搜歌，或导入 AIMP / M3U 播放列表；<br>
           也可以 <b>+</b> 本地文件、<b>链接</b> 直链，或直接拖进来。<br>
           <small>支持 mp3 · flac · aimppl · m3u · pls · lrc</small>
         </li>`;
@@ -1116,9 +1134,14 @@
           const active = i === Music.data.current;
           const isUrl = t.kind === "url";
           const isLx = t.kind === "lx";
-          const plat = { kw: "酷我", kg: "酷狗", wy: "网易", tx: "QQ", mg: "咪咕" }[t.platform] || "";
+          const plat = { kw: "酷我", kg: "酷狗", wy: "网易", tx: "QQ", mg: "咪咕", joox: "JOOX" }[t.platform] || "";
           const sizeLabel = isLx ? (plat || "音源") : isUrl ? "在线" : fmtSize(t.size);
-          const subBits = [sizeLabel, t.artists, t.duration ? fmtTime(t.duration) : "", t.lrc ? "歌词" : ""].filter(Boolean);
+          const subBits = [
+            sizeLabel,
+            t.artists,
+            t.duration ? fmtTime(t.duration) : "",
+            t.lrc ? "歌词" : "",
+          ].filter(Boolean);
           return `<li class="music-track${active ? " active" : ""}${active && playing ? " is-playing" : ""}" data-tid="${t.id}">
             <div class="mt-num">${active && playing ? noteIco : (i + 1)}</div>
             <div class="mt-main">
@@ -1177,11 +1200,17 @@
       const lines = Music._lrcLines || [];
       if (!lines.length) {
         const t = Music.currentTrack();
-        if (!Music._lyricTried && (Music._resolving || (t && t.kind === "lx" && !t.lrc))) {
-          box.innerHTML = `<div class="lyric-empty">正在获取歌词…</div>`;
+        if (Music._lyricLoading) {
+          box.innerHTML = `<div class="lyric-empty" role="status"><p>正在获取平台歌词…</p></div>`;
           return;
         }
-        box.innerHTML = `<div class="lyric-empty">此曲暂无歌词，点列表上的「歌词」按钮粘贴或导入 .lrc</div>`;
+        box.innerHTML = t
+          ? `<div class="lyric-empty">
+              <p>暂无歌词</p>
+              <button type="button" class="chip" data-act="fetch-lyrics">重新获取歌词</button>
+              <span class="lyric-empty-alt">或点列表里的「歌词」粘贴 LRC</span>
+            </div>`
+          : `<div class="lyric-empty"><p>导入歌曲后，这里将显示歌词</p></div>`;
         return;
       }
       if (lines[0].plain) {

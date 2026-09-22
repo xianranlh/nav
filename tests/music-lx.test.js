@@ -147,7 +147,28 @@ test("LX runtime boots a minimal official-style source script", async () => {
 test("Dockerfile copies music runtime and still excludes bundled lx-sources", () => {
   const dockerfile = fs.readFileSync("deploy/Dockerfile", "utf8");
   assert.match(dockerfile, /music-lx\.js/);
+  assert.match(dockerfile, /music-gd\.js/);
+  assert.match(dockerfile, /music-native\.js/);
   assert.doesNotMatch(dockerfile, /lx-sources/);
+});
+
+test("builtin TuneFree sources appear first and cannot be deleted", async () => {
+  const os = require("node:os");
+  const { listSources, isBuiltinId, isLikelySameSong, buildFallbackQuery, PLATFORMS } = await modPromise;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nav-music-"));
+  const items = listSources(dir, 1);
+  assert.equal(items[0].id, "builtin-gd");
+  assert.equal(items[1].id, "builtin-native");
+  assert.equal(items[0].builtin, true);
+  assert.equal(isBuiltinId("builtin-gd"), true);
+  assert.equal(isBuiltinId("0d18b565eded4215"), false);
+  assert.ok(PLATFORMS.some((p) => p.id === "joox"));
+  assert.equal(buildFallbackQuery("晴天", "周杰伦"), "晴天 周杰伦");
+  assert.equal(isLikelySameSong({ name: "晴天", artists: "周杰伦" }, { name: "晴天", artists: "周杰伦" }), true);
+  assert.equal(isLikelySameSong({ name: "晴天 (Live)", artists: "周杰伦" }, { name: "晴天", artists: "周杰伦" }), false);
+  assert.equal(isLikelySameSong({ name: "晴天", artists: "张三" }, { name: "晴天", artists: "周杰伦" }), false);
+  assert.equal(isLikelySameSong({ name: "晴天", artists: "周杰伦" }, { name: "晴天", artists: "周杰倫" }), true);
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test("LX request callback matches official (err, resp, body) and returns cancel", async () => {

@@ -1,0 +1,83 @@
+/* Shared palette defaults for navigation, login and companion settings. */
+/* ===================== 全局变量 ===================== */
+:root {
+  --glass-alpha: 0.35;
+  --glass-sat: 1.4;
+  --glass-bg: rgba(255, 255, 255, var(--glass-alpha));
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-shadow: 0 8px 32px rgba(255, 130, 170, 0.18);
+  --blur: 18px;
+  --bg-overlay: 0;
+  --bg-blur: 0px;
+
+  --text: #3b2a33;
+  --text-soft: #6a4f5a;
+  --text-faint: #9b828f;
+
+  --accent: #476b96;
+  --accent-2: #ffc2d6;
+  --accent-soft: #ffe4ee;
+  --accent-rgb: 71, 107, 150;
+
+  --card-bg: rgba(255, 255, 255, 0.45);
+  --card-hover: rgba(255, 255, 255, 0.72);
+
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+
+  --font-base: 15px;
+  --gap: 18px;
+  --card-size: 104px;
+
+  --bg-gradient: radial-gradient(1200px 700px at 20% 10%, #ffd6e6 0%, transparent 60%),
+                 radial-gradient(1000px 600px at 85% 85%, #c9e4ff 0%, transparent 60%),
+                 linear-gradient(160deg, #fff1f6 0%, #f5e6ff 40%, #e3f0ff 100%);
+}
+
+[data-theme="dark"] {
+  --glass-bg: rgba(30, 22, 34, calc(var(--glass-alpha) + 0.1));
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+
+  --text: #f6e8ef;
+  --text-soft: #d5bfcb;
+  --text-faint: #a48a98;
+
+  --accent-soft: rgba(var(--accent-rgb), 0.18);
+
+  --card-bg: rgba(40, 28, 44, 0.55);
+  --card-hover: rgba(55, 38, 62, 0.78);
+
+  --bg-gradient: radial-gradient(1200px 700px at 20% 10%, #3a1a2e 0%, transparent 60%),
+                 radial-gradient(1000px 600px at 85% 85%, #1c2a4a 0%, transparent 60%),
+                 linear-gradient(160deg, #1a0f1d 0%, #2a1433 50%, #0f1a2e 100%);
+}
+
+/* 视觉氛围：页面渐变与玻璃高光（主色仍由设置里的「主色调」控制） */
+html[data-visual-theme="starlight"] {
+  --glass-shadow: 0 8px 32px rgba(120, 150, 255, 0.2);
+  --bg-gradient: radial-gradient(1100px 680px at 15% 12%, #e8eeff 0%, transparent 58%),
+                 radial-gradient(900px 620px at 88% 82%, #d4e0ff 0%, transparent 55%),
+                 linear-gradient(165deg, #f0f4ff 0%, #e8ecff 42%, #dfe8ff 100%);
+}
+[data-theme="dark"][data-visual-theme="starlight"] {
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.42);
+  --bg-gradient: radial-gradient(1100px 680px at 15% 12%, #1c2240 0%, transparent 58%),
+                 radial-gradient(900px 620px at 88% 82%, #152238 0%, transparent 55%),
+                 linear-gradient(165deg, #0f1020 0%, #121a30 45%, #0a1428 100%);
+}
+
+html[data-visual-theme="sycamore"] {
+  --glass-shadow: 0 8px 32px rgba(160, 120, 60, 0.16);
+  --bg-gradient: radial-gradient(1100px 700px at 18% 8%, #f5ecd8 0%, transparent 56%),
+                 radial-gradient(950px 600px at 82% 88%, #e8dcc4 0%, transparent 54%),
+                 linear-gradient(158deg, #faf6ee 0%, #f0e8d8 40%, #e8e4dc 100%);
+}
+[data-theme="dark"][data-visual-theme="sycamore"] {
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.38);
+  --bg-gradient: radial-gradient(1100px 700px at 18% 8%, #2a2418 0%, transparent 56%),
+                 radial-gradient(950px 600px at 82% 88%, #1e2218 0%, transparent 54%),
+                 linear-gradient(158deg, #1a1810 0%, #221c14 48%, #141a12 100%);
+}
+

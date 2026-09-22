@@ -9,6 +9,7 @@ import {
   getKnowledgeSummaries,
   listKnowledgeFingerprints,
   listKnowledgeTags,
+  listKnowledgeNotes,
   searchKnowledgeNotes,
 } from "../database.js";
 import {
@@ -19,7 +20,7 @@ import {
   resolveUserVault,
   safeResolveExisting,
 } from "./paths.js";
-import { scanVault } from "./scanner.js";
+import { scanVault, collectLinks, collectAssets } from "./scanner.js";
 import { createSafeMarkdownDocument, sanitizeSvg } from "./markdown.js";
 
 const MIME_BY_EXT = {
@@ -167,15 +168,16 @@ export class KnowledgeService {
   async _indexUser(userId, { reparse = false } = {}) {
     const vault = await this._vault(userId);
     const existingRows = listKnowledgeFingerprints(userId);
-    const existingByPath = reparse ? new Map() : new Map(existingRows.map((row) => [row.relative_path, row]));
+    const existingByPath = new Map(existingRows.map((row) => [row.relative_path, row]));
     const scan = await scanVault({
       vaultPath: vault.path,
-      existingByPath,
+      existingByPath: reparse ? new Map() : existingByPath,
       maxNoteBytes: this.config.maxNoteBytes,
       maxFiles: this.config.maxFiles,
     });
 
-    const claimedIds = new Set(scan.files.filter((file) => file.unchanged).map((file) => file.noteId));
+    const currentPaths = new Set(scan.files.map((file) => file.relativePath));
+    const claimedIds = new Set(existingRows.filter((row) => currentPaths.has(row.relative_path)).map((row) => row.note_id));
     const rowsByHash = new Map();
     for (const row of existingRows) {
       if (!rowsByHash.has(row.content_hash)) rowsByHash.set(row.content_hash, []);
@@ -187,7 +189,7 @@ export class KnowledgeService {
       if (samePath) {
         file.noteId = samePath.note_id;
       } else {
-        const hashMatches = (rowsByHash.get(file.contentHash) || []).filter((row) => !claimedIds.has(row.note_id));
+        const hashMatches = (rowsByHash.get(file.contentHash) || []).filter((row) => !currentPaths.has(row.relative_path) && !claimedIds.has(row.note_id));
         file.noteId = hashMatches.length === 1
           ? hashMatches[0].note_id
           : opaqueKnowledgeId(this.secret, userId, "n", file.relativePath);
@@ -205,8 +207,14 @@ export class KnowledgeService {
     }
 
     const upserts = [];
+    const relations = [];
     for (const file of scan.files) {
-      if (file.unchanged) continue;
+      // Links and attachments can change while the owning Markdown stays unchanged.
+      if (file.unchanged) {
+        const stored = getKnowledgeNote(userId, file.noteId);
+        file.links = collectLinks(stored.markdown);
+        file.assets = collectAssets(stored.markdown);
+      }
       file.links = (file.links || []).map((link) => ({
         ...link,
         targetNoteId: resolveLinkTarget(file.relativePath, link.targetRef, byPath, byBasename),
@@ -218,11 +226,13 @@ export class KnowledgeService {
         secret: this.secret,
         maxAttachmentBytes: this.config.maxAttachmentBytes,
       });
-      upserts.push(file);
+      if (file.unchanged) relations.push(file);
+      else upserts.push(file);
     }
 
     const result = applyKnowledgeScan(userId, {
       upserts,
+      relations,
       seenPaths: scan.files.map((file) => file.relativePath),
     });
     return { ...result, issues: scan.issues };
@@ -257,7 +267,7 @@ export class KnowledgeService {
     await this._vault(userId);
     const state = this._state(userId);
     const stats = getKnowledgeIndexStats(userId);
-    if (!state.ready && !state.promise) {
+    if ((!state.ready || Date.now() - state.lastFinishedAt >= this.config.rescanIntervalMs) && !state.promise) {
       const task = this.startIndex(userId);
       task.promise.catch(() => {});
     }
@@ -269,6 +279,11 @@ export class KnowledgeService {
   async search(userId, query, limit) {
     await this._assertReadable(userId);
     return searchKnowledgeNotes(userId, query, limit);
+  }
+
+  async list(userId, options) {
+    await this._assertReadable(userId);
+    return listKnowledgeNotes(userId, options);
   }
 
   async note(userId, noteId) {

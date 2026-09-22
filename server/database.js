@@ -38,6 +38,15 @@ export function openDatabase(dataDir) {
   db.pragma("foreign_keys = ON");
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_tasks (
+      id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, idempotency_key TEXT NOT NULL,
+      status TEXT NOT NULL, payload TEXT NOT NULL, updated_at INTEGER NOT NULL,
+      UNIQUE(user_id, idempotency_key)
+    );
+    CREATE INDEX IF NOT EXISTS ai_tasks_user ON ai_tasks(user_id, updated_at DESC);
+    CREATE TABLE IF NOT EXISTS ai_assets (
+      id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, payload TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS app_data (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       payload TEXT NOT NULL,
@@ -318,6 +327,9 @@ export function deleteUser(id) {
   if (!u) return null;
   const media = db.prepare("SELECT filename, category FROM media_files WHERE user_id = ?").all(id);
   const gallery = db.prepare("SELECT filename FROM gallery_files WHERE user_id = ?").all(id);
+  const aiAssets = db.prepare("SELECT payload FROM ai_assets WHERE user_id = ?").all(id).map(r => JSON.parse(r.payload));
+  db.prepare("DELETE FROM ai_tasks WHERE user_id = ?").run(id);
+  db.prepare("DELETE FROM ai_assets WHERE user_id = ?").run(id);
   db.prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
   db.prepare("DELETE FROM user_data WHERE user_id = ?").run(id);
   db.prepare("DELETE FROM user_ai_settings WHERE user_id = ?").run(id);
@@ -328,7 +340,7 @@ export function deleteUser(id) {
   db.prepare("DELETE FROM obsidian_assets WHERE user_id = ?").run(id);
   db.prepare("DELETE FROM obsidian_notes WHERE user_id = ?").run(id);
   db.prepare("DELETE FROM users WHERE id = ?").run(id);
-  return { user: u, media, gallery };
+  return { user: u, media, gallery, aiAssets };
 }
 
 export function createSession(userId, ttlMs) {
@@ -583,7 +595,7 @@ export function getKnowledgeIndexStats(userId = 1) {
   };
 }
 
-export function applyKnowledgeScan(userId, { upserts = [], seenPaths = [] } = {}) {
+export function applyKnowledgeScan(userId, { upserts = [], relations = [], seenPaths = [] } = {}) {
   if (!db) throw new Error("数据库未打开");
   const uid = Number(userId);
   const seen = new Set(seenPaths.map(String));
@@ -658,6 +670,11 @@ export function applyKnowledgeScan(userId, { upserts = [], seenPaths = [] } = {}
         Number(note.sizeBytes) || 0,
         Date.now()
       );
+      if (insertFts) {
+        insertFts.run(uid, note.noteId, note.title, note.contentText || "", (note.tags || []).join(" "));
+      }
+    }
+    for (const note of [...upserts, ...relations]) {
       deleteOutgoing.run(uid, note.noteId);
       deleteAssets.run(uid, note.noteId);
       for (const link of note.links || []) {
@@ -673,9 +690,6 @@ export function applyKnowledgeScan(userId, { upserts = [], seenPaths = [] } = {}
           Number(asset.sizeBytes) || 0,
           asset.contentHash || ""
         );
-      }
-      if (insertFts) {
-        insertFts.run(uid, note.noteId, note.title, note.contentText || "", (note.tags || []).join(" "));
       }
     }
   });
@@ -726,6 +740,15 @@ export function searchKnowledgeNotes(userId, query, limit = 12) {
     `).all(uid, like, like, like, like, lim);
   }
   return rows.map((row) => mapKnowledgeSummary(row, q));
+}
+
+export function listKnowledgeNotes(userId, { limit = 50, offset = 0, sort = "updated" } = {}) {
+  const uid = Number(userId);
+  const total = db.prepare("SELECT COUNT(*) AS total FROM obsidian_notes WHERE user_id = ?").get(uid).total;
+  const order = sort === "title" ? "title COLLATE NOCASE, note_id" : "mtime_ms DESC, note_id";
+  const rows = db.prepare(`SELECT note_id, title, excerpt, tags_json, mtime_ms FROM obsidian_notes
+    WHERE user_id = ? ORDER BY ${order} LIMIT ? OFFSET ?`).all(uid, limit, offset);
+  return { items: rows.map((row) => mapKnowledgeSummary(row)), total, limit, offset };
 }
 
 export function getKnowledgeNote(userId, noteId) {
@@ -849,3 +872,14 @@ export function snapshotDatabaseTo(targetPath, { stripKnowledge = false } = {}) 
     }
   }
 }
+
+// AI work is stored in the same database so exports and restores remain atomic.
+export const aiRepository = {
+  get(id, userId) { const r = db.prepare("SELECT payload FROM ai_tasks WHERE id=? AND user_id=?").get(id, userId); return r ? JSON.parse(r.payload) : null; },
+  byKey(key, userId) { const r = db.prepare("SELECT payload FROM ai_tasks WHERE idempotency_key=? AND user_id=?").get(key, userId); return r ? JSON.parse(r.payload) : null; },
+  list(userId, limit = 30, offset = 0, type = '') { return db.prepare("SELECT payload FROM ai_tasks WHERE user_id=? AND (?='' OR json_extract(payload,'$.type')=?) ORDER BY json_extract(payload,'$.createdAt') DESC,id DESC LIMIT ? OFFSET ?").all(userId, type, type, limit, offset).map(r => JSON.parse(r.payload)); },
+  active() { return db.prepare("SELECT payload FROM ai_tasks WHERE status IN ('queued','submitting','running','saving')").all().map(r => JSON.parse(r.payload)); },
+  save(t) { t.updatedAt = Date.now(); db.prepare("INSERT INTO ai_tasks VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status,payload=excluded.payload,updated_at=excluded.updated_at").run(t.id,t.userId,t.idempotencyKey,t.status,JSON.stringify(t),t.updatedAt); return t; },
+  asset(id, userId) { const r = db.prepare("SELECT payload FROM ai_assets WHERE id=? AND user_id=?").get(id,userId); return r ? JSON.parse(r.payload) : null; },
+  saveAsset(a) { db.prepare("INSERT OR REPLACE INTO ai_assets VALUES (?,?,?)").run(a.id,a.userId,JSON.stringify(a)); return a; },
+};

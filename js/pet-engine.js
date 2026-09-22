@@ -67,7 +67,7 @@
     st.textContent = `
 .pe-sprite{position:absolute;background-repeat:no-repeat;cursor:pointer;pointer-events:auto;z-index:3;transform-origin:50% 88%;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
 .pe-shadow{position:absolute;left:50%;bottom:-8px;width:62%;height:12px;transform:translateX(-50%);background:radial-gradient(ellipse at center,rgba(0,0,0,.22),transparent 70%);border-radius:50%;pointer-events:none;}
-.pe-bubble{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);max-width:min(240px,70vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.95);border:1px solid rgba(229,99,138,.35);border-radius:12px;padding:6px 12px;font-size:13px;color:#4a3b52;box-shadow:0 4px 12px rgba(229,99,138,.2);animation:pe-bubble-pop .25s ease;pointer-events:none;z-index:4;font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;}
+.pe-bubble{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);max-width:min(240px,70vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.95);border:1px solid rgba(141, 164, 192,.35);border-radius:12px;padding:6px 12px;font-size:13px;color:#4a3b52;box-shadow:0 4px 12px rgba(141, 164, 192,.2);animation:pe-bubble-pop .25s ease;pointer-events:none;z-index:4;font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;}
 .pe-bubble::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:rgba(255,255,255,.95);}
 @keyframes pe-bubble-pop{from{opacity:0;transform:translateX(-50%) scale(.7)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 .pe-heart{position:absolute;font-size:18px;animation:pe-heart-rise 1.2s ease-out forwards;pointer-events:none;z-index:5;}
@@ -99,6 +99,7 @@
       this.custom = opts.custom || null;
       this.onPetClick = opts.onPetClick || null;
       this.statusDriven = !!opts.statusDriven;
+      this.stationary = !!opts.stationary;
       this.activityMode = opts.activityMode === "patrol" ? "patrol" : "guard";
       this.destroyed = false;
       this._statusUnsub = null;
@@ -107,7 +108,7 @@
 
       const el = (this.el = document.createElement("div"));
       el.className = "pe-sprite";
-      el.setAttribute("role", "img");
+      el.setAttribute("role", "button");
       el.setAttribute("aria-label", "宠物");
       el.tabIndex = 0;
       el.style.bottom = `${this.groundBottom}px`;
@@ -160,17 +161,34 @@
       }
 
       this._last = performance.now();
+      this.paused = false;
+      this._reduced = matchMedia("(prefers-reduced-motion: reduce)");
       this._raf = 0;
       this._onVisibility = () => {
         cancelAnimationFrame(this._raf);
         this._raf = 0;
-        if (!document.hidden && !this.destroyed) {
+        if (!document.hidden && !this.destroyed && !this.paused && !this._reduced.matches) {
           this._last = performance.now();
           this._raf = requestAnimationFrame((ts) => this._tick(ts));
         }
       };
       document.addEventListener("visibilitychange", this._onVisibility);
-      if (!document.hidden) this._raf = requestAnimationFrame((ts) => this._tick(ts));
+      this._reduced.addEventListener("change", this._onVisibility);
+      this._resizeObserver = new ResizeObserver(() => {
+        const b = this.bounds();
+        this.s.x = this.activityMode === "guard" ? Math.max(b.min, (this.container.clientWidth - this.w) / 2) : Math.max(b.min, Math.min(b.max, this.s.x));
+        if (this.s.targetX != null) this.s.targetX = Math.max(b.min, Math.min(b.max, this.s.targetX));
+        this._render();
+      });
+      this._resizeObserver.observe(this.container);
+      this._render();
+      this._onVisibility();
+    }
+
+    setPaused(paused) {
+      this.paused = !!paused;
+      if (!this.paused) this._render();
+      this._onVisibility();
     }
 
     /** 切换站岗 / 巡逻 */
@@ -311,7 +329,7 @@
         setTimeout(() => s.remove(), 2800);
       }
     }
-    hearts(n = 3) { this.spawnFx("pe-heart", pick(["💗", "💕", "✨"]), n); }
+    hearts(n = 3) { if (!this._reduced?.matches) this.spawnFx("pe-heart", "✧", n); }
 
     emote(name, dur = 2.2) {
       if (this.statusDriven) {
@@ -389,7 +407,7 @@
     }
 
     _tick(ts) {
-      if (this.destroyed) return;
+      if (this.destroyed || this.paused || this._reduced.matches) return;
       const dt = Math.min(0.1, (ts - this._last) / 1000);
       this._last = ts;
       const s = this.s;
@@ -433,7 +451,7 @@
       // 站岗 + 忙碌：原地轻微踱步（巡逻忙碌时也小幅，但保持当前位置）
       if (
         this.statusDriven &&
-        this.activityMode === "guard" &&
+        this.activityMode === "guard" && !this.stationary &&
         (Status.get().status === "working" || Status.get().status === "thinking")
       ) {
         s.x = (this.container.clientWidth || 120) / 2 - this.w / 2 + Math.sin(s.t * 2.2) * 10;
@@ -444,6 +462,8 @@
     }
 
     _render() {
+      if (this.paused && this._rendered) return;
+      this._rendered = true;
       const s = this.s, el = this.el;
       el.style.left = `${s.x}px`;
       if (!this.custom) {
@@ -452,7 +472,7 @@
           `${-s.frame * CELL_W * this.scale}px ${-a.row * CELL_H * this.scale}px`;
         return;
       }
-      const t = s.t;
+      const t = this._reduced?.matches ? 0 : s.t;
       let tf = "";
       switch (s.anim) {
         case "runR":
@@ -487,6 +507,8 @@
 
     destroy() {
       this.destroyed = true;
+      this._resizeObserver.disconnect();
+      this._reduced.removeEventListener("change", this._onVisibility);
       cancelAnimationFrame(this._raf);
       document.removeEventListener("visibilitychange", this._onVisibility);
       clearTimeout(this._bubbleTimer);

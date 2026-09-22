@@ -1,0 +1,48 @@
+/* 玄鸟 · 墨羽：雾灰衬墨羽，暗金点睛；沿用导航的布局与控件。 */
+html[data-visual-theme="xuanbird"] {
+  --accent: #a68b58;
+  --accent-2: #c8b58f;
+  --accent-soft: rgba(166, 139, 88, .18);
+  --accent-rgb: 166, 139, 88;
+  --text: #252a2d;
+  --text-soft: #56615f;
+  --text-faint: #68736f;
+  --glass-bg: rgba(237, 239, 233, .84);
+  --glass-border: rgba(81, 95, 88, .23);
+  --glass-shadow: 0 6px 24px rgba(26, 34, 31, .08);
+  --card-bg: rgba(241, 242, 236, .9);
+  --card-hover: #f8f8f2;
+  --card-border: rgba(81, 95, 88, .23);
+  --bg-gradient:
+    radial-gradient(ellipse at 16% 10%, #f0f1e9 0%, transparent 60%),
+    radial-gradient(ellipse at 88% 80%, #a5b4ae 0%, transparent 65%),
+    linear-gradient(155deg, #dce2da, #bfcac3);
+}
+
+html[data-visual-theme="xuanbird"][data-theme="dark"] {
+  --text: #e8ebe3;
+  --text-soft: #b1bbb4;
+  --text-faint: #95a29a;
+  --glass-bg: rgba(24, 32, 30, .86);
+  --glass-border: rgba(177, 191, 173, .2);
+  --glass-shadow: 0 6px 24px rgba(0, 0, 0, .22);
+  --card-bg: rgba(30, 40, 36, .9);
+  --card-hover: #29362f;
+  --card-border: rgba(177, 191, 173, .2);
+  --ui-base: #151d19;
+  --bg-gradient:
+    radial-gradient(ellipse at 18% 6%, #3c4b42 0%, transparent 62%),
+    radial-gradient(ellipse at 88% 78%, #2f4039 0%, transparent 60%),
+    linear-gradient(155deg, #1d2822, #101916);
+}
+
+html[data-visual-theme="xuanbird"] body .header-bar {
+  background: linear-gradient(110deg, #19221e, #303e34);
+  border-color: rgba(166, 139, 88, .42);
+}
+
+html[data-visual-theme="xuanbird"] body .brand-title { color: #c8b58f; }
+html[data-visual-theme="xuanbird"] body .header-bar::after { background: none; }
+
+/* 黑羽自身保持墨色；微亮的羽轴与边缘让暗色壁纸上也能看清。 */
+html body #sakura-canvas[data-particle-mode="black-feathers"] { opacity: .78; }

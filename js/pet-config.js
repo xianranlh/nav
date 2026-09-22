@@ -119,7 +119,7 @@
     if (!root || typeof root.dispatchEvent !== "function") return;
     try { root.dispatchEvent(new root.CustomEvent("sakura-pet-config", { detail: config })); } catch (_) {}
     try {
-      const channel = new root.BroadcastChannel("sakura-pet-config");
+      const channel = new root.BroadcastChannel(`sakura-pet-config:${root.Auth?.currentUser?.()?.id || "local"}`);
       channel.postMessage(config);
       channel.close();
     } catch (_) {}

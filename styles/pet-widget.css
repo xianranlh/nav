@@ -1,0 +1,80 @@
+/* Companion dock. Uses the same surface and accent tokens as nav. */
+#pet-dock, #pet-companion-panel, #pet-companion-restore { box-sizing: border-box; position: fixed; z-index: 960; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); font-family: inherit; box-shadow: 0 8px 28px #12243c18; }
+#pet-dock[hidden], #pet-companion-panel[hidden], #pet-companion-restore[hidden] { display: none !important; }
+#pet-dock { display: flex; align-items: stretch; width: 210px; height: 68px; border-radius: 16px; }
+#pet-dock[data-size="sm"] { width: 184px; height: 60px; }
+#pet-dock[data-size="lg"] { width: 236px; height: 76px; }
+#pet-dock.is-dragging { box-shadow: 0 12px 32px #12243c28; border-color: var(--ui-accent); }
+#pet-dock button { border: 0; margin: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; box-shadow: none; }
+#pet-dock .companion-trigger { flex: 1; min-width: 0; padding: 0 0 0 6px; display: flex; align-items: center; gap: 6px; text-align: left; border-radius: 16px 0 0 16px; }
+#pet-dock .companion-trigger:hover { background: var(--ui-tint); }
+#pet-dock .companion-avatar { flex: 0 0 64px; height: 60px; position: relative; overflow: hidden; pointer-events: none; }
+#pet-dock .pe-sprite { pointer-events: none !important; }
+#pet-dock .pe-bubble, #pet-dock .pe-shadow { display: none; }
+#pet-dock .companion-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+#pet-dock .companion-copy strong { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pet-dock .companion-status { color: var(--ui-muted); font-size: 11px; line-height: 1.4; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#pet-dock .companion-chevron { color: var(--ui-muted); font-size: 16px; }
+#pet-dock .companion-drag { flex: 0 0 32px; font-size: 19px; color: var(--ui-muted); border-radius: 0 16px 16px 0; touch-action: none; cursor: grab; }
+#pet-dock .companion-drag:hover { background: var(--ui-soft); }
+#pet-dock.is-dragging .companion-drag { cursor: grabbing; }
+#pet-companion-panel { z-index: 10049; width: min(320px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain; padding: 18px; border-radius: 18px; }
+#pet-companion-panel header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+#pet-companion-panel .companion-eyebrow { font-size: 11px; color: var(--ui-muted); }
+#pet-companion-panel h2 { margin: 4px 0 0; font-size: 20px; line-height: 1.3; font-weight: 600; color: var(--ui-text); overflow-wrap: anywhere; }
+#pet-companion-panel button, #pet-companion-panel a { font: inherit; cursor: pointer; color: var(--ui-text); text-decoration: none; border: 1px solid var(--ui-border); border-radius: 10px; background: var(--ui-soft); box-shadow: none; }
+#pet-companion-panel button:hover, #pet-companion-panel a:hover { background: var(--ui-tint); border-color: var(--ui-accent); }
+#pet-companion-panel .astral-icon { width: 18px; height: 18px; color: var(--ui-accent); flex-shrink: 0; }
+#pet-companion-panel .companion-icon { width: 36px; height: 36px; padding: 8px; display: grid; place-items: center; flex-shrink: 0; }
+#pet-companion-panel .companion-message { min-height: 64px; padding: 13px 14px; border-radius: 12px; background: var(--ui-tint); margin: 0 0 12px; font-size: 13px; line-height: 1.65; box-sizing: border-box; }
+#pet-companion-panel .companion-interactions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#pet-companion-panel .companion-interactions button { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 6px; font-size: 13px; min-height: 48px; }
+#pet-companion-panel button[aria-pressed="true"] { background: var(--ui-tint); color: var(--ui-accent); border-color: var(--ui-accent); }
+#pet-companion-panel .companion-tools { border-top: 1px solid var(--ui-border); padding-top: 16px; margin-top: 16px; }
+#pet-companion-panel h3 { margin: 0 0 10px; font-size: 12px; color: var(--ui-muted); font-weight: 500; }
+#pet-companion-panel .companion-tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#pet-companion-panel .companion-tool-grid button { display: flex; gap: 8px; align-items: center; padding: 10px; min-height: 44px; font-size: 12px; }
+#pet-companion-panel .companion-tool-grid p { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--ui-muted); }
+#pet-companion-panel footer { display: flex; align-items: center; gap: 4px; border-top: 1px solid var(--ui-border); padding-top: 12px; margin-top: 16px; }
+#pet-companion-panel footer button, #pet-companion-panel footer a { min-height: 40px; padding: 8px; border-color: transparent; background: transparent; font-size: 12px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; }
+#pet-companion-panel footer [data-do="collapse"] { margin-left: auto; }
+#pet-companion-restore { right: 18px; bottom: 84px; width: 44px; height: 44px; padding: 12px; border-radius: 14px; cursor: pointer; color: var(--ui-accent); }
+#pet-companion-restore .astral-icon { width: 18px; height: 18px; }
+:is(#pet-dock, #pet-companion-panel) :is(button,a):focus-visible, #pet-companion-restore:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
+@media (max-width: 560px) { #pet-dock, #pet-dock[data-size="lg"] { width: 196px; height: 64px; } }
+/* Opaque surfaces keep the interaction readable over cards and custom wallpapers. */
+#pet-dock, #pet-companion-panel, #pet-companion-restore { background: #fff; }
+html[data-theme="dark"] :is(#pet-dock, #pet-companion-panel, #pet-companion-restore) { background: #1a2433; }
+/* Floating character presentation replaces the previous dock container. */
+html body #pet-dock, html[data-theme="dark"] body #pet-dock {
+  width: 126px; height: 150px; background: transparent; border: 0; box-shadow: none;
+  display: block; pointer-events: none;
+}
+html body #pet-dock[data-size="sm"] { width: 112px; height: 134px; }
+html body #pet-dock[data-size="lg"] { width: 142px; height: 166px; }
+html body #pet-dock .companion-trigger { position: absolute; inset: 0 12px 20px; display: block; padding: 0; background: transparent; border-radius: 16px; touch-action: none; cursor: grab; pointer-events: auto; }
+html body #pet-dock .companion-trigger:hover { background: transparent; }
+html body #pet-dock.is-dragging .companion-trigger { cursor: grabbing; }
+html body #pet-dock .companion-avatar { position: absolute; inset: 0; display: block; height: 100%; overflow: visible; }
+html body #pet-dock .companion-copy { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); width: max-content; max-width: 142px; align-items: center; gap: 2px; pointer-events: none; }
+html body #pet-dock .companion-copy strong { display: none; }
+html body #pet-dock .companion-status { max-width: 140px; padding: 3px 7px; border: 1px solid var(--ui-border); border-radius: 7px; background: var(--ui-base, #fff); font-size: 10px; line-height: 1.3; color: var(--ui-muted); }
+html body #pet-dock[data-status="idle"] .companion-status { opacity: 0; }
+html body #pet-dock:hover .companion-status, html body #pet-dock:focus-within .companion-status { opacity: 1; }
+html body #pet-dock .companion-chevron { display: none; }
+html body #pet-dock .companion-drag { position: absolute; bottom: 25px; right: -12px; width: 30px; height: 30px; padding: 0; pointer-events: auto; border: 1px solid var(--ui-border); border-radius: 9px; background: var(--ui-base, #fff); color: var(--ui-muted); font: 18px/1 sans-serif; cursor: pointer; opacity: 0; }
+html body #pet-dock:hover .companion-drag, html body #pet-dock:focus-within .companion-drag { opacity: 1; }
+html body #pet-dock .companion-speech { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); width: max-content; max-width: min(220px, calc(100vw - 32px)); padding: 9px 12px; border: 1px solid var(--ui-border); border-radius: 12px; background: #fff; color: var(--ui-text); box-shadow: 0 6px 20px #12243c14; font-size: 12px; line-height: 1.6; pointer-events: none; }
+html[data-theme="dark"] body #pet-dock .companion-speech { background: #1a2433; }
+html body #pet-dock .companion-speech.is-below { bottom: auto; top: 100%; }
+html body #pet-dock .companion-speech[hidden] { display: none; }
+html body #pet-companion-panel { width: min(264px, calc(100vw - 16px)); padding: 12px; border-radius: 12px; }
+html body #pet-companion-panel .companion-eyebrow, html body #pet-companion-panel .companion-message { display: none; }
+html body #pet-companion-panel h2 { font-size: 15px; margin: 0; }
+html body #pet-companion-panel header { margin-bottom: 8px; }
+html body #pet-companion-panel .companion-tools { margin-top: 10px; padding-top: 10px; }
+html body #pet-companion-panel footer { margin-top: 10px; padding-top: 8px; }
+@media (hover: none) { html body #pet-dock .companion-drag { opacity: 1; } }
+html body #pet-dock .companion-drag { right: 0; }
+html body #pet-dock .companion-status { max-width: 110px; }
+html body #pet-companion-panel[data-feedback="true"] .companion-message { display: block; min-height: 0; margin: 0 0 8px; padding: 8px 10px; font-size: 12px; }

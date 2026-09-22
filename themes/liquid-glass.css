@@ -1,0 +1,131 @@
+/* 液态玻璃：透色玻璃、弧面高光和双层折射边缘。 */
+html[data-visual-theme="liquid-glass"] {
+  --accent: #286b9e;
+  --accent-2: #76abc8;
+  --accent-soft: rgba(40, 107, 158, .16);
+  --accent-rgb: 40, 107, 158;
+  --text: #162f42;
+  --text-soft: #405c70;
+  --text-faint: #526d80;
+  --glass-bg: rgba(246, 252, 255, .38);
+  --glass-border: rgba(255, 255, 255, .66);
+  --glass-shadow: 0 12px 36px rgba(24, 71, 102, .12);
+  --card-bg: rgba(255, 255, 255, .34);
+  --card-hover: rgba(255, 255, 255, .6);
+  --card-border: rgba(255, 255, 255, .66);
+  --ui-surface: #e9f3fa;
+  --ui-soft: #dfedf5;
+  --ui-border: rgba(60, 104, 132, .24);
+  --lg-control: rgba(251, 254, 255, .5);
+  --lg-highlight: rgba(255, 255, 255, .86);
+  --lg-edge: rgba(84, 138, 168, .22);
+  --lg-sheen: linear-gradient(128deg, rgba(255, 255, 255, .34), transparent 36%, transparent 72%, rgba(255, 255, 255, .16));
+  --lg-blur: clamp(8px, var(--blur, 18px), 28px);
+  --bg-gradient:
+    radial-gradient(ellipse 90% 115% at 108% 108%, transparent 44%, #e9faffb3 44.5%, #d2f1f54d 47%, transparent 50%),
+    radial-gradient(ellipse 100% 135% at -16% -30%, #ecfaff 30%, #a9d7eb 48%, #effaff 48.5%, #c9e8f399 51%, transparent 55%),
+    radial-gradient(ellipse at 85% 14%, #f2e7dc 0%, transparent 55%),
+    linear-gradient(145deg, #a4cfe4, #c4e6ef 48%, #83b5d3);
+}
+
+html[data-visual-theme="liquid-glass"][data-theme="dark"] {
+  --text: #edf6fc;
+  --text-soft: #bdd2e2;
+  --text-faint: #a4bed0;
+  --glass-bg: rgba(17, 36, 55, .55);
+  --glass-border: rgba(200, 232, 255, .28);
+  --glass-shadow: 0 12px 36px rgba(0, 10, 26, .28);
+  --card-bg: rgba(127, 184, 223, .12);
+  --card-hover: rgba(135, 197, 239, .22);
+  --card-border: rgba(200, 232, 255, .28);
+  --ui-surface: #182e42;
+  --ui-soft: #203b50;
+  --ui-border: rgba(190, 223, 244, .23);
+  --ui-accent: color-mix(in srgb, var(--accent) 35%, #d5f1ff);
+  --lg-control: rgba(137, 190, 224, .15);
+  --lg-highlight: rgba(210, 238, 255, .32);
+  --lg-edge: rgba(0, 10, 22, .45);
+  --lg-sheen: linear-gradient(128deg, rgba(213, 241, 255, .12), transparent 36%, transparent 72%, rgba(143, 198, 234, .07));
+  --bg-gradient:
+    radial-gradient(ellipse 90% 115% at 108% 108%, transparent 44%, #508dac59 44.5%, #234b6b44 47%, transparent 50%),
+    radial-gradient(ellipse 100% 135% at -16% -30%, #1b3b53 30%, #224963 48%, #588fac 48.5%, #1f486488 51%, transparent 55%),
+    radial-gradient(ellipse at 85% 14%, #3c414e 0%, transparent 55%),
+    linear-gradient(145deg, #112838, #173649 48%, #091c30);
+}
+
+/* 只在大面板上采样背景，内部卡片使用高光，避免多层模糊。 */
+html[data-visual-theme="liquid-glass"] body :is(.glass, .header-bar) {
+  background: var(--lg-sheen), var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  box-shadow: inset 0 1px 1px var(--lg-highlight), inset 0 -1px 1px var(--lg-edge), inset 1px 0 1px var(--lg-highlight), var(--glass-shadow);
+  backdrop-filter: blur(var(--lg-blur)) saturate(1.45);
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(1.45);
+}
+
+html[data-visual-theme="liquid-glass"] body .header-bar::after { background: none; }
+html[data-visual-theme="liquid-glass"] body :is(.greet h1, #clock-time) { color: var(--text); }
+html[data-visual-theme="liquid-glass"] body :is(.brand-title, .greet > p, #clock-date) { color: var(--text-soft); }
+
+html[data-visual-theme="liquid-glass"] body :is(.card, .topbar-btn, .chip, .mini-btn, .gv-btn, .group-tab, .close-btn, .btn-secondary) {
+  background: var(--lg-sheen), var(--lg-control);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 1px var(--lg-highlight), inset 0 -1px 1px var(--lg-edge), 0 3px 10px rgba(20, 57, 83, .06);
+  border-radius: 12px;
+}
+html[data-visual-theme="liquid-glass"] body .card { border-radius: 20px; }
+html[data-visual-theme="liquid-glass"] body .card-add { background: var(--card-bg); }
+html[data-visual-theme="liquid-glass"] body :is(.card, .topbar-btn, .chip, .mini-btn, .gv-btn, .group-tab, .close-btn, .btn-secondary):hover {
+  background: var(--lg-sheen), var(--card-hover);
+  border-color: var(--lg-highlight);
+  color: var(--text);
+}
+html[data-visual-theme="liquid-glass"] body :is(.gv-btn.is-active, .group-tab.is-active, .chip.is-active) {
+  background: var(--ui-tint);
+  color: var(--ui-accent);
+  border-color: var(--ui-accent);
+}
+html[data-visual-theme="liquid-glass"] body .search-form {
+  background: var(--lg-control);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  box-shadow: inset 0 2px 5px rgba(25, 70, 105, .08), 0 1px 0 var(--lg-highlight);
+}
+html[data-visual-theme="liquid-glass"] body .search-form:focus-within {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-accent) 18%, transparent);
+}
+html[data-visual-theme="liquid-glass"] body :is(.ai-fab, #music-fab) {
+  color: var(--text);
+  background: var(--lg-sheen), var(--glass-bg);
+  border-color: var(--glass-border);
+  border-radius: 20px;
+  box-shadow: inset 0 1px 2px var(--lg-highlight), var(--glass-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+html[data-visual-theme="liquid-glass"] body :is(.ai-fab-icon, .music-fab-icon) {
+  color: var(--text);
+  filter: none;
+}
+
+/* 表单和阅读区保留实色衬底，弹窗边缘仍有玻璃高光。 */
+html[data-visual-theme="liquid-glass"] body .glass-dialog > :is(form, .dialog-form) {
+  border-color: var(--glass-border);
+  border-radius: 24px;
+  box-shadow: inset 0 1px 1px var(--lg-highlight), 0 24px 70px rgba(5, 24, 44, .3);
+}
+@media (max-width: 768px) {
+  html[data-visual-theme="liquid-glass"] { --lg-blur: 10px; }
+  html[data-visual-theme="liquid-glass"] body :is(.glass, .header-bar) { border-radius: 20px; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-visual-theme="liquid-glass"] body :is(.glass, .header-bar, .ai-fab, #music-fab) { background: var(--ui-surface); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-visual-theme="liquid-glass"] body :is(.glass, .header-bar, .card, .ai-fab, #music-fab) {
+    background: var(--ui-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

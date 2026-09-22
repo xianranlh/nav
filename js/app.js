@@ -153,6 +153,7 @@
       blur: 18,
       sakuraCount: 70,
       sakuraSpeed: 1.0,
+      particleEffect: "auto",
       density: "normal",
       /** 分组默认查看方式：icons 图标 | list 列表 | details 详细信息（可被分组自身覆盖） */
       defaultGroupView: "icons",
@@ -162,7 +163,7 @@
       defaultGroupViewCols: "1",
       fontSize: "normal",         // small | normal | large
       radius: "normal",            // square | normal | rounded
-      accent: "#ff8fab",
+      accent: Theme.getVisualTheme(Theme.DEFAULT_VISUAL_THEME_ID).accent,
       glassAlpha: 0.35,
       glassSat: 1.4,
       // 背景
@@ -424,12 +425,8 @@
       b.type = "button";
       b.className = "group-tab";
       b.dataset.groupId = item.id;
-      if (isLocalSiteGroup(groups.find((g) => g.id === item.id))) {
-        b.innerHTML = `${astralIcon("station")}<span>${escapeHtml(item.label)}</span>`;
-        b.classList.add("is-local");
-      } else {
-        b.textContent = item.label;
-      }
+      b.innerHTML = `<span class="group-tab-star" aria-hidden="true">${astralIcon(window.AstralIcons.groupIcon(item.label))}</span><span>${escapeHtml(item.label)}</span>`;
+      if (isLocalSiteGroup(groups.find((g) => g.id === item.id))) b.classList.add("is-local");
       b.addEventListener("click", () => {
         const target = document.querySelector(`section.group[data-gid="${CSS.escape(item.id)}"]`);
         if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -475,7 +472,7 @@
     const localGroup = isLocalSiteGroup(g);
     el.className = "glass group" + (Store.settings.collapsedGroups?.[g.id] ? " collapsed" : "") + (localGroup ? " group-local-sites" : "");
     el.dataset.gid = g.id;
-    el.style.setProperty("--group-color", g.color || "#ff8fab");
+    el.style.setProperty("--group-color", g.color || "#476b96");
 
     const gv = resolveGroupView(g);
     const showCols = gv.mode === "list" || gv.mode === "details";
@@ -483,9 +480,7 @@
       <div class="group-head">
         <span class="group-handle" title="拖动以重排分组" aria-label="拖动以重排">⠿</span>
         <button type="button" class="group-toggle" data-act="toggle" title="折叠/展开" aria-label="折叠/展开" aria-expanded="${Store.settings.collapsedGroups?.[g.id] ? "false" : "true"}">▾</button>
-        ${localGroup
-          ? `<span class="group-emblem local-group-emblem" aria-hidden="true"><img src="${LOCAL_SITE_ICON_DIR}local-dashboard.webp" alt="" /></span>`
-          : `<span class="group-emblem" data-astral-icon="folder" aria-hidden="true"></span>`}
+        <span class="group-emblem group-star" aria-hidden="true">${astralIcon(window.AstralIcons.groupIcon(g.name))}</span>
         <span class="group-dot" aria-hidden="true"></span>
         <input class="group-name" value="${escapeHtml(g.name)}" aria-label="分组名称" />
         <span class="group-count">${g.links.length} 个</span>
@@ -620,7 +615,7 @@
         [Store.state.groups[idx], Store.state.groups[t]] = [Store.state.groups[t], Store.state.groups[idx]];
         Store.save(); render();
       } else if (act === "color") {
-        pickColor(g.color || "#ff8fab").then((c) => {
+        pickColor(g.color || "#476b96").then((c) => {
           if (!c) return;
           g.color = c;
           Store.save(); render();
@@ -1491,7 +1486,7 @@
     return new Promise((resolve) => {
       const input = document.createElement("input");
       input.type = "color";
-      input.value = initial || "#ff8fab";
+      input.value = initial || "#476b96";
       input.style.position = "fixed";
       input.style.left = "-9999px";
       document.body.appendChild(input);
@@ -1622,7 +1617,7 @@
   });
 
   function randomPink() {
-    const colors = ["#ff8fab", "#ffc2d6", "#f6a5c0", "#c9e4ff", "#bfa6ff", "#ffd39a", "#a6e6c0"];
+    const colors = ["#476b96", "#ffc2d6", "#f6a5c0", "#c9e4ff", "#bfa6ff", "#ffd39a", "#a6e6c0"];
     return colors[Math.floor(Math.random() * colors.length)];
   }
 
@@ -1783,15 +1778,16 @@
 
   function hexToRgb(hex) {
     const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || "");
-    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [255, 143, 171];
+    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [71, 107, 150];
   }
 
   function applyStyle() {
     const s = Store.settings;
+    const accent = s.accent || Theme.getVisualTheme(s.visualTheme).accent;
     const root = document.documentElement;
-    const [r, g, b] = hexToRgb(s.accent);
+    const [r, g, b] = hexToRgb(accent);
     // 主色
-    root.style.setProperty("--accent", s.accent || "#ff8fab");
+    root.style.setProperty("--accent", accent);
     root.style.setProperty("--accent-rgb", `${r}, ${g}, ${b}`);
     root.style.setProperty("--accent-soft", `rgba(${r}, ${g}, ${b}, 0.18)`);
     // 次色调：主色偏亮 15%
@@ -1810,11 +1806,11 @@
     root.dataset.radius = s.radius;
     // 主题色标签
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = s.accent || "#ff8fab";
+    if (meta) meta.content = accent;
   }
 
   function particleModeFromVisualTheme(vid) {
-    return Theme.particleModeFromVisualTheme(vid);
+    return Theme.particleModeFromVisualTheme(vid, Store.settings.particleEffect);
   }
 
   function applyVisualTheme() {
@@ -1898,7 +1894,7 @@
     setV("#set-site-title", s.siteTitle || "");
     setV("#set-theme", s.theme);
     setV("#set-visual-theme", s.visualTheme || "sakura");
-    setV("#set-accent", s.accent || "#ff8fab");
+    setV("#set-accent", s.accent || Theme.getVisualTheme(s.visualTheme).accent);
     setV("#set-fontsize", s.fontSize);
     setV("#set-radius", s.radius);
     setV("#set-density", s.density);
@@ -1910,6 +1906,7 @@
     setV("#set-glass-alpha", s.glassAlpha);
     setV("#set-glass-sat", s.glassSat);
     setV("#set-sakura-count", s.sakuraCount);
+    setV("#set-particle-effect", s.particleEffect || "auto");
     setV("#set-sakura-speed", s.sakuraSpeed);
     setV("#set-bg-mode", s.bgMode);
     setV("#set-bg-single", s.bgSingle || "");
@@ -2054,13 +2051,10 @@
       if (!id || id === Store.settings.visualTheme) return;
       const meta = Theme.getVisualTheme(id);
       if (!meta) return;
-      const previousVisualTheme = Store.settings.visualTheme;
+      if (Theme.shouldSyncAccent(s.accent, s.visualTheme)) s.accent = meta.accent;
       Store.settings.visualTheme = meta.id;
-      if (Theme.shouldSyncAccent(Store.settings.accent, previousVisualTheme)) {
-        Store.settings.accent = meta.accent;
-        const accentInput = $("#set-accent");
-        if (accentInput) accentInput.value = meta.accent;
-      }
+      setV("#set-accent", s.accent);
+
       Store.saveSettings();
       applyVisualTheme();
       applyHeroMode();
@@ -2068,14 +2062,16 @@
       syncSakuraParticles();
       document.dispatchEvent(new CustomEvent("theme:changed", { detail: { id: meta.id } }));
     });
-    $("#set-accent").addEventListener("input", (e) => { s.accent = e.target.value; Store.saveSettings(); applyStyle(); });
-    $("#set-accent-reset").addEventListener("click", () => {
-      const m = VISUAL_THEMES[s.visualTheme] || VISUAL_THEMES.sakura;
-      s.accent = m.accent;
-      const el = $("#set-accent");
-      if (el) el.value = s.accent;
-      Store.saveSettings();
+    $("#set-accent").addEventListener("input", (e) => {
+      s.accent = e.target.value;
       applyStyle();
+      Store.saveSettings();
+    });
+    $("#set-accent-reset").addEventListener("click", () => {
+      s.accent = Theme.getVisualTheme(s.visualTheme).accent;
+      setV("#set-accent", s.accent);
+      applyStyle();
+      Store.saveSettings();
     });
     $("#set-fontsize").addEventListener("change", (e) => { s.fontSize = e.target.value; Store.saveSettings(); applyStyle(); });
     $("#set-radius").addEventListener("change", (e) => { s.radius = e.target.value; Store.saveSettings(); applyStyle(); });
@@ -2104,7 +2100,12 @@
     $("#set-glass-alpha").addEventListener("input", (e) => { s.glassAlpha = +e.target.value; Store.saveSettings(true); applyStyle(); updateLabels(); });
     $("#set-glass-sat").addEventListener("input", (e) => { s.glassSat = +e.target.value; Store.saveSettings(true); applyStyle(); updateLabels(); });
 
-    // --- 樱花 ---
+    // --- 背景特效 ---
+    $("#set-particle-effect").addEventListener("change", (e) => {
+      s.particleEffect = e.target.value;
+      syncSakuraParticles();
+      Store.saveSettings();
+    });
     $("#set-sakura-count").addEventListener("input", (e) => {
       s.sakuraCount = +e.target.value;
       syncSakuraParticles();
@@ -3120,7 +3121,7 @@
     loginOverlay.hidden = false;
     loginMsg.textContent = "";
     loginMsg.classList.remove("ok");
-    setTimeout(() => loginUser.focus(), 100);
+    if (matchMedia("(pointer: fine)").matches) setTimeout(() => loginUser.focus(), 100);
   }
 
   function hideLogin() {
@@ -3131,16 +3132,30 @@
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = loginForm.querySelector("button[type=submit]");
+    if (btn.disabled) return;
     btn.disabled = true;
+    btn.textContent = "正在登录…";
+    loginForm.setAttribute("aria-busy", "true");
+    loginPass.removeAttribute("aria-invalid");
+    loginMsg.dataset.state = "pending";
     loginMsg.classList.remove("ok");
     loginMsg.textContent = "正在验证…";
-    const r = await Auth.login(loginUser.value.trim(), loginPass.value, loginRemember.checked);
+    let r;
+    try {
+      r = await Auth.login(loginUser.value.trim(), loginPass.value, loginRemember.checked);
+    } catch (_) {
+      r = { ok: false, reason: "暂时无法登录，请刷新页面后重试" };
+    }
     btn.disabled = false;
+    btn.textContent = "登录";
+    loginForm.removeAttribute("aria-busy");
     if (!r.ok) {
-      loginMsg.textContent = r.reason || "登录失败";
+      loginMsg.dataset.state = "error";
+      loginPass.setAttribute("aria-invalid", "true");
+      loginMsg.textContent = r.reason || "登录失败，请检查用户名与密码后重试";
       loginForm.classList.remove("shake");
       void loginForm.offsetWidth;
-      loginForm.animate(
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) loginForm.animate(
         [
           { transform: "translateX(-10px)" },
           { transform: "translateX(10px)" },
@@ -3154,7 +3169,10 @@
       return;
     }
     loginMsg.classList.add("ok");
-    loginMsg.textContent = "登录成功 🌸";
+    loginMsg.dataset.state = "success";
+    btn.disabled = true;
+    btn.textContent = "正在进入…";
+    loginMsg.textContent = "登录成功，正在进入导航…";
     loginPass.value = "";
     // 多账号：登录前 /api/data 是 401，SakuraRemote 未水合；整页刷新用新 token 重新初始化
     setTimeout(() => { location.reload(); }, 250);

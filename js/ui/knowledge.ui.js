@@ -35,6 +35,9 @@
     readerPin: byId("knowledge-reader-pin"),
     back: byId("knowledge-back"),
     reindex: byId("knowledge-reindex"),
+    all: byId("knowledge-all"),
+    allCount: byId("knowledge-all-count"),
+    sort: byId("knowledge-sort"),
   };
 
   const store = {
@@ -44,6 +47,7 @@
     pinned: [],
     tags: [],
     results: [],
+    library: { items: [], total: 0, offset: 0, limit: 50 },
     activeNote: null,
     lastMode: "overview",
     lastListTitle: "知识概览",
@@ -52,6 +56,43 @@
   let pollTimer = 0;
   let requestSerial = 0;
   let requestController = null;
+  let assetController = new AbortController();
+  const assetUrls = new Map();
+
+  function clearAssets() {
+    assetController.abort();
+    assetController = new AbortController();
+    for (const value of assetUrls.values()) value.then((url) => URL.revokeObjectURL(url)).catch(() => {});
+    assetUrls.clear();
+  }
+
+  function fetchAsset(assetId) {
+    if (!assetUrls.has(assetId)) {
+      const signal = assetController.signal;
+      const pending = fetch(assetUrl(assetId), { signal, cache: "no-store" }).then(async (response) => {
+        if (!response.ok) throw new Error("附件读取失败，请刷新索引后重试");
+        const blob = await response.blob();
+        signal.throwIfAborted();
+        return URL.createObjectURL(blob);
+      });
+      assetUrls.set(assetId, pending);
+    }
+    return assetUrls.get(assetId);
+  }
+
+  function bindAssetLink(link, assetId) {
+    link.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const popup = window.open("about:blank", "_blank");
+      if (!popup) return showTransientError(new Error("请允许打开附件窗口"));
+      popup.opener = null;
+      try { popup.location.replace(await fetchAsset(assetId)); }
+      catch (error) {
+        popup.close();
+        if (error?.name !== "AbortError") showTransientError(error);
+      }
+    });
+  }
 
   function emit(name, detail) {
     try { window.SakuraPetEvents?.emit?.(name, detail || {}); } catch (_) {}
@@ -147,11 +188,16 @@
       try {
         const wasIndexing = !!store.status?.indexing;
         const status = await api.status();
+        if (!dialog.open) return;
         setStatus(status);
         if (status.indexing) scheduleStatusPoll();
         else {
           if (wasIndexing) emit("nav:knowledge:index-done", {});
-          await loadHome();
+          if (refs.state.dataset.kind === "indexing" && !refs.state.hidden) await loadHome();
+          else {
+            await loadCollections();
+            if (!store.activeNote && store.lastMode === "overview" && dialog.open) renderOverview();
+          }
         }
       } catch (_) {}
     }, 1500);
@@ -230,6 +276,9 @@
   }
 
   function renderResults(items, title) {
+    store.activeNote = null;
+    refs.all.removeAttribute("aria-current");
+    refs.sort.hidden = true;
     store.lastMode = "results";
     store.lastListTitle = title;
     store.results = items;
@@ -248,28 +297,57 @@
 
   function renderOverview() {
     store.lastMode = "overview";
-    store.lastListTitle = "知识概览";
-    refs.title.textContent = "知识概览";
+    store.activeNote = null;
+    store.lastListTitle = "全部文档";
+    refs.title.textContent = "全部文档";
+    refs.all.setAttribute("aria-current", "page");
+    refs.sort.hidden = false;
     refs.state.hidden = true;
     refs.reader.hidden = true;
     refs.back.hidden = true;
     refs.results.hidden = false;
     refs.results.replaceChildren();
-    const items = [...store.recent.filter((item) => item.available !== false)];
-    for (const item of store.pinned) {
-      if (item.available !== false && !items.some((current) => current.noteId === item.noteId)) items.push(item);
-    }
+    const { items, total, offset, limit } = store.library;
+    refs.allCount.textContent = String(total);
     if (!items.length) {
-      const intro = node("div", "knowledge-intro");
-      intro.append(
-        node("span", "knowledge-orbit", ""),
-        node("h4", "", "你的星穹知识中枢已经连接"),
-        node("p", "", "在左上方搜索标题、正文或标签。打开后的笔记会同步到所有设备。")
-      );
-      refs.results.append(intro);
+      replaceTextState("empty", "还没有文档", "同步 Obsidian 笔记后，文档会显示在这里。");
       return;
     }
-    refs.results.append(...items.slice(0, 8).map((item) => resultCard(item, { overview: true })));
+    refs.results.append(...items.map((item) => resultCard(item, { overview: true })));
+    if (total > limit) {
+      const pager = node("nav", "knowledge-pagination");
+      pager.setAttribute("aria-label", "文档分页");
+      for (const [label, next, disabled] of [["上一页", offset - limit, offset === 0], ["下一页", offset + limit, offset + limit >= total]]) {
+        const button = node("button", "btn-secondary", label);
+        button.type = "button";
+        button.disabled = disabled;
+        button.addEventListener("click", () => loadLibrary(next));
+        pager.append(button);
+      }
+      pager.append(node("span", "", `${offset + 1}–${Math.min(offset + limit, total)} / ${total}`));
+      refs.results.append(pager);
+    }
+  }
+
+  async function loadLibrary(offset = 0) {
+    clearTimeout(debounceTimer);
+    requestController?.abort();
+    clearAssets();
+    const serial = ++requestSerial;
+    requestController = new AbortController();
+    refs.searchInput.value = "";
+    refs.results.setAttribute("aria-busy", "true");
+    try {
+      const result = await api.list(offset, refs.sort.value, requestController.signal);
+      if (serial !== requestSerial || !dialog.open) return;
+      store.library = result;
+      renderOverview();
+      refs.results.scrollTop = 0;
+    } catch (error) {
+      if (serial === requestSerial && error?.name !== "AbortError") showTransientError(error);
+    } finally {
+      if (serial === requestSerial) refs.results.removeAttribute("aria-busy");
+    }
   }
 
   function isPinned(noteId) {
@@ -320,7 +398,9 @@
       } else if (part.type === "asset" && part.assetId) {
         if (/^image\/(?:png|jpeg|webp|gif|svg\+xml)$/.test(part.mimeType || "")) {
           const image = node("img", "knowledge-inline-image");
-          image.src = assetUrl(part.assetId);
+          fetchAsset(part.assetId).then((url) => { image.src = url; }).catch((error) => {
+            if (error?.name !== "AbortError") image.alt = "图片读取失败，请刷新索引后重试";
+          });
           image.alt = part.alt || part.name || "笔记图片";
           image.loading = "lazy";
           image.decoding = "async";
@@ -328,6 +408,7 @@
         } else {
           const link = node("a", "knowledge-inline-asset", `附件：${part.name || "打开"}`);
           link.href = assetUrl(part.assetId);
+          bindAssetLink(link, part.assetId);
           link.target = "_blank";
           link.rel = "noopener noreferrer";
           fragment.append(link);
@@ -401,6 +482,7 @@
     refs.readerAssets.replaceChildren(...(assets.length ? assets.map((asset) => {
       const link = node("a", "knowledge-relation-item", `${asset.name || "附件"} · ${formatBytes(asset.sizeBytes)}`);
       link.href = assetUrl(asset.assetId);
+      bindAssetLink(link, asset.assetId);
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       return link;
@@ -416,6 +498,9 @@
   }
 
   async function openNote(noteId, { heading = "" } = {}) {
+    clearTimeout(debounceTimer);
+    clearAssets();
+    refs.sort.hidden = true;
     requestController?.abort();
     const serial = ++requestSerial;
     requestController = new AbortController();
@@ -450,7 +535,7 @@
       }
       loadCollections().catch(() => {});
     } catch (error) {
-      if (error?.name === "AbortError") return;
+      if (error?.name === "AbortError" || serial !== requestSerial) return;
       emit("nav:knowledge:error", { code: error?.code || "KNOWLEDGE_UNAVAILABLE" });
       replaceTextState("error", "无法打开这篇笔记", error?.message || "笔记可能已移动，请重新索引后再试。", {
         label: "返回知识概览",
@@ -468,7 +553,8 @@
   async function runSearch(rawQuery) {
     const query = String(rawQuery ?? refs.searchInput.value).trim();
     clearTimeout(debounceTimer);
-    if (query.length < 2) {
+    if (query.length < 1) {
+      ++requestSerial;
       requestController?.abort();
       renderOverview();
       return;
@@ -484,7 +570,7 @@
       renderResults(response.items || [], `“${query.slice(0, 28)}”的搜索结果`);
       api.updateConfig({ lastQuery: query }).catch(() => {});
     } catch (error) {
-      if (error?.name === "AbortError") return;
+      if (error?.name === "AbortError" || serial !== requestSerial) return;
       emit("nav:knowledge:error", { code: error?.code || "KNOWLEDGE_UNAVAILABLE" });
       replaceTextState("error", "搜索暂时不可用", error?.message || "知识服务暂时无法连接。", {
         label: "重试",
@@ -494,9 +580,11 @@
   }
 
   async function loadCollections() {
-    const [recentResponse, tagResponse, configResponse] = await Promise.all([
-      api.recent(20), api.tags(30), api.config(),
+    const [recentResponse, tagResponse, configResponse, libraryResponse] = await Promise.all([
+      api.recent(6), api.tags(20), api.config(), api.list(store.library.offset, refs.sort.value),
     ]);
+    store.library = libraryResponse;
+    refs.allCount.textContent = String(libraryResponse.total);
     store.recent = recentResponse.items || [];
     store.tags = tagResponse.items || [];
     store.config = configResponse.config || store.config;
@@ -505,16 +593,22 @@
   }
 
   async function loadHome() {
+    requestController?.abort();
+    const serial = ++requestSerial;
     clearTimeout(pollTimer);
     replaceTextState("loading", "正在连接知识服务", "读取 Vault 状态与最近笔记…" );
     try {
       const status = await api.status();
+      if (serial !== requestSerial || !dialog.open) return;
       setStatus(status);
       if (showStatusState(status)) return;
       await loadCollections();
+      if (serial !== requestSerial || !dialog.open) return;
+      refs.searchInput.value = "";
       renderOverview();
       if (status.indexing) scheduleStatusPoll();
     } catch (error) {
+      if (serial !== requestSerial || !dialog.open) return;
       setStatus({ enabled: true, configured: false, errorCode: error?.code });
       emit("nav:knowledge:error", { code: error?.code || "KNOWLEDGE_UNAVAILABLE" });
       replaceTextState("error", "知识服务暂时不可用", error?.message || "请检查服务端后再重试。", {
@@ -541,16 +635,20 @@
   }
 
   async function openKnowledge() {
+    if (dialog.open && !dialog.classList.contains("closing")) return;
     if (window.Dlg) window.Dlg.open(dialog);
     else dialog.showModal();
     if (window.SakuraRemote?.ready) {
       try { await window.SakuraRemote.ready; } catch (_) {}
     }
     await loadHome();
-    requestAnimationFrame(() => refs.searchInput.focus({ preventScroll: true }));
+    if (dialog.open) requestAnimationFrame(() => refs.searchInput.focus({ preventScroll: true }));
   }
 
   trigger.addEventListener("click", openKnowledge);
+
+  refs.all.addEventListener("click", () => loadLibrary(0));
+  refs.sort.addEventListener("change", () => loadLibrary(0));
 
   refs.searchForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -558,14 +656,19 @@
   });
   refs.searchInput.addEventListener("input", () => {
     clearTimeout(debounceTimer);
+    requestController?.abort();
+    ++requestSerial;
     const query = refs.searchInput.value.trim();
-    if (query.length < 2) {
+    if (query.length < 1) {
       if (!query) renderOverview();
       return;
     }
     debounceTimer = setTimeout(() => runSearch(query), 250);
   });
   refs.back.addEventListener("click", () => {
+    requestController?.abort();
+    ++requestSerial;
+    clearAssets();
     if (store.lastMode === "results" && store.results.length) renderResults(store.results, store.lastListTitle);
     else renderOverview();
   });
@@ -573,7 +676,9 @@
     if (store.activeNote) togglePin(store.activeNote.noteId);
   });
   refs.reindex.addEventListener("click", reindex);
-  dialog.addEventListener("dialog:closed", () => {
+  dialog.addEventListener("close", () => {
+    ++requestSerial;
+    clearAssets();
     clearTimeout(debounceTimer);
     clearTimeout(pollTimer);
     requestController?.abort();

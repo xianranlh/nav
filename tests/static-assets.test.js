@@ -57,6 +57,8 @@ test("Docker image includes current theme assets and excludes removed LX source 
   assert.match(dockerfile, /COPY styles\/\s+\/usr\/share\/nginx\/html\/styles\//);
   assert.doesNotMatch(dockerfile, /lx-sources/);
   assert.match(dockerfile, /server\/music-lx\.js/);
+  assert.match(dockerfile, /server\/music-gd\.js/);
+  assert.match(dockerfile, /server\/music-native\.js/);
   assert.match(dockerfile, /server\/sso\.js/);
   assert.ok(fs.existsSync("js/homepage-theme.js"), "homepage-theme.js ships under js/");
   assert.ok(fs.existsSync("js/homepage-layout.js"), "homepage-layout.js ships under js/");

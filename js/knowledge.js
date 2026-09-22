@@ -39,7 +39,7 @@
       ATTACHMENT_CHANGED: "附件已变化，请重新索引",
       UNSAFE_ATTACHMENT: "已阻止不安全的附件内容",
       REINDEX_RATE_LIMITED: "刚刚已经请求过重建，请稍后再试",
-      INVALID_QUERY: "请输入 2–120 个字符进行搜索",
+      INVALID_QUERY: "请输入 1–120 个字符进行搜索",
     };
     if (messages[code]) return messages[code];
     if (status === 401) return "登录已过期，请重新登录";
@@ -66,6 +66,7 @@
     };
     return {
       status: () => request("/status"),
+      list: (offset = 0, sort = "updated", signal) => request(`/notes?limit=50&offset=${Math.max(0, Number(offset) || 0)}&sort=${sort === "title" ? "title" : "updated"}`, { signal }),
       recent: (limit = 6) => request(`/recent?limit=${Math.min(20, Math.max(1, Number(limit) || 6))}`),
       tags: (limit = 30) => request(`/tags?limit=${Math.min(100, Math.max(1, Number(limit) || 30))}`),
       config: () => request("/config"),

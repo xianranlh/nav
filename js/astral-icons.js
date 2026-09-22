@@ -9,6 +9,13 @@
   "use strict";
 
   const paths = Object.freeze({
+    tools: '<rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V4h6v3M4 12h16M10 12v3h4v-3"/>',
+    creative: '<path d="m14 4 6 6-10 10H4v-6ZM11 7l6 6M4 20l5-1-4-4Z"/>',
+    media: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3Z"/>',
+    code: '<path d="m8 6-6 6 6 6m8-12 6 6-6 6M14 4l-4 16"/>',
+    book: '<path d="M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Zm0 0v14"/>',
+    server: '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M12 6.5h5M12 17.5h5"/>',
+    "star-badge": '<path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9Z"/>',
     star: '<path d="M12 2.5 14.2 9.8 21.5 12l-7.3 2.2L12 21.5l-2.2-7.3L2.5 12l7.3-2.2Z"/><circle cx="12" cy="12" r="8.7" opacity=".45"/>',
     install: '<path d="M12 3v11m0 0 4-4m-4 4-4-4"/><path d="M5 17.5v2h14v-2"/><path d="m18.5 4 .5 1.5L20.5 6 19 6.5 18.5 8 18 6.5 16.5 6l1.5-.5Z"/>',
     calendar: '<rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M8 3v5m8-5v5M4 10h16"/><path d="m12 12 .8 2.1L15 15l-2.2.8L12 18l-.8-2.2L9 15l2.2-.9Z"/>',
@@ -38,6 +45,19 @@
     music: '<path d="M9 18V6l11-2v11"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="15" r="3"/><path d="m4 5 .6 1.7 1.7.6-1.7.6L4 9.6l-.6-1.7-1.7-.6 1.7-.6Z"/>',
   });
 
+  function groupIcon(name) {
+    const label = String(name || "");
+    for (const [pattern, icon] of [
+      [/本地|自建|服务|服务器|local|server/i, "server"],
+      [/开发|编程|代码|技术|dev|code/i, "code"],
+      [/影音|影视|视频|电影|音乐|娱乐|游戏|media/i, "media"],
+      [/阅读|知识|学习|文档|书|笔记|read|learn/i, "book"],
+      [/创作|灵感|设计|绘|素材|AI|智能|design/i, "creative"],
+      [/工具|日常|办公|效率|tool|work/i, "tools"],
+    ]) if (pattern.test(label)) return icon;
+    return "folder";
+  }
+
   function markup(name, className) {
     const body = paths[name] || paths.star;
     const cls = className ? `astral-icon ${className}` : "astral-icon";
@@ -63,5 +83,5 @@
   }
 
   if (typeof document !== "undefined") mountAll(document);
-  return { paths, markup, mount, mountAll };
+  return { paths, groupIcon, markup, mount, mountAll };
 });

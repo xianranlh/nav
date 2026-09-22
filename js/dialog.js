@@ -15,6 +15,7 @@
   const VANISH_FALLBACK_MS = 260; // 关闭动画 0.18s + 余量,防 animationend 丢失
   const CLEAN = "data-dlg-clean";
   const GUARD = "data-guard-unsaved";
+  const pendingCloses = new WeakMap();
 
   function el(x) {
     if (!x) return null;
@@ -79,6 +80,7 @@
   function open(x) {
     const d = el(x);
     if (!d) return null;
+    pendingCloses.get(d)?.();
     d.classList.remove(CLOSING);
     if (d.open) return d;
     // Web Interface Guidelines: modal dialogs announce as modal
@@ -114,7 +116,18 @@
     if (!force && !confirmDiscard(d)) return;
     // save/submit paths skip discard confirm and reset snap
     if (force) formsOf(d).forEach(markClean);
+    let timer;
+    let finished = false;
+    const inner = d.querySelector(":scope > form, :scope > .dialog-form");
+    const cancelPending = () => {
+      finished = true;
+      clearTimeout(timer);
+      inner?.removeEventListener("animationend", onAnimationEnd);
+      pendingCloses.delete(d);
+    };
     const finish = () => {
+      if (finished) return;
+      cancelPending();
       d.classList.remove(CLOSING);
       try {
         if (returnValue !== undefined) d.close(returnValue);
@@ -123,11 +136,14 @@
       formsOf(d).forEach((f) => f.removeAttribute(CLEAN));
       d.dispatchEvent(new CustomEvent("dialog:closed", { bubbles: true }));
     };
-    const inner = d.querySelector(":scope > form, :scope > .dialog-form");
+    const onAnimationEnd = (event) => {
+      if (event.target === inner) finish();
+    };
     if (!inner) { finish(); return; }
+    pendingCloses.set(d, cancelPending);
     d.classList.add(CLOSING);
-    const timer = setTimeout(finish, VANISH_FALLBACK_MS);
-    inner.addEventListener("animationend", () => { clearTimeout(timer); finish(); }, { once: true });
+    timer = setTimeout(finish, VANISH_FALLBACK_MS);
+    inner.addEventListener("animationend", onAnimationEnd);
   }
 
   function markFormClean(formOrId) {

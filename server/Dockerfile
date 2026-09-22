@@ -1,9 +1,12 @@
-# 已合并到仓库根目录 Dockerfile（单容器：nginx + 本服务）。仅单独调试数据 API 时可构建此文件。
+# Standalone API: docker build -f server/Dockerfile . (repository root context).
 FROM node:20-alpine
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY server/package.json server/package-lock.json* ./
 RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
-COPY index.js database.js ./
+COPY server/index.js server/database.js server/metadata.js server/music-lx.js server/sso.js ./
+COPY server/knowledge/ ./knowledge/
+COPY server/ai/ ./ai/
+COPY js/ai-image-api.js /js/ai-image-api.js
 ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["node", "index.js"]

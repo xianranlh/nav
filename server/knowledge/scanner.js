@@ -88,7 +88,7 @@ function collectTags(body, frontmatter) {
   return [...tags];
 }
 
-function collectLinks(body) {
+export function collectLinks(body) {
   const links = [];
   const seen = new Set();
   for (const match of body.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g)) {
@@ -107,7 +107,7 @@ function collectLinks(body) {
   return links;
 }
 
-function collectAssets(body) {
+export function collectAssets(body) {
   const assets = [];
   const seen = new Set();
   const add = (targetRef) => {

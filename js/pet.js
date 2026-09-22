@@ -7,11 +7,31 @@
   if (window.SakuraRemote?.ready) {
     try { await window.SakuraRemote.ready; } catch (_) {}
   }
-  const { Config, PetActor, Status, LINES, pick, rand } = window.SakuraPet;
+  const { Config, PetActor, LINES, pick } = window.SakuraPet;
   const $ = (id) => document.getElementById(id);
+  const themeMedia = matchMedia("(prefers-color-scheme: dark)");
+  function syncTheme() {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem("sakura_nav_settings_v1") || "{}"); } catch (_) {}
+    document.documentElement.dataset.theme = saved.theme === "dark" || saved.theme !== "light" && themeMedia.matches ? "dark" : "light";
+    const palette = window.HomepageTheme?.getVisualTheme(saved.visualTheme);
+    if (palette) {
+      window.HomepageTheme.applyVisualThemeDom(document, palette.id);
+      const accent = /^#[0-9a-f]{6}$/i.test(saved.accent || "") ? saved.accent : palette.accent;
+      const root = document.documentElement;
+      root.style.setProperty("--accent", accent);
+      root.style.setProperty("--accent-rgb", [1, 3, 5].map(i => parseInt(accent.slice(i, i + 2), 16)).join(", "));
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = accent;
+    }
+  }
+  syncTheme();
+  themeMedia.addEventListener("change", syncTheme);
+  addEventListener("storage", syncTheme);
   const DEFAULT_PORTRAIT = "assets/pet/xiaoying-portrait.png";
 
   let cfg = Config.load();
+  let previewMode = "guard";
   try { cfg = await Config.ensureMigrated(cfg); } catch (error) {
     console.warn("[pet] v2 自定义图片迁移暂未完成：", error?.message || error);
   }
@@ -39,7 +59,7 @@
     scale: 2,
     custom: configImage(cfg) || null,
     autonomous: true,
-    chatty: true,
+    chatty: false,
     statusDriven: false,
     onPetClick(a) {
       a.hearts(3);
@@ -49,7 +69,7 @@
   });
 
   function syncActivityUI() {
-    const mode = cfg.activityMode === "patrol" ? "patrol" : "guard";
+    const mode = previewMode === "patrol" ? "patrol" : "guard";
     $("pet-activity-mode")?.querySelectorAll("button[data-mode]").forEach((button) => {
       const active = button.dataset.mode === mode;
       button.classList.toggle("active", active);
@@ -66,8 +86,7 @@
 
   function setActivityMode(next, { announce = true } = {}) {
     const mode = next === "patrol" ? "patrol" : "guard";
-    cfg.activityMode = mode;
-    Config.save(cfg);
+    previewMode = mode;
     actor.setActivityMode(mode);
     actor.speed = mode === "patrol" ? 95 : 60;
     if (mode === "patrol") {
@@ -85,13 +104,13 @@
   playground.addEventListener("click", (e) => {
     if (actor.el.contains(e.target)) return;
     // 站岗模式：点草地不跑；巡逻才跑过去
-    if ((cfg.activityMode || "guard") === "guard") return;
+    if ((previewMode || "guard") === "guard") return;
     const rect = playground.getBoundingClientRect();
     actor.runTo(e.clientX - rect.left - actor.w / 2);
     $("pg-hint")?.classList.add("fade");
   });
 
-  // 右键：切换站岗 / 巡逻（与首页桌宠一致）
+  // 右键：切换站岗 / 巡逻（与首页悬浮桌宠一致）
   (function bindActivityCtx() {
     let menu = document.getElementById("pet-page-ctx");
     if (!menu) {
@@ -108,20 +127,20 @@
         st.id = "pet-page-ctx-css";
         st.textContent = `
 #pet-page-ctx{position:fixed;z-index:10050;min-width:140px;padding:6px;border-radius:12px;
-  background:rgba(255,255,255,.96);border:1px solid rgba(229,99,138,.28);
+  background:rgba(255,255,255,.96);border:1px solid rgba(141, 164, 192,.28);
   box-shadow:0 10px 28px rgba(74,59,82,.16);font-family:inherit}
 #pet-page-ctx[hidden]{display:none!important}
 #pet-page-ctx button{display:block;width:100%;border:none;background:transparent;text-align:left;
   padding:8px 10px;border-radius:8px;font-size:13px;color:#4a3b52;cursor:pointer;font-family:inherit}
-#pet-page-ctx button:hover{background:rgba(255,143,171,.16)}
-#pet-page-ctx button.is-active{color:#e5638a;font-weight:600}
+#pet-page-ctx button:hover{background:rgba(141, 164, 192,.16)}
+#pet-page-ctx button.is-active{color:var(--ui-accent, #8da4c0);font-weight:600}
 `;
         document.head.appendChild(st);
       }
     }
     function hide() { menu.hidden = true; }
     function show(x, y) {
-      const m = cfg.activityMode === "patrol" ? "patrol" : "guard";
+      const m = previewMode === "patrol" ? "patrol" : "guard";
       menu.querySelectorAll("button[data-mode]").forEach((b) => {
         b.classList.toggle("is-active", b.dataset.mode === m);
         b.textContent = (b.dataset.mode === "guard" ? "🛡 站岗" : "🚶 巡逻") + (b.dataset.mode === m ? "  ✓" : "");
@@ -148,7 +167,7 @@
       if (!menu.hidden && !menu.contains(e.target) && e.target !== actor.el) hide();
     });
     // 应用存档中的活动方式
-    setActivityMode(cfg.activityMode, { announce: false });
+    setActivityMode(previewMode, { announce: false });
   })();
 
   function refreshUI() {
@@ -211,7 +230,8 @@
     actor.emote("wave", 2.2);
   });
 
-  // 状态预览（仅本页演示动作，不污染首页全局 Status 太久）
+  // Preview only changes this actor; never publish fake offline/work states.
+  let previewTimer = 0;
   $("status-demo")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-st]");
     if (!btn) return;
@@ -227,10 +247,12 @@
     actor.s.targetX = null;
     actor.setAnim(map[st] || "idle", true);
     actor.say(pick(LINES[st] || LINES.idle), 2000);
-    // 同步全局一次 pulse，方便用户回到首页立刻看到
-    if (st === "idle") Status.set("idle");
-    else if (st === "offline") Status.set("offline");
-    else Status.pulse(st, "预览", 3200);
+    $("status-demo").querySelectorAll(".st-chip").forEach(c => c.setAttribute("aria-pressed", String(c === btn)));
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+      actor.s.sleeping = false; actor.s.busy = false; actor.setAnim("idle", true);
+      $("status-demo").querySelectorAll(".st-chip").forEach(c => { c.classList.remove("active"); c.setAttribute("aria-pressed", "false"); });
+    }, 3200);
   });
 
   /* ---------- 换装 ---------- */
@@ -321,7 +343,7 @@
   $("chk-home").addEventListener("change", (e) => {
     cfg.homeWidget = e.target.checked;
     Config.save(cfg);
-    toast(cfg.homeWidget ? "已开启首页桌宠" : "已关闭首页桌宠");
+    toast(cfg.homeWidget ? "已开启首页悬浮桌宠" : "已关闭首页悬浮桌宠");
     actor.say(cfg.homeWidget ? "我会去首页陪你～" : "那我待在这里", 2200);
   });
 
@@ -334,20 +356,20 @@
   $("pet-home-scale")?.addEventListener("change", (e) => {
     cfg.homeScale = ["sm", "md", "lg"].includes(e.target.value) ? e.target.value : "md";
     Config.save(cfg);
-    toast("首页桌宠尺寸已更新");
+    toast("悬浮桌宠尺寸已更新");
     actor.say(cfg.homeScale === "lg" ? "这样更醒目啦～" : cfg.homeScale === "sm" ? "变得小巧一些" : "标准尺寸正合适", 2200);
   });
 
   $("pet-speech-frequency")?.addEventListener("change", (e) => {
     cfg.speechFrequency = ["quiet", "normal", "lively"].includes(e.target.value) ? e.target.value : "normal";
     Config.save(cfg);
-    toast(cfg.speechFrequency === "quiet" ? "已减少伙伴对白，状态徽章仍会显示" : "对白频率已更新");
+    toast(cfg.speechFrequency === "quiet" ? "自动对白已关闭，仍可主动互动" : "对白频率已更新");
   });
 
   $("chk-status-badge")?.addEventListener("change", (e) => {
     cfg.showStatusBadge = e.target.checked;
     Config.save(cfg);
-    toast(cfg.showStatusBadge ? "首页状态徽章已开启" : "首页状态徽章已隐藏");
+    toast(cfg.showStatusBadge ? "首页任务状态已开启" : "首页任务状态已隐藏");
   });
 
   $("pet-anchor-map")?.addEventListener("click", (e) => {
@@ -469,52 +491,23 @@
   tickClock();
   setInterval(tickClock, 30000);
 
-  (function petals() {
-    const cv = $("petal-canvas");
-    if (!cv || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const ctx = cv.getContext("2d");
-    let W, H;
-    const P = [];
-    function resize() { W = cv.width = innerWidth; H = cv.height = innerHeight; }
-    resize();
-    addEventListener("resize", resize);
-    for (let i = 0; i < 16; i++) {
-      P.push({
-        x: Math.random() * innerWidth, y: Math.random() * innerHeight,
-        r: rand(4, 7), vy: rand(14, 30), vx: rand(-10, 10),
-        rot: rand(0, Math.PI * 2), vr: rand(-1, 1),
-      });
-    }
-    let prev = performance.now();
-    let raf = 0;
-    function draw(ts) {
-      const dt = Math.min(0.05, (ts - prev) / 1000);
-      prev = ts;
-      ctx.clearRect(0, 0, W, H);
-      for (const p of P) {
-        p.y += p.vy * dt; p.x += (p.vx + Math.sin(p.y / 40) * 8) * dt; p.rot += p.vr * dt;
-        if (p.y > H + 12) { p.y = -12; p.x = Math.random() * W; }
-        if (p.x > W + 12) p.x = -12; else if (p.x < -12) p.x = W + 12;
-        ctx.save();
-        ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-        ctx.fillStyle = "rgba(255, 170, 195, 0.65)";
-        ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-      }
-      if (!document.hidden) raf = requestAnimationFrame(draw);
-    }
-    function syncVisibility() {
-      cancelAnimationFrame(raf);
-      raf = 0;
-      if (!document.hidden) {
-        prev = performance.now();
-        raf = requestAnimationFrame(draw);
-      }
-    }
-    document.addEventListener("visibilitychange", syncVisibility);
-    syncVisibility();
-  })();
+  // The settings page stays still so controls and previews remain easy to read.
+  function syncVisibility() { actor.setPaused(!!document.querySelector("dialog[open]")); }
+  const dialogObserver = new MutationObserver(syncVisibility);
+  document.querySelectorAll("dialog").forEach(dialog => dialogObserver.observe(dialog, { attributes: true, attributeFilter: ["open"] }));
+  addEventListener("pagehide", e => { if (!e.persisted) { clearTimeout(previewTimer); dialogObserver.disconnect(); actor.destroy(); } });
+  addEventListener("pageshow", syncVisibility);
 
+
+  try {
+    const channel = new BroadcastChannel(`sakura-pet-config:${window.Auth?.currentUser?.()?.id || "local"}`);
+    channel.addEventListener("message", e => {
+      if (e.data?.schemaVersion !== 3) return;
+      window.SakuraRemote?.acceptPetConfig(window.SakuraPetConfig.normalizeV3(e.data));
+      cfg = Config.load(); actor.setCustom(configImage(cfg) || null); refreshUI();
+    });
+    addEventListener("pagehide", e => { if (!e.persisted) channel.close(); });
+  } catch (_) {}
   refreshUI();
   setTimeout(() => {
     actor.say(pick(LINES.greet));

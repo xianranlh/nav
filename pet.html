@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,7 +7,16 @@
   <title>桌宠 · 闲然导航</title>
   <link rel="icon" href="assets/icons/app-icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1f42" />
-  <link rel="stylesheet" href="styles/pet.css?v=v1.24.3" />
+  <link rel="stylesheet" href="styles/theme-tokens.css?v=20260921-unified2" />
+  <link rel="stylesheet" href="styles/pet.css?v=20260907d" />
+  <link rel="stylesheet" href="themes/sakura.css" />
+  <link rel="stylesheet" href="themes/q-anime.css" />
+  <link rel="stylesheet" href="themes/dark-minimal.css" />
+  <link rel="stylesheet" href="themes/paper.css" />
+  <link rel="stylesheet" href="styles/unified.css?v=20260921-unified2" />
+  <link rel="stylesheet" href="styles/pet-studio.css?v=20260909f" />
+  <link rel="stylesheet" href="themes/xuanbird.css?v=20260916" />
+  <link rel="stylesheet" href="themes/liquid-glass.css?v=20260916" />
 </head>
 <body>
   <div class="pet-bg" aria-hidden="true"></div>
@@ -16,7 +25,7 @@
   <main class="pet-app">
     <header class="glass pet-header">
       <a class="back-link" href="index.html" title="返回导航首页">← 返回导航</a>
-      <h1><img class="pet-title-mark" src="assets/icons/icon-192.png" alt="" width="30" height="30" />桌宠终端</h1>
+      <h1><img class="pet-title-mark" src="assets/icons/icon-192.png" alt="" width="30" height="30" />伙伴设置</h1>
       <div class="pet-header-right">
         <button type="button" class="icon-chip" id="btn-help" title="说明">？</button>
         <span class="pet-clock" id="pet-clock">--:--</span>
@@ -26,20 +35,19 @@
     <div class="pet-dashboard">
       <section class="glass pet-panel pet-character-panel" aria-labelledby="pet-character-title">
         <header class="pet-panel-head">
-          <div><span>ASTRAL COMPANION</span><h2 id="pet-character-title">角色预览</h2></div>
+          <div><span>我的伙伴</span><h2 id="pet-character-title">一起度过今天</h2></div>
           <button class="pet-btn pet-btn-accent" id="btn-pat" title="和伙伴打个招呼">打个招呼</button>
         </header>
         <div class="pet-character-summary">
-          <div class="pet-portrait">
-            <img id="pet-portrait-img" src="assets/pet/xiaoying-portrait.png" alt="宠物立绘" draggable="false" />
-          </div>
+          <img id="pet-portrait-img" alt="" hidden />
           <div class="pet-info">
             <div class="pet-name-row">
               <h2 id="pet-name" title="点击改名">小樱</h2>
               <button type="button" class="name-edit-btn" id="btn-rename" title="改名" aria-label="给伙伴改名">✎</button>
-              <span class="pet-role-tag">状态伙伴</span>
+              <span class="pet-role-tag">桌宠伙伴</span>
             </div>
-            <p class="pet-desc">她会明确回应 AI、同步、网络与知识索引状态，不使用金币、签到或饱食度。</p>
+            <p class="pet-desc">单击角色打招呼，直接拖动调整位置，右键打开菜单。</p>
+            <details class="pet-preview-details"><summary>看看她的动作</summary>
             <div class="status-demo" id="status-demo" aria-label="状态动作预览">
               <button type="button" class="st-chip" data-st="idle">待命</button>
               <button type="button" class="st-chip" data-st="thinking">思考</button>
@@ -47,7 +55,7 @@
               <button type="button" class="st-chip" data-st="done">完成</button>
               <button type="button" class="st-chip" data-st="error">出错</button>
               <button type="button" class="st-chip" data-st="offline">离线</button>
-            </div>
+            </div></details>
           </div>
         </div>
         <div class="pet-skin-block">
@@ -70,34 +78,35 @@
           <div class="pg-hint" id="pg-hint">站岗中 · 切换巡逻后可点击平台移动</div>
           <div class="fx-layer" id="fx-layer"></div>
         </div>
+          <div class="pet-setting-row">
+            <span><strong>预览模式</strong><small>仅影响上方角色演示</small></span>
+            <div class="pet-segment" id="pet-activity-mode" role="group" aria-label="预览模式"><button type="button" data-mode="guard">站岗</button><button type="button" data-mode="patrol">巡逻</button></div>
+          </div>
       </section>
 
       <section class="glass pet-panel pet-settings-panel" aria-labelledby="pet-display-title">
-        <header class="pet-panel-head"><div><span>BEHAVIOR & DISPLAY</span><h2 id="pet-display-title">行为与显示</h2></div></header>
+        <header class="pet-panel-head"><div><span>显示偏好</span><h2 id="pet-display-title">首页悬浮桌宠</h2></div></header>
         <div class="pet-setting-list">
           <label class="pet-setting-row">
-            <span><strong>首页显示</strong><small>持续反馈任务状态</small></span>
+            <span><strong>首页显示</strong><small>透明悬浮角色，打开工具面板时自动避让</small></span>
             <input class="pet-switch" type="checkbox" id="chk-home" checked />
           </label>
-          <div class="pet-setting-row">
-            <span><strong>活动方式</strong><small>窄屏会自动使用站岗</small></span>
-            <div class="pet-segment" id="pet-activity-mode" role="group" aria-label="活动方式"><button type="button" data-mode="guard">站岗</button><button type="button" data-mode="patrol">巡逻</button></div>
-          </div>
+
           <label class="pet-setting-row" for="pet-home-scale">
-            <span><strong>首页尺寸</strong><small>适配不同屏幕密度</small></span>
+            <span><strong>悬浮桌宠尺寸</strong><small>适配不同屏幕密度</small></span>
             <select id="pet-home-scale"><option value="sm">小巧</option><option value="md">标准</option><option value="lg">醒目</option></select>
           </label>
           <label class="pet-setting-row" for="pet-speech-frequency">
-            <span><strong>对白频率</strong><small>状态徽章不受静音影响</small></span>
+            <span><strong>对白频率</strong><small>任务状态不受静音影响</small></span>
             <select id="pet-speech-frequency"><option value="quiet">安静</option><option value="normal">适中</option><option value="lively">活泼</option></select>
           </label>
           <label class="pet-setting-row">
-            <span><strong>状态徽章</strong><small>显示工作、同步和离线状态</small></span>
+            <span><strong>任务状态</strong><small>显示工作、同步和离线状态</small></span>
             <input class="pet-switch" type="checkbox" id="chk-status-badge" checked />
           </label>
         </div>
         <div class="pet-anchor-block">
-          <div class="pet-anchor-copy"><strong>首页安全位置</strong><small>也可以在首页直接拖动</small></div>
+          <div class="pet-anchor-copy"><strong>悬浮桌宠位置</strong><small>直接拖动首页角色也可调整</small></div>
           <div class="pet-anchor-map" id="pet-anchor-map" role="group" aria-label="选择首页桌宠位置">
             <span class="pet-safe-zone">页面安全区</span>
             <button type="button" data-anchor="top-left" aria-label="左上">✦</button>
@@ -110,13 +119,13 @@
       </section>
 
       <section class="glass pet-panel pet-shortcuts-panel" aria-labelledby="pet-shortcuts-title">
-        <header class="pet-panel-head"><div><span>QUICK ACTIONS</span><h2 id="pet-shortcuts-title">快捷动作</h2></div><span class="pet-shortcut-count" id="pet-shortcut-count">0 / 4</span></header>
-        <p class="pet-panel-note">最多选择 4 个。双击伙伴打开快捷动作将在下一波轻互动中启用。</p>
+        <header class="pet-panel-head"><div><span>快捷入口</span><h2 id="pet-shortcuts-title">快捷动作</h2></div><span class="pet-shortcut-count" id="pet-shortcut-count">0 / 4</span></header>
+        <p class="pet-panel-note">选择最多 4 个工具，右键角色或点击「⋯」后即可使用。</p>
         <div class="pet-quick-grid" id="pet-quick-actions">
           <label><input type="checkbox" value="todo" /><span><b>✓</b><strong>待办</strong><small>查看提醒事项</small></span></label>
           <label><input type="checkbox" value="calendar" /><span><b>✓</b><strong>日历</strong><small>查看今天日程</small></span></label>
           <label><input type="checkbox" value="ai" /><span><b>✓</b><strong>AI 助手</strong><small>开始对话</small></span></label>
-          <label><input type="checkbox" value="knowledge" /><span><b>✓</b><strong>搜知识</strong><small>打开 Obsidian</small></span></label>
+          <label><input type="checkbox" value="knowledge" /><span><b>✓</b><strong>知识库</strong><small>浏览全部文档</small></span></label>
           <label><input type="checkbox" value="recent-note" /><span><b>✓</b><strong>继续笔记</strong><small>回到最近阅读</small></span></label>
           <label><input type="checkbox" value="settings" /><span><b>✓</b><strong>设置</strong><small>调整导航偏好</small></span></label>
         </div>
@@ -129,7 +138,7 @@
   <dialog class="pet-dialog" id="dlg-rename">
     <form method="dialog" id="form-rename">
       <h3>给桌宠起名</h3>
-      <input type="text" id="rename-input" maxlength="12" placeholder="最多 12 个字" autocomplete="off" />
+      <input type="text" id="rename-input" aria-label="桌宠名称" maxlength="12" placeholder="最多 12 个字" autocomplete="off" />
       <div class="dlg-actions">
         <button type="button" class="pet-btn" data-close>取消</button>
         <button type="submit" class="pet-btn pet-btn-accent">确定</button>
@@ -139,12 +148,12 @@
 
   <dialog class="pet-dialog" id="dlg-help">
     <div class="help-body">
-      <h3>🐾 这是什么？</h3>
+      <h3>使用桌宠</h3>
       <ul>
-        <li><b>不是养成游戏</b>：没有饱食、等级、每日签到。</li>
+        <li><b>操作面板</b>：点击首页悬浮桌宠，打开工具、调整模式或收起桌宠；点击星星按钮可恢复。</li>
         <li><b>状态伴侣</b>：首页桌宠会反映 AI 思考/生图、数据同步、网络离线等状态。</li>
         <li><b>轻互动</b>：点一下打个招呼；可改名、换自定义形象。</li>
-        <li><b>可拖拽</b>：在首页按住桌宠拖到顺手的位置。</li>
+        <li><b>移动位置</b>：直接拖动角色调整位置，也可聚焦角色后用方向键移动。</li>
       </ul>
       <div class="dlg-actions">
         <button type="button" class="pet-btn pet-btn-accent" data-close>知道了</button>
@@ -152,14 +161,15 @@
     </div>
   </dialog>
 
-  <div class="pet-toast" id="pet-toast" hidden></div>
+  <div class="pet-toast" id="pet-toast" role="status" hidden></div>
 
   <script src="js/auth.js"></script>
   <script src="js/sync.js?v=v1.24.3"></script>
-  <script src="js/sakura-remote.js"></script>
-  <script src="js/pet-config.js?v=v1.24.4"></script>
+  <script src="js/sakura-remote.js?v=20260909f"></script>
+  <script src="js/pet-config.js?v=20260909f"></script>
   <script src="js/pet-events.js?v=v1.24.4"></script>
-  <script src="js/pet-engine.js?v=v1.24.3"></script>
-  <script src="js/pet.js?v=v1.24.3"></script>
+  <script src="js/pet-engine.js?v=20260909f"></script>
+  <script src="js/homepage-theme.js?v=20260916"></script>
+  <script src="js/pet.js?v=20260921-unified2"></script>
 </body>
 </html>

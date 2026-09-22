@@ -56,19 +56,12 @@ test("pet controls expose activity, size and position without relying on a conte
   assert.match(page, /id="chk-status-badge"/);
   assert.match(page, /id="pet-anchor-map"/);
   assert.match(page, /id="pet-quick-actions"/);
-  assert.match(page, /ASTRAL COMPANION/);
-  assert.match(widget, /class="hp-quick"/);
-  assert.match(widget, /window\.innerWidth >= 720/);
-  assert.match(widget, /cfg\.showStatusBadge === false/);
-  assert.match(widget, /cfg\.speechFrequency === "quiet"/);
-  assert.match(widget, /cfg\.anchor\?\.xRatio/);
-  assert.match(widget, /cfg\.anchor\?\.yRatio/);
-  assert.match(widget, /window\.addEventListener\("resize"/);
-  assert.match(widget, /id = "home-pet-wheel"/);
-  assert.match(widget, /setTimeout\(interact, 280\)/);
-  assert.match(widget, /setTimeout\(\(\) => \{[\s\S]*showCtx[\s\S]*\}, 560\)/);
-  assert.match(widget, /window\.SakuraKnowledgeUI\?\.openRecent/);
-  assert.doesNotMatch(widget, /dblclick[\s\S]{0,160}location\.href = "pet\.html"/);
+  assert.match(page, /预览模式/);
+  assert.match(widget, /pet-companion-panel/);
+  assert.match(widget, /companion-drag/);
+  assert.match(widget, /aria-expanded="false"/);
+  assert.match(widget, /pet-companion-restore/);
+  assert.match(widget, /SakuraKnowledgeUI\?\.openRecent/);
   assert.match(css, /\.pet-preferences\s*\{/);
   assert.match(css, /\.pet-portrait\s*\{/);
   assert.match(css, /\.pet-dashboard\s*\{/);
@@ -80,8 +73,8 @@ test("pet animation loops pause while the page is hidden", () => {
   const widget = fs.readFileSync("js/pet-widget.js", "utf8");
   const page = fs.readFileSync("js/pet.js", "utf8");
   assert.match(engine, /document\.addEventListener\("visibilitychange", this\._onVisibility\)/);
-  assert.match(engine, /if \(!document\.hidden\) this\._raf/);
-  assert.match(widget, /syncMetaVisibility/);
+  assert.match(engine, /!this\.paused && !this\._reduced\.matches/);
+  assert.match(widget, /syncActivity/);
   assert.match(page, /function syncVisibility\(\)/);
 });
 
@@ -119,9 +112,9 @@ test("pet status bus honors priority and explicit events", () => {
   assert.equal(bus.get().status, "syncing");
 
   const widget = fs.readFileSync("js/pet-widget.js", "utf8");
-  const aiUi = fs.readFileSync("js/ui/ai.ui.js", "utf8");
+  const aiUi = fs.readFileSync("js/ui/ai-chat.ui.js", "utf8");
   const remote = fs.readFileSync("js/sakura-remote.js", "utf8");
-  assert.doesNotMatch(widget, /new MutationObserver/);
+  assert.match(widget, /attributeFilter: \['open', 'hidden'\]/);
   assert.match(aiUi, /nav:ai:start/);
   assert.match(aiUi, /nav:ai:done/);
   assert.match(aiUi, /nav:ai:error/);

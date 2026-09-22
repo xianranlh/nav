@@ -17,6 +17,7 @@
     { id: "wy", name: "网易" },
     { id: "tx", name: "QQ" },
     { id: "mg", name: "咪咕" },
+    { id: "joox", name: "JOOX" },
     { id: "mix", name: "聚合" },
   ];
 
@@ -165,7 +166,7 @@
       if (el) {
         el.textContent = n
           ? `已接入 ${n} 个音源 · 点一行即播`
-          : "先接入音源，搜到的歌才能播放";
+          : "内置音源已停用，搜得到但可能播不了";
       }
       if (banner) banner.hidden = n > 0;
     },
@@ -191,8 +192,19 @@
         return;
       }
       box.innerHTML = this.sources.map((s) => {
-        const plats = Object.keys(s.platforms || {}).filter((k) => k !== "mix").join(" / ") || (s.type === "http-api" ? "HTTP" : "脚本");
-        const kind = s.type === "http-api" ? "HTTP API" : "洛雪脚本";
+        const plats = Object.keys(s.platforms || {}).filter((k) => k !== "mix").join(" / ")
+          || (s.type === "http-api" ? "HTTP" : s.builtin ? "内置" : "脚本");
+        const kind = s.builtin
+          ? "内置"
+          : s.type === "http-api"
+            ? "HTTP API"
+            : s.type === "builtin-gd"
+              ? "GD 音乐台"
+              : "洛雪脚本";
+        const badge = s.builtin ? `<span class="mlx-src-badge">内置</span>` : "";
+        const home = s.homepage
+          ? ` · <a href="${escapeHtml(s.homepage)}" target="_blank" rel="noopener">主页</a>`
+          : "";
         const alert = s.updateAlert && s.updateAlert.log
           ? `<div class="mlx-src-alert">${escapeHtml(s.updateAlert.log)}${
               s.updateAlert.updateUrl
@@ -200,15 +212,18 @@
                 : ""
             }</div>`
           : "";
+        const del = s.builtin
+          ? ""
+          : `<button type="button" data-sid="${s.id}" data-act="del" aria-label="删除 ${escapeHtml(s.name)}">删除</button>`;
         return `<li class="mlx-src${s.enabled ? "" : " off"}">
           <div class="mlx-src-main">
-            <div class="mlx-src-name">${escapeHtml(s.name)}</div>
-            <div class="mlx-src-sub">${escapeHtml(kind)} · ${escapeHtml(plats)}${s.version ? " · v" + escapeHtml(s.version) : ""}</div>
+            <div class="mlx-src-name">${escapeHtml(s.name)}${badge}</div>
+            <div class="mlx-src-sub">${escapeHtml(kind)} · ${escapeHtml(plats)}${s.version ? " · v" + escapeHtml(s.version) : ""}${home}</div>
             ${alert}
           </div>
           <div class="mlx-src-acts">
             <button type="button" data-sid="${s.id}" data-act="toggle" data-on="${s.enabled ? "1" : "0"}" aria-pressed="${s.enabled ? "true" : "false"}">${s.enabled ? "停用" : "启用"}</button>
-            <button type="button" data-sid="${s.id}" data-act="del" aria-label="删除 ${escapeHtml(s.name)}">删除</button>
+            ${del}
           </div>
         </li>`;
       }).join("");

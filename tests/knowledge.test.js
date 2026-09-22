@@ -11,6 +11,54 @@ const databaseModule = import("../server/database.js");
 const routesModule = import("../server/knowledge/routes.js");
 const markdownModule = import("../server/knowledge/markdown.js");
 
+test("incremental scans refresh relationships and preserve IDs across copies and reparsing", async (t) => {
+  const { KnowledgeService } = await indexerModule;
+  const database = await databaseModule;
+  const root = tempDir(t);
+  const vault = path.join(root, 'vault');
+  fs.mkdirSync(vault);
+  fs.writeFileSync(path.join(vault, 'z.md'), '# Original\n[[Later]] ![picture](pixel.png)');
+  fs.writeFileSync(path.join(vault, 'pixel.png'), 'first');
+  database.openDatabase(path.join(root, 'data', 'xianran-nav'));
+  t.after(() => database.closeDatabase());
+  const service = new KnowledgeService({ secret: 'regression-secret-long-enough', env: {
+    OBSIDIAN_ENABLED: 'true', OBSIDIAN_VAULT_ROOT: vault, OBSIDIAN_SINGLE_USER_ID: '1',
+  } });
+  await service.indexUser(1, { force: true });
+  const original = (await service.search(1, 'Original', 12))[0];
+  let note = await service.note(1, original.noteId);
+  assert.equal(note.links[0].available, false);
+  fs.writeFileSync(path.join(vault, 'Later.md'), '# Later');
+  fs.writeFileSync(path.join(vault, 'pixel.png'), 'updated image');
+  await service.indexUser(1, { force: true });
+  note = await service.note(1, original.noteId);
+  assert.equal(note.links[0].available, true);
+  assert.ok((await service.asset(1, note.assets[0].assetId)).path);
+  fs.copyFileSync(path.join(vault, 'z.md'), path.join(vault, 'a.md'));
+  // Copy is visited before the modified original and must not steal its ID.
+  fs.appendFileSync(path.join(vault, 'z.md'), '\nchanged');
+  await service.indexUser(1, { force: true });
+  assert.match(JSON.stringify((await service.note(1, original.noteId)).document), /changed/);
+  assert.equal((await service.search(1, 'Original', 12)).length, 2);
+  const page1 = await service.list(1, { limit: 1, offset: 0, sort: 'title' });
+  const page2 = await service.list(1, { limit: 1, offset: 1, sort: 'title' });
+  assert.equal(page1.total, 3);
+  assert.equal(page1.items.length, 1);
+  assert.notEqual(page1.items[0].noteId, page2.items[0].noteId);
+  assert.equal('relativePath' in page1.items[0], false);
+  assert.equal('markdown' in page1.items[0], false);
+  await assert.rejects(() => service.list(2, {}), { code: 'VAULT_NOT_CONFIGURED' });
+  await service.indexUser(1, { force: true, manual: true });
+  assert.match(JSON.stringify((await service.note(1, original.noteId)).document), /changed/);
+  fs.unlinkSync(path.join(vault, 'Later.md'));
+  await service.indexUser(1, { force: true });
+  assert.equal((await service.note(1, original.noteId)).links[0].available, false);
+  service._state(1).lastFinishedAt = 0;
+  await service.search(1, 'Original', 12);
+  assert.equal(service._state(1).indexing, true);
+  await service._state(1).promise;
+});
+
 function tempDir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "xianran-obsidian-test-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

@@ -10,19 +10,25 @@ import net from "node:net";
 function isPrivateIp(ip) {
   if (!net.isIP(ip)) return true;
   const s = String(ip).toLowerCase();
-  if (s === "127.0.0.1" || s === "0.0.0.0") return true;
+  if (s.startsWith("127.") || s.startsWith("0.")) return true;
   if (s.startsWith("10.")) return true;
   if (s.startsWith("192.168.")) return true;
   if (s.startsWith("169.254.")) return true;
+  if (net.isIP(s) === 4) {
+    const [a, b] = s.split(".").map(Number);
+    if (a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 198 && (b === 18 || b === 19))) return true;
+  }
   const m172 = /^172\.(\d+)\./.exec(s);
   if (m172) {
     const n = Number(m172[1]);
     if (n >= 16 && n <= 31) return true;
   }
   // IPv6 localhost / ULA / link-local / mapped IPv4 loopback
-  if (s === "::1") return true;
+  if (s === "::1" || s === "::") return true;
+  // Reject mapped addresses in both dotted and canonical hexadecimal form.
+  if (s.startsWith("::ffff:")) return true;
   if (s.startsWith("fc") || s.startsWith("fd")) return true;
-  if (s.startsWith("fe80:")) return true;
+  if (/^fe[89ab]/.test(s) || s.startsWith("ff")) return true;
   if (s.startsWith("::ffff:127.") || s === "::ffff:0:0" || s.startsWith("::ffff:0.")) return true;
   return false;
 }
@@ -36,7 +42,8 @@ export async function isSafeHttpUrl(raw) {
     return false;
   }
   if (!(u.protocol === "http:" || u.protocol === "https:")) return false;
-  const host = (u.hostname || "").toLowerCase();
+  if (u.username || u.password) return false;
+  const host = (u.hostname || "").toLowerCase().replace(/^\[|\]$/g, "");
   if (!host) return false;
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return false;
   if (net.isIP(host)) return !isPrivateIp(host);
@@ -46,6 +53,20 @@ export async function isSafeHttpUrl(raw) {
     return addrs.every((a) => !isPrivateIp(a.address));
   } catch (_) {
     return false;
+  }
+}
+
+/** Validate each redirect before issuing its request. */
+export async function fetchSafeMetadata(url, options, { fetchImpl = fetch, validate = isSafeHttpUrl } = {}) {
+  let current = url;
+  for (let hop = 0; hop <= 5; hop++) {
+    if (!(await validate(current))) throw new Error("unsafe url");
+    const response = await fetchImpl(current, { ...options, redirect: "manual" });
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+    const location = response.headers.get("location");
+    await response.body?.cancel();
+    if (!location || hop === 5) throw new Error("too many or invalid redirects");
+    current = new URL(location, current).href;
   }
 }
 
